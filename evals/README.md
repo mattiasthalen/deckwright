@@ -54,16 +54,17 @@ Why the grants differ:
 
 ### Cost and time
 
-One run of each case on 2026-11-07, as the runner reported it. No case has a paid grader now but `no-code-execution`'s judge, so this is the run itself.
+From the latest `--runs 8` pass of each case on 2026-11-07, as the runner reported it: the mean list-price estimate per run (the agent run, plus the judge where a case has one) and the median wall-clock time.
 
-| Case | List-price estimate | Wall clock |
-|---|---|---|
-| `build-a-deck` | 0.59 USD | 72 s |
-| `card-traps` | 0.62 USD | 94 s |
-| `bend-the-template` | 0.48 USD | 66 s |
-| `lookup-unavailable` | 0.41 USD | 60 s |
+| Case | Per run | `--runs 8` | Median run | Pass |
+|---|---|---|---|---|
+| `build-a-deck` | 0.65 USD | 5.18 USD | 88 s | judge6 |
+| `card-traps` | 0.64 USD | 5.09 USD | 99 s | judge2 |
+| `bend-the-template` | 0.57 USD | 4.59 USD | 83 s | judge2 |
+| `lookup-unavailable` | 0.42 USD | 3.34 USD | 65 s | judge3 |
+| `no-code-execution` | 0.17 USD, of which the judge 0.01 | 1.33 USD | 20 s | judge2 |
 
-A judging pass at `--runs 8` over these four is about 17 USD.
+A judging pass over all five is about 20 USD.
 
 ## Reading a result
 
@@ -95,8 +96,8 @@ The ten trace `llm` graders were replaced, not calibrated, since they never saw 
 
 | Case | Checks | Now |
 |---|---|---|
-| `build-a-deck` | The interview from "help me build a commander deck" to the page. Commander asked first, before any category or script call (AC12); Lands then Ramp, each with its purpose and target (AC13); Ramp suggestions, each with what it does (AC14); a declined suggestion never recorded (AC15); Sol Ring critiqued with what it does and that it is Ramp (AC16); Sign in Blood filed as ramp called out as not ramp, with why and where it counts, before it is recorded (AC17); every named card looked up through the script before it is described (AC18); a tally after each category (AC20); the page rendered by the script (AC21) from a part-built deck (E8) as an HTML file (E13); a collection mention answered as not supported yet, without asking for the collection (E14); no price in chat (AC22). All by pattern and page | 8 of 8 regraded at `--runs 8` (judge pass 2, 2026-11-07, scripted-player prompt); as graded then, 3 of 8, every miss a correct phrasing a pattern did not accept (Ramp in bold, "any legal card", a critique without the card's name after its lookup, "two extra mana", a count printed by `new`), since accepted. |
-| `bend-the-template` | Lands skipped, the Ramp target changed to 8, a jump to Mass disruption: deckwright follows and says Ramp's target is now 8, and the later tally and the page use the new target (AC19); no price in chat (AC22). All by pattern and page | 8 of 8 at `--runs 8` (judge pass 2, 2026-11-07, scripted-player prompt). Before the prompt, 5 of 8, the misses runs that ended early. |
-| `card-traps` | Llanowar Elves as commander: looked up, said not to be legendary and unable to lead, the player asked, no deck started with it (E7); "Vampiric Tutr": not found said, Vampiric Tutor named and asked about, nothing recorded until then (E1); Lightning Bolt, outside Meren's colours, kept and flagged on the page (E5); Sol Ring named twice is in once (E6); Vampiric Tutor, a Game Changer, said to push the deck past its bracket and asked about before it is recorded, and named under the bracket on the page (AC9b); no price in chat (AC22). All by pattern and page | 8 of 8 at `--runs 8` (judge pass 2, 2026-11-07, scripted-player prompt). Before the prompt, 5 of 8: two early ends and one `illegal-commander` miss on a quoted "Legendary", since accepted. Known real failure: one run under the prompt's first wording recorded Vampiric Tutor before flagging it. |
-| `lookup-unavailable` | Scryfall out of reach: deckwright says it could not look Sol Ring up, names it and asks for its text; nothing about it is said before that question; no web fallback; the page marks the card as the player's text (E2); no price in chat (AC22). All by pattern and page | 8 of 8 regraded at `--runs 8` (judge pass 2, 2026-11-07, scripted-player prompt); as graded then, 7 of 8, the miss "tell me the card's text … What does it say?", since accepted. |
-| `no-code-execution` | Without a shell, deckwright says it needs code execution and how to turn it on, and does not start (E4, judged on the last message); no price in chat (AC22) | 8 of 8 at `--runs 8` (judge pass 2, 2026-11-07), on the reworded rubric. |
+| `build-a-deck` | The interview from "help me build a commander deck" to the page. Commander asked first, before any category or script call (AC12); Lands then Ramp, each with its purpose and target (AC13); Ramp suggestions, each with what it does (AC14); a declined suggestion never recorded (AC15); Sol Ring critiqued with what it does and that it is Ramp (AC16); Sign in Blood filed as ramp called out as not ramp, with why and where it counts, before it is recorded (AC17); every named card looked up through the script before it is described (AC18); a tally after each category (AC20); the page rendered by the script (AC21) from a part-built deck (E8) as an HTML file (E13); a collection mention answered as not supported yet, without asking for the collection (E14); no price in chat (AC22). All by pattern and page | 7 of 8 at `--runs 8` (judge6, 2026-11-07), 8 of 8 regraded: the miss was `starts-with-commander` on "First thing I need is your commander. Who's leading the deck?", a correct opening that is now accepted. |
+| `bend-the-template` | Lands skipped, the Ramp target changed to 8, a jump to Mass disruption: deckwright follows and says Ramp's target is now 8, and the later tally and the page use the new target (AC19); no price in chat (AC22). All by pattern and page | 8 of 8 at `--runs 8` (judge2, 2026-11-07). The skill text has changed since (a critique before every card is recorded, one script command per shell call, the per-card order), so this is a figure on an earlier skill text. |
+| `card-traps` | Llanowar Elves as commander: looked up, said not to be legendary and unable to lead, the player asked, no deck started with it (E7); "Vampiric Tutr": not found said, Vampiric Tutor named and asked about, nothing recorded until then (E1); Lightning Bolt, outside Meren's colours, kept and flagged on the page (E5); Sol Ring named twice is in once (E6); Vampiric Tutor, a Game Changer, said to push the deck past its bracket and asked about before it is recorded, and named under the bracket on the page (AC9b); no price in chat (AC22). All by pattern and page | 8 of 8 at `--runs 8` (judge2, 2026-11-07). The skill text has changed since (a critique before every card is recorded, one script command per shell call, the per-card order), so this is a figure on an earlier skill text. Known real failure, seen once under the scripted-player prompt's first wording: Vampiric Tutor recorded before it was flagged. |
+| `lookup-unavailable` | Scryfall out of reach: deckwright says it could not look Sol Ring up, names it and asks for its text; nothing about it is said before that question; no web fallback; the page marks the card as the player's text (E2); no price in chat (AC22). All by pattern and page | 8 of 8 at `--runs 8` (judge3, 2026-11-07). |
+| `no-code-execution` | Without a shell, deckwright says it needs code execution and how to turn it on, and does not start (E4, judged on the last message); no price in chat (AC22) | 8 of 8 at `--runs 8` (judge2, 2026-11-07), on the reworded rubric. The skill text has changed since (a critique before every card is recorded, one script command per shell call, the per-card order), so this is a figure on an earlier skill text. |
