@@ -1,0 +1,130 @@
+{
+  "body": {
+    "all_parts": [
+      {
+        "component": "combo_piece",
+        "id": "464adbae-70ea-48e1-b8ae-b404766f7a5a",
+        "name": "Seven Dwarves",
+        "object": "related_card",
+        "type_line": "Creature — Dwarf",
+        "uri": "https://api.scryfall.com/cards/464adbae-70ea-48e1-b8ae-b404766f7a5a"
+      },
+      {
+        "component": "combo_piece",
+        "id": "1b1f5093-c100-4741-aa5b-25107ce34c45",
+        "name": "Jewel Mine Overseer",
+        "object": "related_card",
+        "type_line": "Creature — Human Noble",
+        "uri": "https://api.scryfall.com/cards/1b1f5093-c100-4741-aa5b-25107ce34c45"
+      }
+    ],
+    "arena_id": 70288,
+    "artist": "Jason Rainville",
+    "artist_ids": [
+      "6ed7e669-579b-443d-b223-e5cbcb2a7483"
+    ],
+    "booster": true,
+    "border_color": "black",
+    "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+    "cmc": 2.0,
+    "collector_number": "141",
+    "color_identity": [
+      "R"
+    ],
+    "colors": [
+      "R"
+    ],
+    "digital": false,
+    "edhrec_rank": 11745,
+    "finishes": [
+      "nonfoil",
+      "foil"
+    ],
+    "flavor_text": "\"The gleam of rubies and my brothers and sisters by my side . . . what more could I want?\"\n—Brognold the Third",
+    "foil": true,
+    "frame": "2015",
+    "full_art": false,
+    "game_changer": false,
+    "games": [
+      "arena",
+      "paper",
+      "mtgo"
+    ],
+    "id": "464adbae-70ea-48e1-b8ae-b404766f7a5a",
+    "illustration_id": "0c740782-5e48-4b4d-a2ca-93f0e896e0e3",
+    "keywords": [],
+    "lang": "en",
+    "layout": "normal",
+    "legalities": {
+      "alchemy": "not_legal",
+      "brawl": "legal",
+      "commander": "legal",
+      "competitivebrawl": "legal",
+      "duel": "legal",
+      "future": "not_legal",
+      "gladiator": "legal",
+      "historic": "legal",
+      "legacy": "legal",
+      "modern": "legal",
+      "oathbreaker": "legal",
+      "oldschool": "not_legal",
+      "pauper": "legal",
+      "paupercommander": "legal",
+      "penny": "not_legal",
+      "pioneer": "legal",
+      "predh": "not_legal",
+      "premodern": "not_legal",
+      "standard": "not_legal",
+      "standardbrawl": "not_legal",
+      "timeless": "legal",
+      "tlr": "legal",
+      "vintage": "legal"
+    },
+    "mana_cost": "{1}{R}",
+    "mtgo_id": 78412,
+    "multiverse_ids": [
+      473103
+    ],
+    "name": "Seven Dwarves",
+    "nonfoil": true,
+    "object": "card",
+    "oracle_id": "526ca4a9-3f50-4f7a-8169-2bda95792401",
+    "oracle_text": "This creature gets +1/+1 for each other creature named Seven Dwarves you control.\nA deck can have up to seven cards named Seven Dwarves.",
+    "oversized": false,
+    "penny_rank": 11013,
+    "power": "2",
+    "preview": {
+      "previewed_at": "2019-09-11",
+      "source": "Wizards of the Coast",
+      "source_uri": "https://magic.wizards.com/en/articles/archive/card-preview/worldbuilding-eldraine-2019-09-11"
+    },
+    "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A526ca4a9-3f50-4f7a-8169-2bda95792401&unique=prints",
+    "promo": false,
+    "rarity": "common",
+    "related_uris": {
+      "edhrec": "https://edhrec.com/route/?cc=Seven+Dwarves",
+      "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=473103&printed=false"
+    },
+    "released_at": "2019-10-04",
+    "reprint": false,
+    "reserved": false,
+    "rulings_uri": "https://api.scryfall.com/cards/464adbae-70ea-48e1-b8ae-b404766f7a5a/rulings",
+    "scryfall_set_uri": "https://scryfall.com/sets/eld?utm_source=api",
+    "scryfall_uri": "https://scryfall.com/card/eld/141/seven-dwarves?utm_source=api",
+    "set": "eld",
+    "set_id": "a90a7b2f-9dd8-4fc7-9f7d-8ea2797ec782",
+    "set_name": "Throne of Eldraine",
+    "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Aeld&unique=prints",
+    "set_type": "expansion",
+    "set_uri": "https://api.scryfall.com/sets/a90a7b2f-9dd8-4fc7-9f7d-8ea2797ec782",
+    "story_spotlight": false,
+    "textless": false,
+    "toughness": "2",
+    "type_line": "Creature — Dwarf",
+    "uri": "https://api.scryfall.com/cards/464adbae-70ea-48e1-b8ae-b404766f7a5a",
+    "variation": false
+  },
+  "mode": "exact",
+  "q": "Seven Dwarves",
+  "status": 200
+}

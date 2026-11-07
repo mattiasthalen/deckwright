@@ -99,6 +99,7 @@ class FakeScryfall:
     """A local stand-in for api.scryfall.com that serves only the recorded responses.
 
     `refuse = True` makes it answer like a proxy that blocks the host: 403 and an HTML body.
+    `limit = True` makes it answer as Scryfall does past its rate limit: 429 and an error object.
     An unrecorded request gets a 500, which a correct script reports as unreachable (exit 3),
     so a test that trips one fails loudly rather than seeing a made-up answer.
     """
@@ -106,6 +107,7 @@ class FakeScryfall:
     url: str = ""
     requests: list[Request] = field(default_factory=list)
     refuse: bool = False
+    limit: bool = False
     unrecorded: list[str] = field(default_factory=list)
 
 
@@ -122,6 +124,9 @@ def _serve(fake: FakeScryfall, recorded):
             )
             if fake.refuse:
                 return self._send(403, b"<html><body>Blocked by proxy</body></html>", "text/html")
+            if fake.limit:
+                body = b'{"object":"error","status":429,"details":"Too many requests"}'
+                return self._send(429, body, "application/json")
             mode = "exact" if "exact" in query else "fuzzy" if "fuzzy" in query else None
             if parts.path != "/cards/named" or mode is None:
                 fake.unrecorded.append(self.path)

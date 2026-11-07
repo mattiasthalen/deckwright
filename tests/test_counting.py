@@ -137,3 +137,112 @@ def test_bracket_floor(deck):
     # The player sets another target.
     deck.run("bracket", "4")
     assert deck.tally()["bracket"]["target"] == 4
+
+
+def test_bracket_floor_over(deck):
+    deck.new()
+    deck.add("Sol Ring", "Ramp")
+    # Over only when the Game Changers need a bracket above the target: lowest > max(target, 2).
+    assert deck.tally()["bracket"]["over"] is False, "target 2, none"
+    deck.run("bracket", "1")
+    assert deck.tally()["bracket"]["over"] is False, "target 1, none: no deck is below bracket 2"
+
+    deck.add("Vampiric Tutor", "Plan")
+    deck.run("bracket", "2")
+    assert deck.tally()["bracket"]["over"] is True, "target 2, one"
+    deck.run("bracket", "3")
+    assert deck.tally()["bracket"]["over"] is False, "target 3, one"
+
+    for name in ("Demonic Tutor", "Mana Vault", "Ancient Tomb"):
+        deck.add(name, "Ramp")
+    bracket = deck.tally()["bracket"]
+    assert (bracket["lowest"], bracket["over"]) == (4, True), "target 3, four"
+
+
+def test_bracket_floor_commander_counted_once(deck):
+    deck.new(commander="Vampiric Tutor")
+    deck.add("Vampiric Tutor", "Plan")
+    deck.add("Demonic Tutor", "Plan")
+    deck.add("Mana Vault", "Ramp")
+    bracket = deck.tally()["bracket"]
+    assert bracket["game_changers"] == ["Demonic Tutor", "Mana Vault", "Vampiric Tutor"], "once per name"
+    assert bracket["lowest"] == 3, "three Game Changers by name, not four"
+
+    deck.add("Grim Monolith", "Ramp")
+    assert deck.tally()["bracket"]["lowest"] == 4, "the commander counts: four names"
+
+
+def test_bracket_floor_commander_counts(deck):
+    deck.new(commander="Vampiric Tutor")
+    deck.add("Demonic Tutor", "Plan")
+    deck.add("Mana Vault", "Ramp")
+    deck.add("Grim Monolith", "Ramp")
+    bracket = deck.tally()["bracket"]
+    assert bracket["game_changers"] == ["Demonic Tutor", "Grim Monolith", "Mana Vault", "Vampiric Tutor"]
+    assert bracket["lowest"] == 4
+
+
+def test_checks_up_to_n_copies(deck):
+    deck.new()
+    deck.add("Seven Dwarves", "Plan", count=7)
+    assert "Seven Dwarves" not in deck.tally()["checks"]["singleton"], "its text allows up to seven"
+    deck.add("Seven Dwarves", "Plan")
+    assert "Seven Dwarves" in deck.tally()["checks"]["singleton"], "eight is above seven"
+
+
+def test_checks_commander(deck):
+    deck.new()
+    assert deck.tally()["checks"]["commander"] == [], "Meren is a legendary creature"
+
+    deck.new(commander="Llanowar Elves")
+    deck.add("Forest", count=10)
+    assert deck.tally()["checks"]["commander"] == ["Llanowar Elves"], "not legendary"
+    assert "Llanowar Elves" in read_page(deck.page()).section("checks")
+
+
+def test_add_from_player_type_line(deck, unreachable_url):
+    deck.new()
+    deck.run(
+        "add", "Forest", "--count", "20", "--from-player", "({T}: Add {G}.)", "--type-line", "Basic Land — Forest",
+        api=unreachable_url,
+    )
+    tally = deck.tally()
+    lands = category(tally, "Lands")
+    assert (lands["count"], lands["cards"]) == (20, ["Forest"]), "the player's type line puts it in Lands"
+    assert tally["checks"]["singleton"] == [], "a basic land from the player's text is exempt from singleton"
+
+
+def test_add_from_player_then_looked_up(deck, unreachable_url):
+    deck.new()
+    deck.run("add", "Homebrew Owl", "--from-player", "Flying.", "--category", "Plan", api=unreachable_url)
+    deck.run(
+        "add", "Lightning Bolt", "--from-player", "Deal 3 damage to any target.", "--category", "Targeted disruption",
+        api=unreachable_url,
+    )
+    # Scryfall is back: the same name looked up replaces the player's text with the card.
+    deck.add("Lightning Bolt")
+    tally = deck.tally()
+    targeted = category(tally, "Targeted disruption")
+    assert (targeted["count"], targeted["cards"]) == (2, ["Lightning Bolt"]), "copies and categories are kept"
+    assert tally["checks"]["color_identity"] == ["Lightning Bolt"], "the card is now Scryfall's: red"
+    assert tally["total"] == 1 + 1 + 2
+
+    page = read_page(deck.page())
+    marked = page.section("player-text")
+    assert "Homebrew Owl" in marked
+    assert "Lightning Bolt" not in marked, "the player-text mark is dropped"
+    assert "2 Lightning Bolt" in page.section("decklist").splitlines()
+
+
+def test_remove_by_face_name(deck):
+    deck.new()
+    deck.add("Bloodline Keeper", "Plan")
+    deck.add("Sol Ring", "Ramp")
+    deck.run("remove", "Bloodline Keeper")
+    tally = deck.tally()
+    assert category(tally, "Plan")["cards"] == [], "the double-faced card is removed by its front face's name"
+    assert tally["total"] == 1 + 1
+
+    deck.add("Bloodline Keeper", "Plan")
+    deck.run("remove", "lord of lineage")
+    assert category(deck.tally(), "Plan")["cards"] == [], "or by its back face's, normalised"

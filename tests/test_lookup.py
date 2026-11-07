@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 
 from conftest import (
     CARD_FIELDS,
+    COMMANDER,
     EXIT_NOT_RECORDED,
     EXIT_UNREACHABLE,
     RECORDED,
+    category,
     scryfall_card,
 )
 
@@ -97,6 +100,26 @@ def test_lookup_fields_cache_override(tmp_path, deck, unreachable_url):
     assert again[0]["result"] == "found"
 
 
+def _hashed(query: str) -> str:
+    return hashlib.sha256(query.casefold().encode("utf-8")).hexdigest()[:12]
+
+
+def test_lookup_fields_cache_key_non_ascii(deck, unreachable_url):
+    # Fetched: an all-non-ASCII query gets a key from its hash, not an empty one.
+    entries = lookup(deck, "稲妻")
+    assert entries[0]["result"] == "closest_match" and entries[0]["card"]["name"] == "Lightning Bolt"
+    cache = deck.cwd / "deckwright-cache"
+    assert (cache / (_hashed("稲妻") + ".json")).is_file(), sorted(p.name for p in cache.iterdir())
+
+    # Pre-filled: another all-non-ASCII query, and one with an ASCII part, each read from its own file.
+    queries = [("Молния", "", "Sol Ring"), ("Lim-Dûl's Vault", "lim-d-l-s-vault-", "Vampiric Tutor")]
+    for query, ascii_key, card in queries:
+        (cache / f"{ascii_key}{_hashed(query)}.json").write_text(json.dumps(scryfall_card(card)), encoding="utf-8")
+    entries = lookup(deck, "稲妻", *(q for q, _, _ in queries), api=unreachable_url)
+    assert [e["card"]["name"] for e in entries] == ["Lightning Bolt", "Sol Ring", "Vampiric Tutor"]
+    assert len(list(cache.glob("*.json"))) == 3, "three queries, three files"
+
+
 # AC4a --------------------------------------------------------------------------------
 
 
@@ -115,9 +138,30 @@ def test_lookup_etiquette(deck, scryfall):
         assert "application/json" in r.headers.get("accept", ""), r.headers
 
     gaps = [b.at - a.at for a, b in zip(reqs, reqs[1:])]
-    # At most 10 a second: 100 ms between the script's requests. Timed here at arrival, so 20 ms
-    # is allowed for the first connection's setup, which shortens the first gap as seen here.
-    assert min(gaps) >= 0.08, f"requests too close together: {[round(g, 3) for g in gaps]}"
+    # Scryfall's docs allow cards/named 2 a second: 500 ms between the script's requests. Timed
+    # here at arrival, so 50 ms is allowed for the first connection's setup, which shortens the
+    # first gap as seen here.
+    assert min(gaps) >= 0.45, f"requests too close together: {[round(g, 3) for g in gaps]}"
+
+
+def test_lookup_etiquette_rate_limited(deck, scryfall):
+    deck.new()
+    before = deck.deck_file.read_bytes()
+    scryfall.limit = True
+
+    proc = deck.run("lookup", "Sol Ring", expect=EXIT_UNREACHABLE)
+    said = proc.stdout + proc.stderr
+    assert re.search(r"rate.?limit", said, re.I), f"the message should say Scryfall rate-limited the request: {said!r}"
+    assert "Sol Ring" in said, "the message names the card"
+    assert "Traceback" not in proc.stderr
+
+    deck.add("Sol Ring", "Ramp", expect=EXIT_UNREACHABLE)
+    assert deck.deck_file.read_bytes() == before, "nothing is written to the deck"
+    cache = deck.cwd / "deckwright-cache"
+    assert not cache.exists() or not (cache / "sol-ring.json").exists(), "a refused request is never cached"
+
+    scryfall.limit = False
+    assert lookup(deck, "Sol Ring")[0]["result"] == "found"
 
 
 def test_lookup_etiquette_fetches_once(deck, scryfall):
@@ -152,6 +196,21 @@ def test_lookup_not_found(deck):
     assert deck.deck_file.read_bytes() != before
 
 
+def test_lookup_found_normalised(deck):
+    # Scryfall answers all three exact requests 200; each is the card, not another card.
+    entries = lookup(deck, "Lim-Dul's Vault", "Smuggler’s Copter", "smugglers copter")
+    assert [e["result"] for e in entries] == ["found", "found", "found"], entries
+    assert [e["card"]["name"] for e in entries] == ["Lim-Dûl's Vault", "Smuggler's Copter", "Smuggler's Copter"]
+
+    deck.new()
+    deck.add("Lim-Dul's Vault", "Card advantage")
+    deck.add("Smuggler’s Copter", "Card advantage")
+    deck.add("smugglers copter", "Card advantage")
+    card_advantage = category(deck.tally(), "Card advantage")
+    assert card_advantage["cards"] == ["Lim-Dûl's Vault", "Smuggler's Copter"], "the recorded name is Scryfall's"
+    assert card_advantage["count"] == 3
+
+
 def test_lookup_not_found_is_not_unreachable(deck, unreachable_url, scryfall):
     deck.new()
     before = deck.deck_file.read_bytes()
@@ -169,6 +228,15 @@ def test_lookup_not_found_is_not_unreachable(deck, unreachable_url, scryfall):
 
     # A failed reach is never cached: once Scryfall answers, the card is found.
     assert lookup(deck, "Lightning Bolt")[0]["result"] == "found"
+
+
+def test_lookup_not_found_is_not_unreachable_for_the_commander(deck, unreachable_url):
+    new = ("new", "--template", "commander", "--commander", COMMANDER)
+    proc = deck.run(*new, api=unreachable_url, expect=EXIT_UNREACHABLE)
+    said = proc.stdout + proc.stderr
+    assert COMMANDER in said, "the message names the card"
+    assert "from-player" not in said, f"a commander cannot be recorded from the player's text: {said!r}"
+    assert not deck.deck_file.exists()
 
 
 def test_recordings_are_present():

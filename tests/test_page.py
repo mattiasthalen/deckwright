@@ -153,3 +153,31 @@ def test_import_format(deck):
     ]
     assert not re.search(r"\([A-Za-z0-9]{2,6}\)", decklist), "no set codes"
     assert deck.tally()["total"] == 1 + 1 + 20 + 1 + 10 + 1
+
+
+def test_page_content_not_checked(deck, unreachable_url):
+    build_with_player_text(deck, unreachable_url)
+    tally = deck.tally(api=unreachable_url)
+    for check, names in tally["checks"].items():
+        assert "Homebrew Owl" not in names, f"a card from the player's text is not checked, so not flagged by {check}"
+    checks = read_page(deck.page(api=unreachable_url)).section("checks")
+    assert re.search(r"not checked", checks, re.I), f"cards from the player's text are not checked: {checks!r}"
+    assert "Lightning Bolt" in checks
+
+
+def test_page_bracket_over(deck):
+    over = re.compile(r"\bover\b", re.I)
+    deck.new()
+    deck.add("Sol Ring", "Ramp")
+    deck.run("bracket", "1")
+    bracket = read_page(deck.page()).section("bracket")
+    assert not over.search(bracket), f"target 1 with no Game Changers is not over: {bracket!r}"
+
+    deck.run("bracket", "2")
+    deck.add("Vampiric Tutor", "Plan")
+    bracket = read_page(deck.page()).section("bracket")
+    assert over.search(bracket), f"target 2 with one Game Changer is over: {bracket!r}"
+
+    deck.run("bracket", "3")
+    bracket = read_page(deck.page()).section("bracket")
+    assert not over.search(bracket), f"target 3 with one Game Changer is not over: {bracket!r}"
