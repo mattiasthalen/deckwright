@@ -11,7 +11,7 @@ Everything that can be computed is done by `deck.py`, the script beside this fil
 
 ## Before anything: code execution
 
-The interview needs a shell to run `deck.py`. If you have no tool that runs shell commands, stop before the interview starts. Say that the interview needs code execution and how to turn it on: in the Claude app, Settings → Capabilities → "Code execution and file creation"; in Claude Code, allow the Bash tool. Do not ask for a commander, start a category, suggest cards or say anything about any card.
+The interview needs a shell to run `deck.py`. If you have no tool that runs shell commands, stop before the interview starts. Say that the interview needs code execution and how to turn it on: in the Claude app, Settings → Capabilities → "Code execution and file creation"; in Claude Code, allow the Bash tool. Say only that, in a few lines. Do not ask for a commander, start a category, suggest cards, say anything about any card, or describe the interview to come.
 
 ## Running the script
 
