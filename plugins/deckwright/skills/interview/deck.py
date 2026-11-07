@@ -11,13 +11,16 @@ The skill judges; this script counts, checks and renders. Run it as `uv run deck
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
+import http.client
 import json
 import os
 import re
 import sys
 import time
 import tomllib
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -26,12 +29,13 @@ from pathlib import Path
 VERSION = "0.1.0"
 HERE = Path(__file__).resolve().parent
 SCRYFALL = "https://api.scryfall.com"
-# Scryfall asks for at most 10 requests a second.
-REQUEST_GAP = 0.1
+# Scryfall limits cards/named to 2 requests a second (its other endpoints allow 10).
+REQUEST_GAP = 0.5
 STRIPPED_KEYS = re.compile(r"price|purchase|image|tcgplayer|cardmarket", re.I)
 ANY_NUMBER = "a deck can have any number of cards named"
+UP_TO = re.compile(r"a deck can have up to (\w+) cards named")
+NUMBER_WORDS = {w: n for n, w in enumerate("one two three four five six seven eight nine ten".split(), 1)}
 
-EXIT_UNREACHABLE = 3
 EXIT_NOT_RECORDED = 4
 
 
@@ -43,11 +47,26 @@ class Failure(Exception):
 
 class Unreachable(Failure):
     def __init__(self, name: str, reason: str):
+        super().__init__(f"Scryfall could not be reached to look up {name!r} ({reason}). Nothing was recorded.", 3)
+
+
+class RateLimited(Failure):
+    def __init__(self, name: str):
         super().__init__(
-            f"Scryfall could not be reached to look up {name!r} ({reason}). "
-            "Nothing was recorded. Ask the player for the card's text and add it with --from-player.",
-            EXIT_UNREACHABLE,
+            f"Scryfall rate-limited the lookup of {name!r} (HTTP 429). Nothing was recorded. "
+            "Wait 30 seconds before looking anything else up.",
+            3,
         )
+
+
+def comparable(name: str) -> str:
+    """A name as Scryfall matches it: case, accents and punctuation ignored."""
+    decomposed = unicodedata.normalize("NFKD", name.casefold())
+    return "".join(c for c in decomposed if c.isascii() and c.isalnum())
+
+
+def names_of(card: dict) -> list[str]:
+    return [card["name"], *card["name"].split(" // ")]
 
 
 # Lookups -----------------------------------------------------------------------------
@@ -63,26 +82,33 @@ class Scryfall:
         """One `{"query", "result", "card"}` entry. Raises Unreachable when Scryfall cannot answer."""
         card = self._cached(query)
         if card is None:
+            self._cache_file(query).unlink(missing_ok=True)
             card = self._fetch(query, "exact") or self._fetch(query, "fuzzy")
             if card is None:
                 return {"query": query, "result": "not_found"}
             self.cache.mkdir(parents=True, exist_ok=True)
             self._cache_file(query).write_text(json.dumps(card, ensure_ascii=False, indent=1), encoding="utf-8")
         names = [card["name"], *(face.get("name", "") for face in card.get("card_faces", []))]
-        found = query.casefold() in (n.casefold() for n in names)
+        found = comparable(query) in (comparable(n) for n in names)
         return {"query": query, "result": "found" if found else "closest_match", "card": fixed_fields(card)}
 
     def _cache_file(self, query: str) -> Path:
-        return self.cache / f"{re.sub(r'[^a-z0-9]+', '-', query.lower()).strip('-')}.json"
+        key = re.sub(r"[^a-z0-9]+", "-", query.lower()).strip("-")
+        if not key or not query.isascii():
+            digest = hashlib.sha256(query.casefold().encode("utf-8")).hexdigest()[:12]
+            key = f"{key}-{digest}" if key else digest
+        return self.cache / f"{key}.json"
 
     def _cached(self, query: str) -> dict | None:
+        """The cached card, or None when there is none or the file does not hold a card."""
         path = self._cache_file(query)
         if not path.is_file():
             return None
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            card = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
             return None
+        return card if isinstance(card, dict) and card.get("object") == "card" and "name" in card else None
 
     def _fetch(self, query: str, mode: str) -> dict | None:
         """The card Scryfall names for the query, or None on Scryfall's own 404."""
@@ -101,7 +127,11 @@ class Scryfall:
             # A proxy that blocks the host can answer 404 too; only Scryfall's own error object means "no card".
             if error.code == 404 and _is_scryfall_error(error):
                 return None
+            if error.code == 429:
+                raise RateLimited(query) from None
             raise Unreachable(query, f"HTTP {error.code}") from None
+        except http.client.HTTPException as error:
+            raise Unreachable(query, type(error).__name__) from None
         except (urllib.error.URLError, TimeoutError, OSError) as error:
             raise Unreachable(query, str(getattr(error, "reason", error))) from None
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -155,22 +185,32 @@ def load_template(name: str) -> dict:
     if not path.is_file():
         known = sorted(p.stem for p in (HERE / "templates").glob("*.toml"))
         raise Failure(f"No template {name!r}. Templates: {', '.join(known)}.", 2)
-    template = tomllib.loads(path.read_text(encoding="utf-8"))
-    return {
-        "name": template.get("name", name),
-        "deck_size": template["deck_size"],
-        "bracket_target": template["bracket_target"],
-        "categories": [
-            {k: c[k] for k in ("name", "target", "counts_when", "from_type_line") if k in c}
-            for c in template["categories"]
-        ],
-    }
+    try:
+        template = tomllib.loads(path.read_text(encoding="utf-8"))
+        checked = {
+            "name": template.get("name", name),
+            "deck_size": template["deck_size"],
+            "bracket_target": template["bracket_target"],
+            "categories": template["categories"],
+        }
+        for category in checked["categories"]:
+            category["name"], category["target"], category["counts_when"]
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError, KeyError, TypeError) as error:
+        raise Failure(f"The template {name!r} is not readable or lacks a key ({error}).", 2) from None
+    return checked
 
 
 def read_deck(path: Path) -> dict:
     if not path.is_file():
-        raise Failure(f"No deck file at {path.name}. Start one with: new --template commander --commander NAME", 2)
-    return json.loads(path.read_text(encoding="utf-8"))
+        raise Failure(f"No deck file at {path.name}. Start one with: new --template <name> --commander NAME", 2)
+    try:
+        deck = json.loads(path.read_text(encoding="utf-8"))
+        deck["template"]["categories"], deck["commander"]["name"], deck["cards"]
+    except (json.JSONDecodeError, UnicodeDecodeError, KeyError, TypeError) as error:
+        raise Failure(
+            f"The deck file {path.name} is not a readable deck ({error}). Start a new one with new.", 2
+        ) from None
+    return deck
 
 
 def write_deck(path: Path, deck: dict) -> None:
@@ -199,11 +239,11 @@ def looked_up(scryfall: Scryfall, name: str) -> dict:
     return entry["card"]
 
 
-def player_card(name: str, text: str) -> dict:
+def player_card(name: str, text: str, type_line: str) -> dict:
     return {
         "name": name,
         "mana_cost": "",
-        "type_line": "",
+        "type_line": type_line,
         "oracle_text": text,
         "color_identity": [],
         "commander_legality": "unknown",
@@ -235,30 +275,43 @@ def tally(deck: dict) -> dict:
             {
                 "name": category["name"],
                 "counts_when": category["counts_when"],
-                "target": deck["targets"][category["name"]],
+                "target": category["target"],
                 "count": sum(e["count"] for e in counted),
-                "cards": sorted({e["card"]["name"] for e in counted}, key=by_name),
+                "cards": sorted((e["card"]["name"] for e in counted), key=by_name),
             }
         )
 
     looked = [e for e in entries if not e.get("from_player")]
     identity = set(commander["color_identity"])
 
-    def allows_copies(card: dict) -> bool:
-        return "Basic" in card["type_line"] or ANY_NUMBER in card["oracle_text"].casefold()
+    def copies_allowed(card: dict) -> float:
+        text = card["oracle_text"].casefold()
+        if "Basic" in card["type_line"] or ANY_NUMBER in text:
+            return float("inf")
+        up_to = UP_TO.search(text)
+        if up_to:
+            word = up_to.group(1)
+            return int(word) if word.isdigit() else NUMBER_WORDS.get(word, 1)
+        return 1
 
+    can_lead = ("Legendary" in commander["type_line"] and "Creature" in commander["type_line"]) or (
+        "can be your commander" in commander["oracle_text"]
+    )
     checks = {
         "singleton": [
             e["card"]["name"]
             for e in entries
-            if (e["count"] > 1 and not allows_copies(e["card"])) or e["card"]["name"] == commander["name"]
+            if e["count"] > copies_allowed(e["card"]) or e["card"]["name"] == commander["name"]
         ],
         "color_identity": [e["card"]["name"] for e in looked if set(e["card"]["color_identity"]) - identity],
         "commander_legality": [
             card["name"] for card in [commander, *(e["card"] for e in looked)] if card["commander_legality"] != "legal"
         ],
+        "commander": [] if can_lead else [commander["name"]],
     }
-    game_changers = [card["name"] for card in [commander, *(e["card"] for e in looked)] if card["game_changer"]]
+    game_changers = {card["name"] for card in [commander, *(e["card"] for e in looked)] if card["game_changer"]}
+    target = deck["template"]["bracket_target"]
+    lowest = lowest_bracket(len(game_changers))
     return {
         "template": deck["template"]["name"],
         "commander": commander["name"],
@@ -267,21 +320,20 @@ def tally(deck: dict) -> dict:
         "categories": categories,
         "checks": {k: sorted(set(v), key=by_name) for k, v in checks.items()},
         "bracket": {
-            "target": deck["bracket_target"],
-            "lowest": lowest_bracket(len(game_changers)),
-            "game_changers": sorted(set(game_changers), key=by_name),
+            "target": target,
+            "lowest": lowest,
+            "game_changers": sorted(game_changers, key=by_name),
+            # Bracket 1 differs from 2 by intent, not by count, so a target of 1 is judged as 2.
+            "over": lowest > max(target, 2),
         },
-        "player_text": sorted({e["card"]["name"] for e in entries if e.get("from_player")}, key=by_name),
+        "player_text": sorted((e["card"]["name"] for e in entries if e.get("from_player")), key=by_name),
     }
 
 
 def lowest_bracket(game_changers: int) -> int:
     rules = tomllib.loads((HERE / "brackets.toml").read_text(encoding="utf-8"))
-    for bracket in sorted(rules["brackets"], key=lambda b: b["bracket"]):
-        limit = bracket.get("max_game_changers")
-        if limit is None or game_changers <= limit:
-            return bracket["bracket"]
-    return max(b["bracket"] for b in rules["brackets"])
+    brackets = sorted(rules["brackets"], key=lambda b: b["bracket"])
+    return next(b["bracket"] for b in brackets if game_changers <= b.get("max_game_changers", game_changers))
 
 
 # The page ----------------------------------------------------------------------------
@@ -292,18 +344,15 @@ def text(value) -> str:
 
 
 def decklist(deck: dict) -> str:
-    copies: dict[str, int] = {}
-    for entry in deck["cards"]:
-        copies[entry["card"]["name"]] = copies.get(entry["card"]["name"], 0) + entry["count"]
-    rows = [f"{copies[name]} {name}" for name in sorted(copies, key=by_name)]
+    rows = [
+        f"{e['count']} {e['card']['name']}" for e in sorted(deck["cards"], key=lambda e: by_name(e["card"]["name"]))
+    ]
     return "\n".join(["// COMMANDER", f"1 {deck['commander']['name']}", "", "// MAINBOARD", *rows])
 
 
 def render_page(deck: dict) -> str:
     counted = tally(deck)
-    copies = {e["card"]["name"]: 0 for e in deck["cards"]}
-    for entry in deck["cards"]:
-        copies[entry["card"]["name"]] += entry["count"]
+    copies = {e["card"]["name"]: e["count"] for e in deck["cards"]}
     flagged = {name for names in counted["checks"].values() for name in names} | set(
         counted["bracket"]["game_changers"]
     )
@@ -318,14 +367,14 @@ def render_page(deck: dict) -> str:
         return f'<li><span class="n">{copies[name]}</span> {text(name)} {"".join(marks)}</li>'
 
     categories = []
-    for category, row in zip(deck["template"]["categories"], counted["categories"]):
+    for row in counted["categories"]:
         state = "done" if row["count"] >= row["target"] else "open"
         filled = min(100, 100 * row["count"] // max(1, row["target"]))
         cards = "".join(card_row(name) for name in row["cards"]) or '<li class="empty">No cards yet</li>'
         categories.append(
             f'<section class="category {state}" data-category="{html.escape(row["name"])}">'
             f'<h3>{text(row["name"])} <span class="count">{row["count"]} / {row["target"]}</span></h3>'
-            f'<p class="when">Counts when {text(category["counts_when"])}.</p>'
+            f'<p class="when">Counts when {text(row["counts_when"])}.</p>'
             f'<div class="bar"><span style="width:{filled}%"></span></div>'
             f"<ul>{cards}</ul></section>"
         )
@@ -342,12 +391,16 @@ def render_page(deck: dict) -> str:
         "singleton": "More than one copy",
         "color_identity": "Outside the commander's colour identity",
         "commander_legality": "Not legal in this format",
+        "commander": "Cannot be a commander",
     }
     checks = [
         f"<li><strong>{labels[key]}:</strong> {text(', '.join(names))}</li>"
         for key, names in counted["checks"].items()
         if names
     ]
+    if counted["player_text"]:
+        unchecked = text(", ".join(counted["player_text"]))
+        checks.append(f"<li><strong>From the player's text, not checked:</strong> {unchecked}</li>")
     bracket = counted["bracket"]
     changers = text(", ".join(bracket["game_changers"])) if bracket["game_changers"] else "none"
     owned = ", ".join(counted["player_text"])
@@ -361,9 +414,10 @@ def render_page(deck: dict) -> str:
         "standing": text(standing),
         "categories": "".join(categories),
         "checks": "".join(checks) or "<li>Every card passes.</li>",
+        "bracket_over": " · over the target" if bracket["over"] else "",
         "bracket_target": str(bracket["target"]),
         "bracket_lowest": str(bracket["lowest"]),
-        "bracket_state": "over" if bracket["lowest"] > bracket["target"] else "within",
+        "bracket_state": "over" if bracket["over"] else "within",
         "game_changers": changers,
         "player_text": text(owned) if owned else "None: every card was looked up.",
         "decklist": text(decklist(deck)),
@@ -384,17 +438,13 @@ def run(args) -> str | None:
     scryfall = Scryfall(cache_folder(deck_path))
 
     if args.command == "lookup":
-        return as_json([scryfall.lookup(name) for name in args.names])
+        try:
+            return as_json([scryfall.lookup(name) for name in args.names])
+        except Unreachable as failure:
+            raise Failure(f"{failure} Ask the player for the card's type line and text.", failure.code) from None
 
     if args.command == "new":
-        template = load_template(args.template)
-        deck = {
-            "template": template,
-            "targets": {c["name"]: c["target"] for c in template["categories"]},
-            "bracket_target": template["bracket_target"],
-            "commander": looked_up(scryfall, args.commander),
-            "cards": [],
-        }
+        deck = {"template": load_template(args.template), "commander": looked_up(scryfall, args.commander), "cards": []}
         write_deck(deck_path, deck)
         return as_json(tally(deck))
 
@@ -402,22 +452,33 @@ def run(args) -> str | None:
 
     if args.command == "add":
         categories = category_names(deck, args.category or [])
-        if args.count < 1:
-            raise Failure("--count must be at least 1.", 2)
-        card = (
-            player_card(args.name, args.from_player) if args.from_player is not None else looked_up(scryfall, args.name)
-        )
-        entry = next((e for e in deck["cards"] if e["card"]["name"].casefold() == card["name"].casefold()), None)
+        at_least(1, args.count, "--count")
+        if args.from_player is not None:
+            card = player_card(args.name, args.from_player, args.type_line or "")
+        else:
+            try:
+                card = looked_up(scryfall, args.name)
+            except Unreachable as failure:
+                raise Failure(
+                    f"{failure} Ask the player for the card's type line and text, and add it with "
+                    "--from-player TEXT --type-line LINE.",
+                    failure.code,
+                ) from None
+        entry = recorded(deck, card["name"])
         if entry is None:
             entry = {"card": card, "count": 0, "categories": []}
-            if args.from_player is not None:
-                entry["from_player"] = True
             deck["cards"].append(entry)
+        if args.from_player is not None:
+            entry.setdefault("from_player", entry["count"] == 0)
+        elif entry.pop("from_player", False):
+            entry["card"] = card
         entry["count"] += args.count
         entry["categories"] = category_names(deck, [*entry["categories"], *categories])
         deck["cards"].sort(key=lambda e: by_name(e["card"]["name"]))
     elif args.command == "remove":
-        entry = next((e for e in deck["cards"] if e["card"]["name"].casefold() == args.name.casefold()), None)
+        if args.count is not None:
+            at_least(1, args.count, "--count")
+        entry = recorded(deck, args.name)
         if entry is None:
             raise Failure(f"{args.name!r} is not in the deck.", 2)
         entry["count"] -= entry["count"] if args.count is None else args.count
@@ -425,9 +486,12 @@ def run(args) -> str | None:
             deck["cards"].remove(entry)
     elif args.command == "target":
         (name,) = category_names(deck, [args.category])
-        deck["targets"][name] = args.n
+        at_least(0, args.n, "A target")
+        next(c for c in deck["template"]["categories"] if c["name"] == name)["target"] = args.n
     elif args.command == "bracket":
-        deck["bracket_target"] = args.n
+        if not 1 <= args.n <= 5:
+            raise Failure("A bracket is 1 to 5.", 2)
+        deck["template"]["bracket_target"] = args.n
     elif args.command == "tally":
         return as_json(tally(deck))
     elif args.command == "page":
@@ -437,6 +501,17 @@ def run(args) -> str | None:
 
     write_deck(deck_path, deck)
     return as_json(tally(deck))
+
+
+def recorded(deck: dict, name: str) -> dict | None:
+    """The deck's entry for a card, matched by its full name or a face name as Scryfall matches names."""
+    wanted = comparable(name)
+    return next((e for e in deck["cards"] if wanted in map(comparable, names_of(e["card"]))), None)
+
+
+def at_least(lowest: int, n: int, what: str) -> None:
+    if n < lowest:
+        raise Failure(f"{what} must be at least {lowest}.", 2)
 
 
 def as_json(value) -> str:
@@ -464,6 +539,9 @@ def parser() -> argparse.ArgumentParser:
     add.add_argument("--count", type=int, default=1)
     add.add_argument("--category", nargs="+", metavar="C")
     add.add_argument("--from-player", metavar="TEXT", help="the card's text as the player gave it; no lookup")
+    add.add_argument(
+        "--type-line", metavar="LINE", help="with --from-player: the card's type line as the player gave it"
+    )
 
     remove = command("remove", "Take copies of a card out (all of them unless --count).")
     remove.add_argument("name", metavar="NAME")
