@@ -60,7 +60,7 @@ Never mention prices, in any currency.
 
 1. Say in a sentence or two what the category is for, from its `counts_when`, and its target.
 2. Offer a few suggestions, each looked up first and within the commander's colour identity, each with one line on what it does. A suggestion is never a choice: record it only when the player says yes to it.
-3. Critique every card the player names: what the lookup says it does, which categories it counts in by their `counts_when` (name them, even when it seems obvious), and whether that is the category the player meant ("sure, but it doesn't count there", and why). A category whose `counts_when` reads the type line is counted by the script from the card's type line; you judge the rest.
+3. Critique every card the player names, before you record it, even a familiar card and even one you already looked up: what the lookup says it does, in a sentence, which categories it counts in by their `counts_when` (name them, even when it seems obvious), and whether that is the category the player meant ("sure, but it doesn't count there", and why). A category whose `counts_when` reads the type line is counted by the script from the card's type line; you judge the rest.
 4. Before recording, say plainly when a named card:
    - is in the wrong category: say where it counts and ask where to put it;
    - is already in the deck (a second copy fails singleton unless it is a basic land or its text allows any number);
