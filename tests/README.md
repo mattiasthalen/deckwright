@@ -40,6 +40,7 @@ Until the repo has its dev `pyproject.toml`, `uv run --no-project --with pytest 
 | `Xyzzy Plover Quux` (exact 404, fuzzy 404) | a card that does not exist |
 | `Lim-Dul's Vault`, `Smuggler’s Copter`, `smugglers copter` (each an exact 200) | queries that are the card once accents, punctuation and spaces are normalised away |
 | Seven Dwarves | its text allows up to seven copies |
+| Elbrus, the Binding Blade // Withengar Unbound | a double-faced card whose front is a Legendary Artifact and whose back, a Legendary Creature, has no mana cost |
 | `稲妻` (exact 404, fuzzy → Lightning Bolt), `Молния` (exact 404, fuzzy 404) | queries with no ASCII key, for the cache's hashed key |
 
 ## The contract the build must meet
@@ -58,7 +59,7 @@ The plan's checks leave these details open; the tests and the eval scaffolds fix
 | Code | When |
 |---|---|
 | 0 | the command did its work. A `lookup` that Scryfall answered is 0 even when a name was not found or only fuzzy-matched: the entry says which. |
-| 2 | usage error (argparse's default), and: no deck file; an unreadable deck file (not JSON, or not a deck); an unknown template, or a template file missing a required key; an unknown category; `remove` of a card not in the deck; an out-of-range number (`bracket N` outside 1–5, `target C N` below 0, `remove --count` below 1). A plain message says why, with no `Traceback` on stderr, and the deck file is unchanged. |
+| 2 | usage error (argparse's default), and: no deck file; an unreadable deck file (not JSON, or JSON that is not a deck: a commander or card missing a field, a target that is not a number); an unknown template, or a template file missing a required key; an unknown category; `remove` of a card not in the deck; an out-of-range number (`bracket N` outside 1–5, `target C N` below 0, `remove --count` below 1); `page --out` into a folder that does not exist. A plain message says why, with no `Traceback` on stderr, and the deck file is unchanged. |
 | 3 | Scryfall could not be reached for a card not in the cache: connection refused, timeout, or any answer that is neither a 200 card nor a 404 from Scryfall (a proxy's 403, a 429, a 5xx). A plain message on stdout or stderr names the card; on a 429 it says Scryfall rate-limited the request. Nothing is written to the deck, and nothing is cached. From `new --commander` the message does not offer `--from-player`, which cannot record a commander. |
 | 4 | `add` (or `new --commander`) was given a name that is not found, or that only fuzzy-matches another card. Nothing is written to the deck: a misspelling is recorded only once the player confirms the real name and it is added by that name. |
 
@@ -85,7 +86,7 @@ Stdout is a JSON array with one entry per `NAME`, in argument order:
 | Key | From Scryfall |
 |---|---|
 | `name` | `name` (a double-faced card's full `A // B` name) |
-| `mana_cost` | `mana_cost`; for a card with faces, every face's mana cost, front first, in one string |
+| `mana_cost` | `mana_cost`; for a card with faces, the mana cost of every face that has one, front first, in one string: a back face with no cost adds nothing, so Bloodline Keeper's is `{2}{B}{B}` |
 | `type_line` | `type_line` |
 | `oracle_text` | `oracle_text`; for a card with faces, every face's oracle text, front first, in one string |
 | `color_identity` | `color_identity`, a list of the letters `W U B R G` |
@@ -95,11 +96,11 @@ Stdout is a JSON array with one entry per `NAME`, in argument order:
 ### `new`, `add`, `remove`, `target`, `bracket`
 
 - `new --template commander --commander NAME` writes a new `deck.json`.
-- `add NAME [--count N] [--category C …]`: `--count` defaults to 1; adding a name already in the deck adds to its copies (so a card named twice is held twice, for the checks to report). `--category` takes one or more category names exactly as the template spells them and may be left out. Lands come from the type line whatever is recorded.
+- `add NAME [--count N] [--category C …]`: `--count` defaults to 1; adding a name already in the deck adds to its copies (so a card named twice is held twice, for the checks to report). `--category` takes one or more category names exactly as the template spells them, may be given more than once (`--category A --category B` records under both), and may be left out. Lands come from the type line whatever is recorded.
 - `add` records the card by Scryfall's name, whatever the query's spelling.
-- `add NAME --from-player "TEXT" [--type-line LINE] [--count N] [--category C …]` records a card from the player's text with no lookup and no network, marked as such. The type line, when given, is used for the Lands category and the basic-land singleton exemption: `add Forest --count 20 --from-player "({T}: Add {G}.)" --type-line "Basic Land — Forest"` counts 20 in Lands and is not flagged.
-- A looked-up `add` of a name already recorded from the player's text replaces that entry's card with the lookup and drops the player-text mark; its copies and categories are kept, and the new copies are added.
-- `remove NAME [--count N]` matches the card's full name or a face name, normalised as `found` is (`remove "Bloodline Keeper"` removes the double-faced card). `--count` is at least 1.
+- `add NAME --from-player "TEXT" [--type-line LINE] [--count N] [--category C …]` records a card from the player's text with no lookup and no network, marked as such. The type line, when given, is used for the Lands category and the basic-land singleton exemption, read without regard to case: `add Forest --count 20 --from-player "({T}: Add {G}.)" --type-line "Basic Land — Forest"` counts 20 in Lands and is not flagged.
+- A looked-up `add` of a name already recorded from the player's text replaces that entry's card with the lookup and drops the player-text mark; its copies and categories are kept, and the new copies are added. The entry is matched as `remove` matches, so a player-text `Bloodline Keeper` is replaced by the looked-up `Bloodline Keeper // Lord of Lineage`.
+- `remove NAME [--count N]` matches the card's full name or a face name, normalised as `found` is (`remove "Bloodline Keeper"` removes the double-faced card). A name whose normalised form is empty, such as `Молния`, is matched by its casefolded name instead, never by the empty key, so `稲妻` and `Молния` from the player's text are two entries and `remove "Молния"` removes only Молния. `--count` is at least 1.
 - `target CATEGORY N` (N ≥ 0) and `bracket N` (1–5) change the deck's target for one category and its bracket target.
 
 ### `deck.json`
@@ -116,15 +117,15 @@ Stdout is one JSON object with at least:
   "total": 39,
   "categories": [{"name": "Lands", "target": 38, "count": 36, "cards": ["Command Tower", "Forest", "Swamp"]}, …],
   "checks": {"singleton": [], "color_identity": [], "commander_legality": [], "commander": []},
-  "bracket": {"target": 2, "lowest": 2, "game_changers": [], "over": false}
+  "bracket": {"target": 2, "lowest": 2, "game_changers": [], "over": false, "game_changers_allowed": 0}
 }
 ```
 
 - `categories` is in template order. `count` counts copies (18 Swamp count 18); `cards` lists each card's name once, sorted.
 - `total` counts the commander and every copy of every card, a card in two categories once.
-- `checks` lists, sorted, the names of the cards failing each check: more than one copy (except basic lands, cards whose text allows any number, and cards whose text says "A deck can have up to N cards named …", N in digits or a word from one to ten, which are flagged only above N), colour identity outside the commander's, `commander_legality` other than `legal`. A card from the player's text is in none of them: it is not checked.
-- `checks.commander` is `[<commander>]` when the commander's type line lacks "Legendary" or "Creature" and its oracle text lacks "can be your commander"; otherwise `[]`.
-- `bracket.lowest` is 2 with no Game Changers, 3 with one to three, 4 with four or more, counted once per name with the commander included; `game_changers` is sorted. `bracket.over` is true when `lowest > max(target, 2)`.
+- `checks` lists, sorted, the names of the cards failing each check: more than one copy (except basic lands, cards whose text allows any number, and cards whose text says "A deck can have up to N cards named …", N in digits or a word from one to ten, which are flagged only above N), colour identity outside the commander's, `commander_legality` other than `legal`. A card from the player's text is held to the copies check, by the count and type line given, but never to colour identity or legality, which its text cannot settle.
+- `checks.commander` is `[<commander>]` when the front face's type line (the whole type line, for a card with one face) lacks "Legendary" or "Creature" and its oracle text lacks "can be your commander"; otherwise `[]`. So Elbrus, the Binding Blade, a Legendary Artifact whose back is a Legendary Creature, is flagged.
+- `bracket.lowest` is 2 with no Game Changers, 3 with one to three, 4 with four or more, counted once per name with the commander included; `game_changers` is sorted. `bracket.over` is true when `lowest > max(target, 2)`. `bracket.game_changers_allowed` is how many Game Changers `brackets.toml` allows at the target, a target of 1 read as 2 (1 or 2 → 0, 3 → 3), and is absent when the target has no limit (4, 5).
 - The same deck file gives the same stdout, byte for byte, and `tally` never touches the network.
 
 ### `templates/commander.toml` and `brackets.toml`

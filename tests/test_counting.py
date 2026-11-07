@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import re
 import tomllib
 from datetime import date
 
-from conftest import CATEGORIES, SKILL_DIR, category, read_page
+from conftest import CATEGORIES, SKILL_DIR, category, read_page, scryfall_card
 
 
 def test_tally(deck, unreachable_url):
@@ -200,6 +201,23 @@ def test_checks_commander(deck):
     assert "Llanowar Elves" in read_page(deck.page()).section("checks")
 
 
+def test_checks_commander_front_face(deck):
+    # Its front is a Legendary Artifact; only the back is a creature, so it cannot lead.
+    deck.new(commander="Elbrus, the Binding Blade")
+    assert deck.tally()["checks"]["commander"] == ["Elbrus, the Binding Blade // Withengar Unbound"]
+
+
+def test_checks_commander_can_be_your_commander(deck, unreachable_url):
+    # A card whose text lets it lead is not flagged, whatever its type line.
+    elves = scryfall_card("Llanowar Elves")
+    elves["oracle_text"] += "\nLlanowar Elves can be your commander."
+    cache = deck.cwd / "deckwright-cache"
+    cache.mkdir()
+    (cache / "llanowar-elves.json").write_text(json.dumps(elves), encoding="utf-8")
+    deck.new(commander="Llanowar Elves")
+    assert deck.tally(api=unreachable_url)["checks"]["commander"] == []
+
+
 def test_add_from_player_type_line(deck, unreachable_url):
     deck.new()
     deck.run(
@@ -232,6 +250,57 @@ def test_add_from_player_then_looked_up(deck, unreachable_url):
     assert "Homebrew Owl" in marked
     assert "Lightning Bolt" not in marked, "the player-text mark is dropped"
     assert "2 Lightning Bolt" in page.section("decklist").splitlines()
+
+    # Recorded from the player's text by its front face's name, then looked up: the same entry.
+    deck.run("add", "Bloodline Keeper", "--from-player", "Flying.", "--category", "Plan", api=unreachable_url)
+    deck.add("Bloodline Keeper")
+    plan = category(deck.tally(), "Plan")
+    assert plan["cards"] == ["Bloodline Keeper // Lord of Lineage", "Homebrew Owl"], "one entry, not a second"
+    assert plan["count"] == 3
+    assert "Bloodline Keeper" not in read_page(deck.page()).section("player-text")
+
+
+def test_add_two_categories_flags(deck):
+    deck.new()
+    deck.run("add", "Ravenous Chupacabra", "--category", "Targeted disruption", "--category", "Plan")
+    tally = deck.tally()
+    assert category(tally, "Targeted disruption")["cards"] == ["Ravenous Chupacabra"], "the first --category is kept"
+    assert category(tally, "Plan")["cards"] == ["Ravenous Chupacabra"]
+
+
+def test_add_from_player_no_ascii_names(deck, unreachable_url):
+    deck.new()
+    deck.run("add", "稲妻", "--from-player", "Deal 3 damage to any target.", api=unreachable_url)
+    deck.run("add", "Молния", "--from-player", "Deal 3 damage to any target.", api=unreachable_url)
+    rows = read_page(deck.page()).section("decklist").splitlines()
+    assert "1 稲妻" in rows and "1 Молния" in rows, f"two names, two entries: {rows}"
+    assert deck.tally()["total"] == 1 + 2
+
+    deck.run("remove", "Молния")
+    rows = read_page(deck.page()).section("decklist").splitlines()
+    assert "1 稲妻" in rows and not any("Молния" in r for r in rows), f"only Молния is removed: {rows}"
+    assert deck.tally()["total"] == 1 + 1
+
+
+def test_add_from_player_type_line_any_case(deck, unreachable_url):
+    deck.new()
+    deck.run(
+        "add", "Forest", "--count", "20", "--from-player", "({T}: Add {G}.)", "--type-line", "basic land — forest",
+        api=unreachable_url,
+    )
+    tally = deck.tally()
+    assert category(tally, "Lands")["count"] == 20, "the type line is read without regard to case"
+    assert tally["checks"]["singleton"] == []
+
+
+def test_bracket_floor_game_changers_allowed(deck):
+    deck.new()
+    allowed = {}
+    for target in (1, 2, 3, 4, 5):
+        deck.run("bracket", str(target))
+        allowed[target] = deck.tally()["bracket"].get("game_changers_allowed", "absent")
+    # From brackets.toml: bracket 2 allows none, 3 allows three, 4 and 5 have no limit; 1 is judged as 2.
+    assert allowed == {1: 0, 2: 0, 3: 3, 4: "absent", 5: "absent"}
 
 
 def test_remove_by_face_name(deck):

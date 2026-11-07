@@ -65,6 +65,13 @@ def test_lookup_fields(deck):
     assert keeper["game_changer"] is False
 
 
+def test_lookup_fields_back_face_without_cost(deck):
+    # Both backs have no mana cost: the card's cost is the front's, with nothing joined after it.
+    keeper, elbrus = (e["card"] for e in lookup(deck, "Bloodline Keeper", "Elbrus, the Binding Blade"))
+    assert keeper["mana_cost"] == "{2}{B}{B}"
+    assert elbrus["mana_cost"] == "{7}"
+
+
 def test_lookup_fields_same_every_time(deck, unreachable_url):
     names = ("Sol Ring", "Vampiric Tutor", "Bloodline Keeper", "Black Lotus")
     first = deck.run("lookup", *names).stdout

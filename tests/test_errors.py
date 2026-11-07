@@ -97,3 +97,47 @@ def test_lookup_fields_corrupt_cache_refetched(deck, scryfall):
     assert fetched == ["Sol Ring", "Vampiric Tutor", "Mana Vault"], "a file that is not a card is treated as missing"
     rewritten = json.loads((cache / "sol-ring.json").read_text(encoding="utf-8"))
     assert rewritten["name"] == scryfall_card("Sol Ring")["name"]
+
+
+def _break(deck: Deckwright, how: str):
+    """Damages deck.json inside while keeping it valid JSON, wherever the layout keeps the part."""
+    data = json.loads(deck.deck_file.read_text(encoding="utf-8"))
+    done = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            if how == "commander" and node.get("name") == "Meren of Clan Nel Toth" and "color_identity" in node:
+                del node["color_identity"]
+                done.append(how)
+            if how == "card" and "card" in node and not done:
+                del node["card"]
+                done.append(how)
+            if how == "target" and node.get("name") == "Lands" and node.get("target") == 38:
+                node["target"] = "38"
+                done.append(how)
+            for value in list(node.values()):
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(data)
+    assert done, f"no part of deck.json to damage for {how!r}"
+    deck.deck_file.write_text(json.dumps(data), encoding="utf-8")
+
+
+def test_exit_usage_deck_file_wrong_inside(deck):
+    for how in ("commander", "card", "target"):
+        deck.deck_file.unlink(missing_ok=True)
+        deck.new()
+        deck.add("Sol Ring", "Ramp")
+        _break(deck, how)
+        for args in (("tally",), ("page", "--out", "deck.html")):
+            proc = refused(deck, *args)
+            assert proc.returncode == 2, how
+
+
+def test_exit_usage_page_folder_missing(deck):
+    deck.new()
+    refused(deck, "page", "--out", "no-such-folder/deck.html")
+    assert not (deck.cwd / "no-such-folder").exists()
