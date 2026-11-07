@@ -15,11 +15,12 @@ Every lookup, count, check and the deck page come from a small Python script tha
 
 ### In the Claude app
 
-Install it once, and it is there on every surface you sign in to: web, desktop and mobile.
+Add the marketplace and the plugin once, on the web or in the desktop app. They are saved to your account, so the skill is there in chat wherever you sign in. Plugins need a paid plan.
 
-1. Download this repository's `plugins/deckwright/skills/interview` folder as a zip (for example: Code → Download ZIP, then zip the `interview` folder on its own).
-2. Open **Customize → Skills**, choose **+**, then **Create skill → Upload a skill**, and pick the zip.
-3. Make sure the skill is turned on, and that code execution is on (above).
+1. Open **Customize** in the left sidebar and go to **Plugins**.
+2. Choose **Add → Add marketplace → Add from a repository**, and enter `mattiasthalen/deckwright`.
+3. On the **Discover** tab, pick **deckwright** and choose **Add**.
+4. Make sure code execution is on (above).
 
 Then start a chat with "help me build a commander deck".
 
