@@ -1,0 +1,102 @@
+{
+  "body": {
+    "artist": "Chippy",
+    "artist_ids": [
+      "a36f01a0-e51a-48b2-a556-b9b3bc73f969"
+    ],
+    "booster": true,
+    "border_color": "black",
+    "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+    "cmc": 2.0,
+    "collector_number": "126",
+    "color_identity": [],
+    "colors": [],
+    "digital": false,
+    "edhrec_rank": 674,
+    "finishes": [
+      "nonfoil",
+      "foil"
+    ],
+    "flavor_text": "Part prison, part home.",
+    "foil": true,
+    "frame": "1997",
+    "full_art": false,
+    "game_changer": true,
+    "games": [
+      "paper",
+      "mtgo"
+    ],
+    "id": "9ddc9fe1-17c8-4e1d-aeb8-c4214e881280",
+    "illustration_id": "9b7cd24d-94e8-414f-925d-f77e934e8bbc",
+    "keywords": [],
+    "lang": "en",
+    "layout": "normal",
+    "legalities": {
+      "alchemy": "not_legal",
+      "brawl": "not_legal",
+      "commander": "legal",
+      "competitivebrawl": "not_legal",
+      "duel": "banned",
+      "future": "not_legal",
+      "gladiator": "not_legal",
+      "historic": "not_legal",
+      "legacy": "legal",
+      "modern": "not_legal",
+      "oathbreaker": "legal",
+      "oldschool": "not_legal",
+      "pauper": "not_legal",
+      "paupercommander": "not_legal",
+      "penny": "not_legal",
+      "pioneer": "not_legal",
+      "predh": "legal",
+      "premodern": "banned",
+      "standard": "not_legal",
+      "standardbrawl": "not_legal",
+      "timeless": "not_legal",
+      "tlr": "legal",
+      "vintage": "legal"
+    },
+    "mana_cost": "{2}",
+    "mtgo_foil_id": 12552,
+    "mtgo_id": 12551,
+    "multiverse_ids": [
+      12626
+    ],
+    "name": "Grim Monolith",
+    "nonfoil": true,
+    "object": "card",
+    "oracle_id": "229d6627-1292-4ae1-8849-b0f956fa6540",
+    "oracle_text": "This artifact doesn't untap during your untap step.\n{T}: Add {C}{C}{C}.\n{4}: Untap this artifact.",
+    "oversized": false,
+    "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A229d6627-1292-4ae1-8849-b0f956fa6540&unique=prints",
+    "produced_mana": [
+      "C"
+    ],
+    "promo": false,
+    "rarity": "rare",
+    "related_uris": {
+      "edhrec": "https://edhrec.com/route/?cc=Grim+Monolith",
+      "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=12626&printed=false"
+    },
+    "released_at": "1999-02-15",
+    "reprint": false,
+    "reserved": true,
+    "rulings_uri": "https://api.scryfall.com/cards/9ddc9fe1-17c8-4e1d-aeb8-c4214e881280/rulings",
+    "scryfall_set_uri": "https://scryfall.com/sets/ulg?utm_source=api",
+    "scryfall_uri": "https://scryfall.com/card/ulg/126/grim-monolith?utm_source=api",
+    "set": "ulg",
+    "set_id": "78ced61b-4b8a-4b33-b6b2-f5bd66f1a75a",
+    "set_name": "Urza's Legacy",
+    "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Aulg&unique=prints",
+    "set_type": "expansion",
+    "set_uri": "https://api.scryfall.com/sets/78ced61b-4b8a-4b33-b6b2-f5bd66f1a75a",
+    "story_spotlight": false,
+    "textless": false,
+    "type_line": "Artifact",
+    "uri": "https://api.scryfall.com/cards/9ddc9fe1-17c8-4e1d-aeb8-c4214e881280",
+    "variation": false
+  },
+  "mode": "exact",
+  "q": "Grim Monolith",
+  "status": 200
+}

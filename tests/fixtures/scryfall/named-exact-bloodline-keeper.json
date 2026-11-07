@@ -1,0 +1,165 @@
+{
+  "body": {
+    "all_parts": [
+      {
+        "component": "token",
+        "id": "c5cb4398-e180-472e-8662-2a5902bafb4f",
+        "name": "Vampire",
+        "object": "related_card",
+        "type_line": "Token Creature — Vampire",
+        "uri": "https://api.scryfall.com/cards/c5cb4398-e180-472e-8662-2a5902bafb4f"
+      },
+      {
+        "component": "combo_piece",
+        "id": "668e8344-e6a5-4e85-bd8d-033d995917ae",
+        "name": "Bloodline Keeper // Lord of Lineage",
+        "object": "related_card",
+        "type_line": "Creature — Vampire // Creature — Vampire",
+        "uri": "https://api.scryfall.com/cards/668e8344-e6a5-4e85-bd8d-033d995917ae"
+      },
+      {
+        "component": "combo_piece",
+        "id": "99ce1bee-8f95-4284-8e06-9de9bfcb53b5",
+        "name": "Innistrad Checklist",
+        "object": "related_card",
+        "type_line": "Card",
+        "uri": "https://api.scryfall.com/cards/99ce1bee-8f95-4284-8e06-9de9bfcb53b5"
+      }
+    ],
+    "artist": "Jason Chan",
+    "artist_ids": [
+      "8062d5a9-51b6-4822-933f-fa9e9dba8416"
+    ],
+    "booster": true,
+    "border_color": "black",
+    "card_faces": [
+      {
+        "artist": "Jason Chan",
+        "artist_id": "8062d5a9-51b6-4822-933f-fa9e9dba8416",
+        "colors": [
+          "B"
+        ],
+        "illustration_id": "a30b5d9b-b969-4308-9184-e1b8861b967a",
+        "mana_cost": "{2}{B}{B}",
+        "name": "Bloodline Keeper",
+        "object": "card_face",
+        "oracle_text": "Flying\n{T}: Create a 2/2 black Vampire creature token with flying.\n{B}: Transform this creature. Activate only if you control five or more Vampires.",
+        "power": "3",
+        "toughness": "3",
+        "type_line": "Creature — Vampire"
+      },
+      {
+        "artist": "Jason Chan",
+        "artist_id": "8062d5a9-51b6-4822-933f-fa9e9dba8416",
+        "color_indicator": [
+          "B"
+        ],
+        "colors": [
+          "B"
+        ],
+        "illustration_id": "87c28b97-670f-491c-9288-c2abe06f2403",
+        "mana_cost": "",
+        "name": "Lord of Lineage",
+        "object": "card_face",
+        "oracle_text": "Flying\nOther Vampire creatures you control get +2/+2.\n{T}: Create a 2/2 black Vampire creature token with flying.",
+        "power": "5",
+        "toughness": "5",
+        "type_line": "Creature — Vampire"
+      }
+    ],
+    "cmc": 4.0,
+    "collector_number": "98",
+    "color_identity": [
+      "B"
+    ],
+    "digital": false,
+    "edhrec_rank": 2551,
+    "finishes": [
+      "nonfoil",
+      "foil"
+    ],
+    "foil": true,
+    "frame": "2015",
+    "full_art": false,
+    "game_changer": false,
+    "games": [
+      "paper",
+      "mtgo"
+    ],
+    "id": "60658907-dd63-478d-a66a-123e4e9d2a00",
+    "keywords": [
+      "Flying",
+      "Transform"
+    ],
+    "lang": "en",
+    "layout": "transform",
+    "legalities": {
+      "alchemy": "not_legal",
+      "brawl": "legal",
+      "commander": "legal",
+      "competitivebrawl": "legal",
+      "duel": "legal",
+      "future": "not_legal",
+      "gladiator": "legal",
+      "historic": "legal",
+      "legacy": "legal",
+      "modern": "legal",
+      "oathbreaker": "legal",
+      "oldschool": "not_legal",
+      "pauper": "not_legal",
+      "paupercommander": "not_legal",
+      "penny": "legal",
+      "pioneer": "not_legal",
+      "predh": "not_legal",
+      "premodern": "not_legal",
+      "standard": "not_legal",
+      "standardbrawl": "not_legal",
+      "timeless": "legal",
+      "tlr": "not_legal",
+      "vintage": "legal"
+    },
+    "mtgo_id": 135582,
+    "multiverse_ids": [
+      685927
+    ],
+    "name": "Bloodline Keeper // Lord of Lineage",
+    "nonfoil": true,
+    "object": "card",
+    "oracle_id": "434e82b5-abd4-41ac-a5b1-2dd01c667374",
+    "oversized": false,
+    "penny_rank": 2897,
+    "preview": {
+      "previewed_at": "2025-01-07",
+      "source": "Wizards of the Coast",
+      "source_uri": ""
+    },
+    "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A434e82b5-abd4-41ac-a5b1-2dd01c667374&unique=prints",
+    "promo": false,
+    "rarity": "mythic",
+    "related_uris": {
+      "edhrec": "https://edhrec.com/route/?cc=Bloodline+Keeper",
+      "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=685927&printed=false"
+    },
+    "released_at": "2025-01-24",
+    "reprint": true,
+    "reserved": false,
+    "rulings_uri": "https://api.scryfall.com/cards/60658907-dd63-478d-a66a-123e4e9d2a00/rulings",
+    "scryfall_set_uri": "https://scryfall.com/sets/inr?utm_source=api",
+    "scryfall_uri": "https://scryfall.com/card/inr/98/bloodline-keeper-lord-of-lineage?utm_source=api",
+    "security_stamp": "oval",
+    "set": "inr",
+    "set_id": "b9618c8c-9f31-4b42-9798-2991893c27bf",
+    "set_name": "Innistrad Remastered",
+    "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Ainr&unique=prints",
+    "set_type": "masters",
+    "set_uri": "https://api.scryfall.com/sets/b9618c8c-9f31-4b42-9798-2991893c27bf",
+    "story_spotlight": false,
+    "textless": false,
+    "type_line": "Creature — Vampire // Creature — Vampire",
+    "uri": "https://api.scryfall.com/cards/60658907-dd63-478d-a66a-123e4e9d2a00",
+    "variation": false
+  },
+  "mode": "exact",
+  "q": "Bloodline Keeper",
+  "status": 200
+}

@@ -1,0 +1,125 @@
+{
+  "body": {
+    "all_parts": [
+      {
+        "component": "combo_piece",
+        "id": "2e781bfd-f8cb-4d20-b977-4359f3a21311",
+        "name": "Forest",
+        "object": "related_card",
+        "type_line": "Basic Land — Forest",
+        "uri": "https://api.scryfall.com/cards/2e781bfd-f8cb-4d20-b977-4359f3a21311"
+      },
+      {
+        "component": "combo_piece",
+        "id": "aed8ae06-ae54-4a16-8830-6547164ce6ae",
+        "name": "Gilt-Leaf Alchemist",
+        "object": "related_card",
+        "type_line": "Creature — Elf Druid",
+        "uri": "https://api.scryfall.com/cards/aed8ae06-ae54-4a16-8830-6547164ce6ae"
+      }
+    ],
+    "artist": "Samuele Bandini",
+    "artist_ids": [
+      "f16f5903-990f-4ffe-88fb-fd54d0d8752b"
+    ],
+    "booster": false,
+    "border_color": "black",
+    "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+    "cmc": 0.0,
+    "collector_number": "301",
+    "color_identity": [
+      "G"
+    ],
+    "colors": [],
+    "digital": false,
+    "finishes": [
+      "nonfoil",
+      "foil"
+    ],
+    "flavor_text": "\"You have only one mission, minions: protect me with your lives. In order to do this, you need to wear down Captain Britain's psyche. In order to do *that*, you need to burn down her precious lands. Am I understood?\"\n—Morgan Le Fay",
+    "foil": true,
+    "frame": "2015",
+    "full_art": false,
+    "game_changer": false,
+    "games": [
+      "paper",
+      "mtgo",
+      "arena"
+    ],
+    "id": "2e781bfd-f8cb-4d20-b977-4359f3a21311",
+    "illustration_id": "8257a642-c33f-4926-b2b1-0617a2ef48c2",
+    "keywords": [],
+    "lang": "en",
+    "layout": "normal",
+    "legalities": {
+      "alchemy": "legal",
+      "brawl": "legal",
+      "commander": "legal",
+      "competitivebrawl": "legal",
+      "duel": "legal",
+      "future": "legal",
+      "gladiator": "legal",
+      "historic": "legal",
+      "legacy": "legal",
+      "modern": "legal",
+      "oathbreaker": "legal",
+      "oldschool": "not_legal",
+      "pauper": "legal",
+      "paupercommander": "legal",
+      "penny": "legal",
+      "pioneer": "legal",
+      "predh": "legal",
+      "premodern": "legal",
+      "standard": "legal",
+      "standardbrawl": "legal",
+      "timeless": "legal",
+      "tlr": "legal",
+      "vintage": "legal"
+    },
+    "mana_cost": "",
+    "multiverse_ids": [],
+    "name": "Forest",
+    "nonfoil": true,
+    "object": "card",
+    "oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6",
+    "oracle_text": "({T}: Add {G}.)",
+    "oversized": false,
+    "preview": {
+      "previewed_at": "2026-10-09",
+      "source": "TheGamer",
+      "source_uri": "https://www.thegamer.com/mtg-marvel-darkhold-destiny-universes-beyond-reveal/"
+    },
+    "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3Ab34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6&unique=prints",
+    "produced_mana": [
+      "G"
+    ],
+    "promo": false,
+    "promo_types": [
+      "universesbeyond"
+    ],
+    "rarity": "common",
+    "related_uris": {
+      "edhrec": "https://edhrec.com/route/?cc=Forest"
+    },
+    "released_at": "2027-04-09",
+    "reprint": true,
+    "reserved": false,
+    "rulings_uri": "https://api.scryfall.com/cards/2e781bfd-f8cb-4d20-b977-4359f3a21311/rulings",
+    "scryfall_set_uri": "https://scryfall.com/sets/mdd?utm_source=api",
+    "scryfall_uri": "https://scryfall.com/card/mdd/301/forest?utm_source=api",
+    "set": "mdd",
+    "set_id": "1c75c20b-221e-47c5-83be-f3be4c15087d",
+    "set_name": "Marvel: Darkhold Destiny",
+    "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Amdd&unique=prints",
+    "set_type": "expansion",
+    "set_uri": "https://api.scryfall.com/sets/1c75c20b-221e-47c5-83be-f3be4c15087d",
+    "story_spotlight": false,
+    "textless": false,
+    "type_line": "Basic Land — Forest",
+    "uri": "https://api.scryfall.com/cards/2e781bfd-f8cb-4d20-b977-4359f3a21311",
+    "variation": false
+  },
+  "mode": "exact",
+  "q": "Forest",
+  "status": 200
+}

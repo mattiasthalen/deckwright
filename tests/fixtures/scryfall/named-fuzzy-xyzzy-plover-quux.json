@@ -1,0 +1,11 @@
+{
+  "body": {
+    "code": "not_found",
+    "details": "No cards found matching “Xyzzy Plover Quux”",
+    "object": "error",
+    "status": 404
+  },
+  "mode": "fuzzy",
+  "q": "Xyzzy Plover Quux",
+  "status": 404
+}

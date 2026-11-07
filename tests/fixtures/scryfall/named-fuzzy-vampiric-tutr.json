@@ -1,0 +1,105 @@
+{
+  "body": {
+    "artist": "Raymond Swanland",
+    "artist_ids": [
+      "e956bacc-077d-4c12-b6bc-ba798b718af9"
+    ],
+    "booster": true,
+    "border_color": "black",
+    "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+    "cmc": 1.0,
+    "collector_number": "314",
+    "color_identity": [
+      "B"
+    ],
+    "colors": [
+      "B"
+    ],
+    "digital": false,
+    "edhrec_rank": 117,
+    "finishes": [
+      "nonfoil",
+      "foil"
+    ],
+    "flavor_text": "True power is achieved through blood and sweat. But mostly blood.",
+    "foil": true,
+    "frame": "1997",
+    "full_art": false,
+    "game_changer": true,
+    "games": [
+      "paper",
+      "mtgo"
+    ],
+    "id": "77ad722a-d6f3-483e-bd13-e0923cc8a265",
+    "illustration_id": "743cdaee-a2f9-419e-b94f-5c575a72d083",
+    "keywords": [],
+    "lang": "en",
+    "layout": "normal",
+    "legalities": {
+      "alchemy": "not_legal",
+      "brawl": "legal",
+      "commander": "legal",
+      "competitivebrawl": "legal",
+      "duel": "banned",
+      "future": "not_legal",
+      "gladiator": "legal",
+      "historic": "banned",
+      "legacy": "banned",
+      "modern": "not_legal",
+      "oathbreaker": "legal",
+      "oldschool": "not_legal",
+      "pauper": "not_legal",
+      "paupercommander": "not_legal",
+      "penny": "not_legal",
+      "pioneer": "not_legal",
+      "predh": "legal",
+      "premodern": "banned",
+      "standard": "not_legal",
+      "standardbrawl": "not_legal",
+      "timeless": "legal",
+      "tlr": "banned",
+      "vintage": "restricted"
+    },
+    "mana_cost": "{B}",
+    "mtgo_id": 107313,
+    "multiverse_ids": [
+      601383
+    ],
+    "name": "Vampiric Tutor",
+    "nonfoil": true,
+    "object": "card",
+    "oracle_id": "ededbdae-d9dc-4206-9335-d7158f2d7700",
+    "oracle_text": "Search your library for a card, then shuffle and put that card on top. You lose 2 life.",
+    "oversized": false,
+    "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3Aededbdae-d9dc-4206-9335-d7158f2d7700&unique=prints",
+    "promo": false,
+    "promo_types": [
+      "boosterfun"
+    ],
+    "rarity": "mythic",
+    "related_uris": {
+      "edhrec": "https://edhrec.com/route/?cc=Vampiric+Tutor",
+      "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=601383&printed=false"
+    },
+    "released_at": "2023-01-13",
+    "reprint": true,
+    "reserved": false,
+    "rulings_uri": "https://api.scryfall.com/cards/77ad722a-d6f3-483e-bd13-e0923cc8a265/rulings",
+    "scryfall_set_uri": "https://scryfall.com/sets/dmr?utm_source=api",
+    "scryfall_uri": "https://scryfall.com/card/dmr/314/vampiric-tutor?utm_source=api",
+    "set": "dmr",
+    "set_id": "ca4c2884-e539-4b7f-980d-5d6a50220f2a",
+    "set_name": "Dominaria Remastered",
+    "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Admr&unique=prints",
+    "set_type": "masters",
+    "set_uri": "https://api.scryfall.com/sets/ca4c2884-e539-4b7f-980d-5d6a50220f2a",
+    "story_spotlight": false,
+    "textless": false,
+    "type_line": "Instant",
+    "uri": "https://api.scryfall.com/cards/77ad722a-d6f3-483e-bd13-e0923cc8a265",
+    "variation": false
+  },
+  "mode": "fuzzy",
+  "q": "Vampiric Tutr",
+  "status": 200
+}
