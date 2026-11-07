@@ -164,7 +164,7 @@ def fixed_fields(card: dict) -> dict:
     def joined(key: str, between: str) -> str:
         if key in card:
             return card[key]
-        return between.join(face.get(key, "") for face in faces)
+        return between.join(face[key] for face in faces if face.get(key))
 
     return {
         "name": card["name"],
@@ -205,7 +205,10 @@ def read_deck(path: Path) -> dict:
         raise Failure(f"No deck file at {path.name}. Start one with: new --template <name> --commander NAME", 2)
     try:
         deck = json.loads(path.read_text(encoding="utf-8"))
-        deck["template"]["categories"], deck["commander"]["name"], deck["cards"]
+        deck["commander"]["name"], deck["cards"]
+        targets = [c["target"] for c in deck["template"]["categories"]] + [deck["template"]["bracket_target"]]
+        if not all(type(n) is int for n in targets):
+            raise TypeError("a target is not a whole number")
     except (json.JSONDecodeError, UnicodeDecodeError, KeyError, TypeError) as error:
         raise Failure(
             f"The deck file {path.name} is not a readable deck ({error}). Start a new one with new.", 2
@@ -261,7 +264,7 @@ def by_name(name: str):
 def counts_in(entry: dict, category: dict) -> bool:
     word = category.get("from_type_line")
     if word:
-        return re.search(rf"\b{re.escape(word)}\b", entry["card"]["type_line"]) is not None
+        return re.search(rf"\b{re.escape(word)}\b", entry["card"]["type_line"], re.I) is not None
     return category["name"] in entry["categories"]
 
 
@@ -286,7 +289,7 @@ def tally(deck: dict) -> dict:
 
     def copies_allowed(card: dict) -> float:
         text = card["oracle_text"].casefold()
-        if "Basic" in card["type_line"] or ANY_NUMBER in text:
+        if "basic" in card["type_line"].casefold() or ANY_NUMBER in text:
             return float("inf")
         up_to = UP_TO.search(text)
         if up_to:
@@ -294,9 +297,8 @@ def tally(deck: dict) -> dict:
             return int(word) if word.isdigit() else NUMBER_WORDS.get(word, 1)
         return 1
 
-    can_lead = ("Legendary" in commander["type_line"] and "Creature" in commander["type_line"]) or (
-        "can be your commander" in commander["oracle_text"]
-    )
+    front = commander["type_line"].split(" // ")[0]
+    can_lead = ("Legendary" in front and "Creature" in front) or ("can be your commander" in commander["oracle_text"])
     checks = {
         "singleton": [
             e["card"]["name"]
@@ -312,6 +314,9 @@ def tally(deck: dict) -> dict:
     game_changers = {card["name"] for card in [commander, *(e["card"] for e in looked)] if card["game_changer"]}
     target = deck["template"]["bracket_target"]
     lowest = lowest_bracket(len(game_changers))
+    # Bracket 1 differs from 2 by intent, not by count, so a target of 1 is judged as 2.
+    judged = max(target, 2)
+    allowed = bracket_rules()[judged].get("max_game_changers")
     return {
         "template": deck["template"]["name"],
         "commander": commander["name"],
@@ -323,17 +328,27 @@ def tally(deck: dict) -> dict:
             "target": target,
             "lowest": lowest,
             "game_changers": sorted(game_changers, key=by_name),
-            # Bracket 1 differs from 2 by intent, not by count, so a target of 1 is judged as 2.
-            "over": lowest > max(target, 2),
+            "over": lowest > judged,
+            **({} if allowed is None else {"game_changers_allowed": allowed}),
         },
         "player_text": sorted((e["card"]["name"] for e in entries if e.get("from_player")), key=by_name),
     }
 
 
-def lowest_bracket(game_changers: int) -> int:
+def bracket_rules() -> dict[int, dict]:
+    """Each bracket's rule from brackets.toml; a bracket the file does not list follows the next lower one."""
     rules = tomllib.loads((HERE / "brackets.toml").read_text(encoding="utf-8"))
-    brackets = sorted(rules["brackets"], key=lambda b: b["bracket"])
-    return next(b["bracket"] for b in brackets if game_changers <= b.get("max_game_changers", game_changers))
+    listed = {b["bracket"]: b for b in rules["brackets"]}
+    by_bracket, last = {}, listed[min(listed)]
+    for bracket in range(1, 6):
+        last = listed.get(bracket, last)
+        by_bracket[bracket] = last
+    return by_bracket
+
+
+def lowest_bracket(game_changers: int) -> int:
+    rules = bracket_rules()
+    return next(b for b in range(2, 6) if game_changers <= rules[b].get("max_game_changers", game_changers))
 
 
 # The page ----------------------------------------------------------------------------
@@ -449,7 +464,16 @@ def run(args) -> str | None:
         return as_json(tally(deck))
 
     deck = read_deck(deck_path)
+    try:
+        return changed(args, deck, deck_path, scryfall)
+    except (KeyError, TypeError, ValueError, AttributeError) as error:
+        raise Failure(
+            f"The deck file {deck_path.name} is not a readable deck ({error!r}). Start a new one with new.", 2
+        ) from None
 
+
+def changed(args, deck: dict, deck_path: Path, scryfall: Scryfall) -> str | None:
+    """Runs a command on a read deck, writing the deck only when the command and its tally succeed."""
     if args.command == "add":
         categories = category_names(deck, args.category or [])
         at_least(1, args.count, "--count")
@@ -464,7 +488,7 @@ def run(args) -> str | None:
                     "--from-player TEXT --type-line LINE.",
                     failure.code,
                 ) from None
-        entry = recorded(deck, card["name"])
+        entry = next((e for name in names_of(card) if (e := recorded(deck, name))), None)
         if entry is None:
             entry = {"card": card, "count": 0, "categories": []}
             deck["cards"].append(entry)
@@ -496,17 +520,25 @@ def run(args) -> str | None:
         return as_json(tally(deck))
     elif args.command == "page":
         out = Path(args.out) if args.out else deck_path.parent / "deck.html"
+        if not out.parent.is_dir():
+            raise Failure(f"There is no folder {out.parent} to write the page to.", 2)
         out.write_text(render_page(deck), encoding="utf-8")
         return f"Wrote {out}\n"
 
+    counted = as_json(tally(deck))
     write_deck(deck_path, deck)
-    return as_json(tally(deck))
+    return counted
 
 
 def recorded(deck: dict, name: str) -> dict | None:
     """The deck's entry for a card, matched by its full name or a face name as Scryfall matches names."""
-    wanted = comparable(name)
-    return next((e for e in deck["cards"] if wanted in map(comparable, names_of(e["card"]))), None)
+    wanted = matching_key(name)
+    return next((e for e in deck["cards"] if wanted in map(matching_key, names_of(e["card"]))), None)
+
+
+def matching_key(name: str) -> str:
+    """The comparable name, or the casefolded name where nothing comparable is left (a name in another script)."""
+    return comparable(name) or name.casefold()
 
 
 def at_least(lowest: int, n: int, what: str) -> None:
@@ -537,7 +569,7 @@ def parser() -> argparse.ArgumentParser:
     add = command("add", "Record a card the player said yes to.")
     add.add_argument("name", metavar="NAME")
     add.add_argument("--count", type=int, default=1)
-    add.add_argument("--category", nargs="+", metavar="C")
+    add.add_argument("--category", nargs="+", action="extend", metavar="C")
     add.add_argument("--from-player", metavar="TEXT", help="the card's text as the player gave it; no lookup")
     add.add_argument(
         "--type-line", metavar="LINE", help="with --from-player: the card's type line as the player gave it"
