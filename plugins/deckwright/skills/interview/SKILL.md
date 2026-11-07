@@ -21,7 +21,7 @@ Run every command from one working folder for the whole conversation, the one th
 uv run <this skill's folder>/deck.py <command> …
 ```
 
-Where `uv` is missing, use `python3` (3.11 or later) in its place. Card names go in double quotes. `uv run <folder>/deck.py --help` lists the commands.
+Where `uv` is missing, use `python3` (3.11 or later) in its place. Card names go in double quotes. Give the script's full path in every command, and run `tally` and `page` as commands of their own, so the player can follow what was run. `uv run <folder>/deck.py --help` lists the commands.
 
 | Command | Does |
 |---|---|
