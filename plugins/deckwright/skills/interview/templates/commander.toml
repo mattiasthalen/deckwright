@@ -13,24 +13,24 @@ from_type_line = "Land"
 [[categories]]
 name = "Ramp"
 target = 10
-counts_when = "it puts extra mana or extra lands in play, ahead of one land a turn"
+counts_when = "it puts extra mana or lands into play beyond the land drop"
 
 [[categories]]
 name = "Card advantage"
 target = 12
-counts_when = "it leaves you with more cards to use than it cost: draw, or card selection that nets cards"
+counts_when = "it starts as one card and gives you more than one card"
 
 [[categories]]
 name = "Targeted disruption"
 target = 12
-counts_when = "it removes, counters or neutralises one opposing threat"
+counts_when = "one card deals with one opponent's thing: removal, bounce, counter, phasing"
 
 [[categories]]
 name = "Mass disruption"
 target = 6
-counts_when = "it removes or neutralises many opposing permanents at once, such as a board wipe"
+counts_when = "one card deals with many things: board wipes, mass artifact or enchantment removal, wide taxes, graveyard hate"
 
 [[categories]]
 name = "Plan"
 target = 30
-counts_when = "it advances the deck's way of winning or its theme"
+counts_when = "it does what this deck is trying to do"

@@ -234,6 +234,7 @@ def tally(deck: dict) -> dict:
         categories.append(
             {
                 "name": category["name"],
+                "counts_when": category["counts_when"],
                 "target": deck["targets"][category["name"]],
                 "count": sum(e["count"] for e in counted),
                 "cards": sorted({e["card"]["name"] for e in counted}, key=by_name),
