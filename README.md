@@ -8,17 +8,17 @@ The first template is Commander, after The Command Zone's deckbuilding template 
 
 Every lookup, count, check and the deck page come from a small Python script that ships with the skill (`plugins/deckwright/skills/interview/deck.py`, standard library only, run with `uv` or Python 3.11+). Without code execution deckwright says so and does not start.
 
-- **Claude app** (web, desktop, mobile): Settings → Capabilities → turn on **Code execution and file creation**. The script needs to reach `api.scryfall.com`; if your network settings for code execution limit domains, allow it.
+- **Claude app** (web, desktop, mobile): Settings → Capabilities → turn on **Code execution and file creation** (called **Create and edit files** in newer versions). The script needs to reach `api.scryfall.com`. On a Team or Enterprise plan, code execution's network access is limited by default and only an organisation owner can allow a domain: ask yours to allow `api.scryfall.com`. Without it, deckwright asks you for each card's text instead of looking it up.
 - **Claude Code**: allow the Bash tool when asked.
 
 ## Install
 
 ### In the Claude app
 
-Install it once in Settings, and it is there on every surface you sign in to: web, desktop and mobile.
+Install it once, and it is there on every surface you sign in to: web, desktop and mobile.
 
 1. Download this repository's `plugins/deckwright/skills/interview` folder as a zip (for example: Code → Download ZIP, then zip the `interview` folder on its own).
-2. Open Settings → Capabilities → Skills, choose **Upload skill**, and pick the zip.
+2. Open **Customize → Skills**, choose **+**, then **Create skill → Upload a skill**, and pick the zip.
 3. Make sure the skill is turned on, and that code execution is on (above).
 
 Then start a chat with "help me build a commander deck".
