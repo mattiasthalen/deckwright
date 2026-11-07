@@ -3,5 +3,5 @@
 type: regex
 target: trace
 flags: i
-pattern: '^(?:(?!"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))add(?:\b|(?<=\\n))(?:[^"\\]|\\.)*?Sign in Blood)[\s\S])*?"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?(?:Sign in Blood(?=(?:(?!Sol Ring|\?)(?:[^"\\]|\\.)){0,600}?(?:(?:\b|(?<=\\n))card advantage(?:\b|(?<=\\n))))|(?:(?:\b|(?<=\\n))card advantage(?:\b|(?<=\\n)))(?=(?:(?!Sol Ring|\?)(?:[^"\\]|\\.)){0,300}?(?:Sign in Blood)))'
+pattern: '^(?:(?<![^\n])(?![^\n]*"(?:name":"Bash"|role":"assistant"))(?=(?<L1>[^\n]*\n))\k<L1>|(?!(?<![^\n])(?![^\n]*"(?:name":"Bash"|role":"assistant")))(?!"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))add(?:\b|(?<=\\n))(?:[^"\\]|\\.)*?Sign in Blood)[\s\S])*?"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?(?:Sign in Blood(?=(?:(?!Sol Ring|\?)(?:[^"\\]|\\.)){0,600}?(?:(?:\b|(?<=\\n))card advantage(?:\b|(?<=\\n))))|(?:(?:\b|(?<=\\n))card advantage(?:\b|(?<=\\n)))(?=(?:(?!Sol Ring|\?)(?:[^"\\]|\\.)){0,300}?(?:Sign in Blood)))'
 ---

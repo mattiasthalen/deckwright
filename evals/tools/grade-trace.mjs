@@ -3,14 +3,22 @@
 //
 //   node evals/tools/grade-trace.mjs evals/<case>/graders <trace.jsonl> [<deck.html>]
 //
+// The runner is a Bun binary, so its regexes run on JavaScriptCore, which gives up on a match that
+// backtracks too much and reports no match, where V8 (node) finds one. Run from node, this script
+// runs itself again under `bun` (on PATH, or $BUN) and prints Bun's verdicts, which are the runner's,
+// marking `ENGINES DIFFER` where V8's differ: such a grader is past JavaScriptCore's limit and must be
+// made cheaper. Without bun it prints V8's verdicts and says so on stderr.
+//
 // It reads graders as the runner was seen to on 2026-11-07, which its documentation does not state:
 // a regex is a JavaScript RegExp with only the grader's flags (no m, so ^ is the start of the trace);
 // a trace regex sees the whole trace.jsonl as one string; tool_used counts the tool_use blocks of the
 // trace's assistant lines whose input, serialised as compact JSON, matches input_match (min 1, max
 // unbounded by default); last_message is the result line's text. llm graders are listed, not judged.
 // The frontmatter reader takes only this suite's one-line forms; a pattern is single-quoted YAML.
+import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const [graderDir, tracePath, pagePath] = process.argv.slice(2);
 if (!graderDir || !tracePath) {
@@ -45,7 +53,7 @@ for (const line of trace.split('\n')) {
   if (record.type === 'result') lastMessage = record.result ?? '';
 }
 
-let failed = 0;
+const results = [];
 for (const file of fs.readdirSync(graderDir).filter((f) => f.endsWith('.md')).sort()) {
   const grader = frontmatter(fs.readFileSync(path.join(graderDir, file), 'utf8'));
   const name = file.replace(/\.md$/, '');
@@ -55,7 +63,7 @@ for (const file of fs.readdirSync(graderDir).filter((f) => f.endsWith('.md')).so
     const target = grader.target === 'trace' ? trace
       : grader.target === 'last_message' ? lastMessage
       : grader.target.path === 'deck.html' ? page : null;
-    if (target === null) { console.log(`skip  ${name}  (no ${grader.target.path})`); continue; }
+    if (target === null) { results.push(`skip  ${name}  (no ${grader.target.path})`); continue; }
     const match = new RegExp(grader.pattern, grader.flags || '').exec(target);
     passed = grader.match === 'not_contains' ? !match : Boolean(match);
     evidence = match ? `matched …${JSON.stringify(match[0].slice(-120))}` : 'no match';
@@ -68,14 +76,30 @@ for (const file of fs.readdirSync(graderDir).filter((f) => f.endsWith('.md')).so
     passed = count >= min && count <= max;
     evidence = `${count} call(s)`;
   } else if (grader.type === 'file_exists') {
-    if (grader.path !== 'deck.html' && grader.path !== '*.html') { console.log(`skip  ${name}`); continue; }
+    if (grader.path !== 'deck.html' && grader.path !== '*.html') { results.push(`skip  ${name}`); continue; }
     passed = page !== null;
     evidence = page !== null ? 'page given' : 'no page given';
   } else {
-    console.log(`llm   ${name}`);
+    results.push(`llm   ${name}`);
     continue;
   }
-  if (!passed) failed += 1;
-  console.log(`${passed ? 'pass' : 'FAIL'}  ${name}  ${evidence}`);
+  results.push(`${passed ? 'pass' : 'FAIL'}  ${name}  ${evidence}`);
 }
-process.exit(failed ? 1 : 0);
+
+let shown = results;
+if (typeof Bun === 'undefined' && !process.env.GRADE_TRACE_CHILD) {
+  const bun = spawnSync(process.env.BUN || 'bun', [fileURLToPath(import.meta.url), ...process.argv.slice(2)], {
+    encoding: 'utf8', env: { ...process.env, GRADE_TRACE_CHILD: '1' }, maxBuffer: 1 << 26,
+  });
+  if (bun.error || bun.status > 1) {
+    console.error('grade-trace: bun not found; these are V8\'s verdicts, which can pass a regex the runner fails');
+  } else {
+    const v8 = new Map(results.map((line) => [line.split(/\s+/)[1], line.split(/\s+/)[0]]));
+    shown = bun.stdout.trimEnd().split('\n').map((line) => {
+      const [verdict, name] = line.split(/\s+/);
+      return v8.get(name) === verdict ? line : `${line}  ENGINES DIFFER: V8 says ${v8.get(name)}`;
+    });
+  }
+}
+for (const line of shown) console.log(line);
+process.exit(shown.some((line) => line.startsWith('FAIL') || line.includes('ENGINES DIFFER')) ? 1 : 0);
