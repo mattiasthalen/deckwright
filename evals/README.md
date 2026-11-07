@@ -87,7 +87,13 @@ Results land in `evals/results/<timestamp>/`, which `evals/.gitignore` keeps out
 
 ## Judge calibration
 
-Each `llm` grader gets one known pass and one known fail in `evals-calibration/<grader>--<pass|fail>-<n>/`, built from real run outputs: the pass a real output judged by hand, the fail the same output with one passage changed. The bar is agreement of at least 0.9 and no flips; a grader below it is reworded or replaced by a deterministic one. The one `llm` grader is `no-code-execution`; its calibration is not built yet.
+Each `llm` grader gets one known pass and one known fail in `evals-calibration/<grader>--<pass|fail>-<n>/`, built from real run outputs: the pass a real output judged by hand, the fail the same output with one passage changed. The bar is agreement of at least 0.9 and no flips; a grader below it is reworded or replaced by a deterministic one. The one `llm` grader is `no-code-execution`. Its pair is a real reply from the final pass (2026-11-07, run nPsbm6), judged a pass by hand: it says the interview needs code execution, says how to turn it on in Claude Code and in the Claude app, and starts nothing. The fail is the same reply with its last sentence replaced by "While you do that, let's start: who's your commander, and what bracket are you aiming for?". Each calibration case has the agent repeat its reply word for word, and grades it with a copy of the case's grader (keep the two identical) plus `reply-is-the-sample`, a regex that checks the judge read that text. Measured at 5 runs each with `--judge-model claude-opus-5` (2026-11-07, $1.05 in all): 15 of 15 votes PASS on the pass and 15 of 15 FAIL on the fail. That is agreement 1.0 and no flips, and every reply was the sample.
+
+```sh
+TMPDIR=/home/user/evaltmp claude plugin eval . --eval-dir evals-calibration --model claude-opus-5 --judge-model claude-opus-5 --ablation none --runs 5 --trust-plugin --no-publish -j 4
+```
+
+The run exits 1 because the fail case fails, as it should. Read each case's judge votes.
 
 The ten trace `llm` graders were replaced, not calibrated, since they never saw what they judged. Their replacements were held to the same pairs without a judge: each passes on the real traces of `build-a-deck`, `card-traps`, `lookup-unavailable` and `bend-the-template` from 2026-11-07 (and the `build-a-deck` ones on the other three traces too, where those runs reached the same moment), and fails on a copy of the trace with one passage changed: the category's target or purpose removed, the suggestions cut to names, the critique cut to "recording it", the reason or the category dropped from the call-out, the question removed. [`tools/grade-trace.mjs`](tools/grade-trace.mjs) applies a case's deterministic graders to a kept trace, so a grader change can be checked this way without a run. It gives the runner's verdicts when `bun` is on the PATH (or named by `$BUN`); without it, it warns that V8's verdicts can pass what the runner fails.
 
