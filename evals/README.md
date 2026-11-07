@@ -27,8 +27,8 @@ Each run's own settings deny writes to `//tmp`, and the runner makes the run's w
 
 | What | Arguments after `claude plugin eval . --model claude-opus-5 --judge-model claude-opus-5 --ablation none` |
 |---|---|
-| `build-a-deck`, `bend-the-template`, `card-traps` (Scryfall reachable) | `--tag network --scaffold --allow-tools Bash Write Edit "WebFetch(domain:api.scryfall.com)"` |
-| `lookup-unavailable` (Scryfall blocked) | `--tag offline --scaffold --allow-tools Bash Write Edit` |
+| `build-a-deck`, `bend-the-template`, `card-traps` (Scryfall reachable) | 8 of 8 at `--runs 8` (round 2, 2026-11-07, skill at a31a271, which reads `bracket.game_changers_allowed` and waits out a rate limit). Earlier: 2 of 8 in the final pass at 36268c3, 8 of 8 regraded, all six misses `starts-with-commander` past JavaScriptCore's backtracking limit (see [Known limits](#known-limits-of-the-graders)); then 2 of 3 on the fixed graders, the miss a real failure (Sol Ring recorded with no critique, Sign in Blood filed under Card advantage with no word that it is not ramp: AC16, AC17). |
+| `lookup-unavailable` (Scryfall blocked) | 7 of 8 at `--runs 8` (round 2, 2026-11-07, skill at a31a271), 8 of 8 regraded. The miss was `lookup-unavailable` on a correct reply, "Scryfall is still refused, so I can't pull Sol Ring's card data. … What's its type line and its text?"; the could-not-look-up set now takes "refused" and "can't pull, get, load or retrieve". Earlier: 8 of 8 (judge3). |
 | `no-code-execution` (no shell) | `--tag no-bash` |
 | One case, once, while iterating | its tag's arguments with `--case <name> --runs 1` in place of `--tag` |
 | While working | its tag's arguments with `--runs 3` |
@@ -59,7 +59,7 @@ From the latest `--runs 8` pass of each case on 2026-11-07, as the runner report
 | Case | Per run | `--runs 8` | Median run | Pass |
 |---|---|---|---|---|
 | `build-a-deck` | 0.65 USD | 5.18 USD | 88 s | judge6 |
-| `card-traps` | 0.69 USD | 5.52 USD | 117 s | judge7 |
+| `card-traps` | 0.69 USD | 5.52 USD | 117 s | 3 of 8 at `--runs 8` (round 2, 2026-11-07, skill at a31a271), 7 of 8 regraded. Four of the five `bracket-push-flagged` misses were correct replies the push set did not accept: "It's over your bracket … Adding it will put the deck over bracket 2." and "Adding it puts the deck over its bracket." It now takes "over" within 40 characters of "bracket" or "target", unless "not" comes just before it. The fifth miss is real: run qjRTvs flagged Vampiric Tutor as a Game Changer that puts the deck over its bracket but never asked whether to keep it, then recorded it. Earlier: 6 of 8 in the final pass, 8 of 8 regraded (`bracket-push-flagged--says-game-changer` and `unknown-card` widened). |
 | `bend-the-template` | 0.60 USD | 4.78 USD | 87 s | judge7 |
 | `lookup-unavailable` | 0.42 USD | 3.34 USD | 65 s | judge3 |
 | `no-code-execution` | 0.17 USD, of which the judge 0.01 | 1.33 USD | 20 s | judge2 |
