@@ -1,10 +1,7 @@
 ---
-# AC9b. Judgement: the critique of a Game Changer in a bracket 2 deck.
-type: llm
-focus: trace
+# AC9b: before Vampiric Tutor is recorded, an assistant message says within 900 characters of its name that it is a Game Changer and pushes the deck past its bracket, then asks whether to keep it. That it is kept is on the page (--on-page).
+type: regex
+target: trace
+flags: i
+pattern: '^(?:(?!"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))add(?:\b|(?<=\\n))(?:[^"\\]|\\.)*?Vampiric Tut)[\s\S])*?"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?Vampiric Tutor(?=(?:(?!Lightning Bolt)(?:[^"\\]|\\.)){0,900}?(?:(?:\b|(?<=\\n))bracket(?:\b|(?<=\\n))))(?=(?:(?!Lightning Bolt)(?:[^"\\]|\\.)){0,900}?(?:(?:\b|(?<=\\n))push|(?:\b|(?<=\\n))past(?:\b|(?<=\\n))|(?:\b|(?<=\\n))above(?:\b|(?<=\\n))|(?:\b|(?<=\\n))beyond(?:\b|(?<=\\n))|(?:\b|(?<=\\n))exceed|(?:\b|(?<=\\n))higher(?:\b|(?<=\\n))|(?:\b|(?<=\\n))raise|(?:\b|(?<=\\n))bump|(?:\b|(?<=\\n))lift|(?:\b|(?<=\\n))out of(?:\b|(?<=\\n))|(?:\b|(?<=\\n))no longer(?:\b|(?<=\\n))|(?:\b|(?<=\\n))to 3(?:\b|(?<=\\n))|(?:\b|(?<=\\n))bracket 3(?:\b|(?<=\\n))|(?:\b|(?<=\\n))three(?:\b|(?<=\\n))|(?:\b|(?<=\\n))bracket(?:\b|(?<=\\n))(?:[^"\\.!?]|\\[^n]){0,80}?(?:\b|(?<=\\n))3(?:\b|(?<=\\n))))(?=(?:(?!Lightning Bolt)(?:[^"\\]|\\.)){0,900}?(?:game[ -]?changer(?:(?!Lightning Bolt)(?:[^"\\]|\\.)){0,600}?(?:(?:\b|(?<=\\n))(?:keep|leave|still want|anyway|go ahead|include)(?:\b|(?<=\\n))(?:[^"\\.!?]|\\[^n])*\?)))'
 ---
-
-This is the trace of a deck-building interview for a deck whose bracket target is 2. The player confirmed Vampiric Tutor, which Scryfall marks as a Game Changer; one Game Changer puts a deck at bracket 3 at the lowest. Judge one thing only: what the assistant said about Vampiric Tutor before recording it.
-
-PASS if the assistant says Vampiric Tutor would push the deck past its bracket target of 2, says why (it is a Game Changer), and leaves the choice to the player, recording it when the player keeps it.
-FAIL if it records Vampiric Tutor without mentioning the bracket, mentions the bracket without saying why, or refuses to record it after the player says to keep it.

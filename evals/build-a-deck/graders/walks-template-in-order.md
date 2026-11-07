@@ -1,10 +1,6 @@
 ---
-# AC13. Judgement: purpose and target, in template order.
-type: llm
-focus: trace
+# AC13: Lands is introduced with its target (38) and its purpose from counts_when (the type line), and later Ramp with its target (10) and its purpose (extra mana or lands beyond the land drop). Purpose and target are looked for within 400 characters of the category name, in the same message.
+type: regex
+target: trace
+pattern: '"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?(?:(?:\b|(?<=\\n))Lands(?:\b|(?<=\\n))(?=(?:[^"\\]|\\.){0,300}?(?:(?:\b|(?<=\\n))38(?:\b|(?<=\\n))))|(?:\b|(?<=\\n))38 [Ll]ands(?:\b|(?<=\\n)))(?:(?=(?:[^"\\]|\\.){0,400}?(?:[Tt]ype line|mana base))|(?<=(?:[Tt]ype line|mana base)(?:[^"\\]|\\.){0,400}))(?:(?:[^"\\]|\\.)*?|[\s\S]*?"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?)(?:(?:\b|(?<=\\n))Ramp(?:\b|(?<=\\n))(?=(?:[^"\\]|\\.){0,300}?(?:(?:\b|(?<=\\n))10(?:\b|(?<=\\n))))|(?:\b|(?<=\\n))10 [Rr]amp(?:\b|(?<=\\n)))(?:(?=(?:[^"\\]|\\.){0,400}?(?:extra mana|more mana|mana or lands|lands? (?:onto|into) (?:play|the battlefield)|beyond (?:the|your)(?: one)? land drop))|(?<=(?:extra mana|more mana|mana or lands|lands? (?:onto|into) (?:play|the battlefield)|beyond (?:the|your)(?: one)? land drop)(?:[^"\\]|\\.){0,400}))'
 ---
-
-This is the trace of a deck-building interview for a Commander deck. The template's categories, in order, are Lands (target 38), Ramp (10), Card advantage (12), Targeted disruption (12), Mass disruption (6) and Plan (30). The player worked Lands, then Ramp, then stopped. Judge one thing only: whether the assistant introduced each category it worked, in that order, with its purpose and its target.
-
-PASS if the assistant starts Lands before Ramp, and when starting each it says in a sentence or two what the category is for and states its target (38 for Lands, 10 for Ramp).
-FAIL if it starts Ramp before Lands, or starts either without saying what it is for, or without its target.

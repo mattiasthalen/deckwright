@@ -1,10 +1,7 @@
 ---
-# AC12. Judgement: what was asked first. The opening of the trace is what the judge sees.
-type: llm
-focus: trace
+# AC12: an assistant message asks for the commander, and nothing before that question, in it or in an earlier message, gives a category its target, asks about a category, or runs the script (no lookup, so no card offered). Saying the template or that categories will follow is allowed.
+type: regex
+target: trace
+flags: i
+pattern: '^(?:(?!"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))(?:lookup|new|add|tally|target)(?:\b|(?<=\\n))|"role":"assistant"[^\n]*"type":"text","text":"(?:(?!(?:\b|(?<=\\n))(?:commander|legend|general)(?:\b|(?<=\\n))(?:[^"\\.!?]|\\[^n])*\?)(?:[^"\\]|\\.))*?(?:(?:\b|(?<=\\n))(?:Lands|Ramp|Card advantage|Targeted disruption|Mass disruption|Plan)(?:\b|(?<=\\n))(?:[^"\\]|\\.){0,40}?(?:\b|(?<=\\n))(?:38|10|12|6|30)(?:\b|(?<=\\n))|(?:\b|(?<=\\n))(?:lands?|ramp|card advantage|disruption)(?:\b|(?<=\\n))(?:[^"\\.!?]|\\[^n])*\?))[\s\S])*?"role":"assistant"[^\n]*"type":"text","text":"(?:(?!(?:\b|(?<=\\n))(?:Lands|Ramp|Card advantage|Targeted disruption|Mass disruption|Plan)(?:\b|(?<=\\n))(?:[^"\\]|\\.){0,40}?(?:\b|(?<=\\n))(?:38|10|12|6|30)(?:\b|(?<=\\n))|(?:\b|(?<=\\n))(?:lands?|ramp|card advantage|disruption)(?:\b|(?<=\\n))(?:[^"\\.!?]|\\[^n])*\?)(?:[^"\\]|\\.))*?(?:\b|(?<=\\n))(?:commander|legend|general)(?:\b|(?<=\\n))(?:[^"\\.!?]|\\[^n])*\?'
 ---
-
-This is the trace of a session in which a player asked "help me build a commander deck" and the assistant ran a deck-building interview. Judge one thing only: what the assistant asked the player for first.
-
-PASS if the assistant asks the player for their commander before it names, explains or starts on any deck category (Lands, Ramp, Card advantage, Targeted disruption, Mass disruption, Plan). Saying which template it will use, or that it will go through categories, before asking is a PASS.
-FAIL if the assistant explains a category's purpose or target, offers cards for one, or asks about lands or any other category before asking for the commander, or never asks for the commander.

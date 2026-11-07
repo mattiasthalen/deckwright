@@ -15,6 +15,16 @@ The script's computable parts are checked by the unit tests in [`tests/`](../tes
 
 From the repo root. `--allow-tools` applies to every case in a run, and the cases need different network and shell grants, so each tag has its own command.
 
+### On a Linux host such as a cloud container
+
+The run's OS sandbox needs `bubblewrap` and `socat` (`apt-get install -y bubblewrap socat`), and `TMPDIR` must point at a folder outside `/tmp`:
+
+```sh
+mkdir -p ~/evaltmp && TMPDIR=~/evaltmp claude plugin eval . …
+```
+
+Each run's own settings deny writes to `//tmp`, and the runner makes the run's workspace under `TMPDIR`; left at `/tmp`, the workspace is read-only to Bash, `deck.py` cannot write `deck.json` or the page, and every case but `no-code-execution` fails.
+
 | What | Arguments after `claude plugin eval . --model claude-opus-5 --judge-model claude-opus-5 --ablation none` |
 |---|---|
 | `build-a-deck`, `bend-the-template`, `card-traps` (Scryfall reachable) | `--tag network --scaffold --allow-tools Bash Write Edit "WebFetch(domain:api.scryfall.com)"` |
@@ -44,7 +54,16 @@ Why the grants differ:
 
 ### Cost and time
 
-Not recorded yet. Fill in from the first runs: per-run list-price estimate and wall-clock time per case.
+One run of each case on 2026-11-07, as the runner reported it. No case has a paid grader now but `no-code-execution`'s judge, so this is the run itself.
+
+| Case | List-price estimate | Wall clock |
+|---|---|---|
+| `build-a-deck` | 0.59 USD | 72 s |
+| `card-traps` | 0.62 USD | 94 s |
+| `bend-the-template` | 0.48 USD | 66 s |
+| `lookup-unavailable` | 0.41 USD | 60 s |
+
+A judging pass at `--runs 8` over these four is about 17 USD.
 
 ## Reading a result
 
@@ -56,17 +75,19 @@ Results land in `evals/results/<timestamp>/`, which `evals/.gitignore` keeps out
 
 ### Known limits of the graders
 
-- **An `llm` grader on the trace sees only its first 12 and last 12 messages.** A whole interview runs to more than that, so a judge asked about the middle of `build-a-deck` (suggestions, critiques, the wrong category) may not see the moment it is asked about. Each such check has a deterministic grader beside it where a pattern can decide part of it. Calibration (below) shows whether the judge holds up; where it does not, the case is split or the grader replaced.
+- **An `llm` grader with `focus: trace` cannot judge an interview, so none is used.** Measured on the first runs (2026-11-07): the judge gets the trace's first 12 and last 12 lines, and the trace is mostly streaming fragments. A `build-a-deck` run is 813 lines, 670 of them `content_block_delta`; both ends are the init line, deltas and the result line, so no assistant message from the interview reached the judge, and all ten such graders failed 3 of 3 votes on runs whose behaviour was correct. Every check they held is now decided by `regex` over the assistant messages, beside the `tool_used` and page graders it already had. The one `llm` grader left, `no-code-execution`, uses `focus: last_message`, which a run of one reply fills.
+- **The judgement checks are read by wording.** `starts-with-commander`, `walks-template-in-order`, `suggests-per-category`, `critiques-named-card`, `wrong-category-called-out`, `collection-not-yet`, `illegal-commander`, `unknown-card`, `bracket-push-flagged`, `lookup-unavailable` and `player-bends-the-template--says-what-changed` each require every part of the criterion in one assistant message, near the card or category it is about, and each part as one of a set of phrasings: the purpose from `counts_when`, "taps for {C}{C}", "makes no mana", "not supported yet", "not legendary", a question mark where the criterion says *asks*. Each grader's comment says what it requires and in what window. The sets are taken from four real runs and widened beyond them, but a correct run that says it some other way fails, which is stricter than the criterion; read such a failure in the trace and widen the set, never the window. A list of suggestions passes `suggests-per-category` when two of its items carry a line of 15 characters or more after the name: the grader sees that each says something, not that it is true.
+- **A run plays both sides in one message**, echoing the player's answers ("You said: card advantage", "(Taking your answer: …)"). A window that runs past the question handing the choice back would read the player's words as the assistant's, so the windows of `wrong-category-called-out` stop at the first question mark after the card, and `lookup-unavailable--nothing-said-before-the-text` stops at the question asking for the text. The `looks-up-before-describing--<card>` graders do not count a mention inside an echo: on a quoted line (`> *"Add Sign in Blood as ramp."*`), inside "(Taking your answer: …)", or straight after "You said:". A description written into the same line after the echo is not seen.
 - **Order in the trace is read by pattern.** `looks-up-before-describing--<card>` fails when an assistant message names the card before any `deck.py` lookup of it, except a message that says it is looking, checking or fetching. A mention that is not a description, such as "Meren, good choice", fails it too, which is stricter than the criterion. Read such a failure in the trace.
-- **The trace patterns assume Claude Code's session JSON**: compact, a tool call as `"name":"Bash","input":{"command":"…"`, an assistant message carrying `"role":"assistant"` before its content, text blocks as `"type":"text","text":"…"`. If the runner's trace differs, every trace grader fails at once; that is the first thing to check on a first run.
+- **A tally counts only as a Bash call of its own.** `tally-after-category--after-lands` and `--after-ramp` want `tally` in a later Bash call than the `add` before it, as the skill tells it to run; a run that chains `add … && tally` in one command fails them though the tally ran.
+- **The trace patterns assume Claude Code's session JSON**: compact, a tool call as `"name":"Bash","input":{"command":"…"`, an assistant message carrying `"role":"assistant"` before its content, text blocks as `"type":"text","text":"…"`. The trace carries every text twice, once as that `assistant` line and once as stream deltas; the patterns anchor on the `assistant` line. A line break inside a text is the two characters `\n`, so `\b` does not hold before a word that starts a line (`\nKeep` has no boundary); the patterns write a word start as `(?:\b|(?<=\\n))`. If the runner's trace changes, every trace grader fails at once; that is the first thing to check.
 - **The page is read at `deck.html`** in the working folder, where [`tests/README.md`](../tests/README.md) says the skill renders it in Claude Code, and by the `data-section` and `data-category` marks the unit tests also hold the page to.
-- **Before the first real run, probe whether the run's sandbox lets Bash write in the workspace.** The script writes `deck.json`, the cache and the page there. The claude-design-skills suite reports that the sandbox mounted its workspace read-only to Bash; if that holds here, every case but `no-code-execution` fails until it is resolved.
 
 ## Judge calibration
 
-Each `llm` grader gets one known pass and one known fail in `evals-calibration/<grader>--<pass|fail>-<n>/`, built from the first real run outputs: the pass a real output judged by hand, the fail the same output with one passage changed. The bar is agreement of at least 0.9 and no flips; a grader below it is reworded or replaced by a deterministic one. Not built yet: there are no run outputs.
+Each `llm` grader gets one known pass and one known fail in `evals-calibration/<grader>--<pass|fail>-<n>/`, built from real run outputs: the pass a real output judged by hand, the fail the same output with one passage changed. The bar is agreement of at least 0.9 and no flips; a grader below it is reworded or replaced by a deterministic one. The one `llm` grader is `no-code-execution`; its calibration is not built yet.
 
-The `llm` graders: `starts-with-commander`, `walks-template-in-order`, `suggests-per-category`, `critiques-named-card`, `wrong-category-called-out`, `collection-not-yet`, `player-bends-the-template--says-what-changed`, `illegal-commander`, `unknown-card`, `bracket-push-flagged`, `lookup-unavailable`, `no-code-execution`.
+The ten trace `llm` graders were replaced, not calibrated, since they never saw what they judged. Their replacements were held to the same pairs without a judge: each passes on the real traces of `build-a-deck`, `card-traps`, `lookup-unavailable` and `bend-the-template` from 2026-11-07 (and the `build-a-deck` ones on the other three traces too, where those runs reached the same moment), and fails on a copy of the trace with one passage changed: the category's target or purpose removed, the suggestions cut to names, the critique cut to "recording it", the reason or the category dropped from the call-out, the question removed. [`tools/grade-trace.mjs`](tools/grade-trace.mjs) applies a case's deterministic graders to a kept trace, so a grader change can be checked this way without a run.
 
 ## Cases
 
@@ -74,8 +95,8 @@ The `llm` graders: `starts-with-commander`, `walks-template-in-order`, `suggests
 
 | Case | Checks | Now |
 |---|---|---|
-| `build-a-deck` | The interview from "help me build a commander deck" to the page. Commander asked first (AC12); Lands then Ramp with purpose and target (AC13); suggestions with what each does (AC14); a declined suggestion never recorded (AC15); a named card critiqued (AC16); Sign in Blood filed as ramp called out (AC17); every named card looked up through the script before it is described (AC18); a tally after each category (AC20); the page rendered by the script (AC21) from a part-built deck (E8) as an HTML file (E13); a collection mention answered as not supported yet (E14); no price in chat (AC22) | not recorded yet |
-| `bend-the-template` | Lands skipped, the Ramp target changed to 8, a jump to Mass disruption: deckwright follows and says what changed, and the later tally and the page use the new target (AC19); no price in chat (AC22) | not recorded yet |
-| `card-traps` | Llanowar Elves as commander is refused from the lookup and the player asked (E7); "Vampiric Tutr" is not recorded until confirmed (E1); Lightning Bolt, outside Meren's colours, is kept and flagged on the page (E5); Sol Ring named twice is in once (E6); Vampiric Tutor, a Game Changer, is flagged as pushing past bracket 2 and kept (AC9b); no price in chat (AC22) | not recorded yet |
-| `lookup-unavailable` | Scryfall out of reach: deckwright says so, names Sol Ring, asks for its text, describes nothing from memory, uses no web fallback, and the page marks the card as the player's text (E2); no price in chat (AC22) | not recorded yet |
-| `no-code-execution` | Without a shell, deckwright says it needs code execution and how to turn it on, and does not start (E4); no price in chat (AC22) | not recorded yet |
+| `build-a-deck` | The interview from "help me build a commander deck" to the page. Commander asked first, before any category or script call (AC12); Lands then Ramp, each with its purpose and target (AC13); Ramp suggestions, each with what it does (AC14); a declined suggestion never recorded (AC15); Sol Ring critiqued with what it does and that it is Ramp (AC16); Sign in Blood filed as ramp called out as not ramp, with why and where it counts, before it is recorded (AC17); every named card looked up through the script before it is described (AC18); a tally after each category (AC20); the page rendered by the script (AC21) from a part-built deck (E8) as an HTML file (E13); a collection mention answered as not supported yet, without asking for the collection (E14); no price in chat (AC22). All by pattern and page | 0 of 1 as graded then, 1 of 1 regraded (2026-11-07); not yet judged at `--runs 8`. `looks-up-before-describing--meren` and `--sign-in-blood` failed on echoed player lines and were corrected; the trace regraded passes. |
+| `bend-the-template` | Lands skipped, the Ramp target changed to 8, a jump to Mass disruption: deckwright follows and says Ramp's target is now 8, and the later tally and the page use the new target (AC19); no price in chat (AC22). All by pattern and page | 1 of 1 (2026-11-07), not yet judged at `--runs 8`. |
+| `card-traps` | Llanowar Elves as commander: looked up, said not to be legendary and unable to lead, the player asked, no deck started with it (E7); "Vampiric Tutr": not found said, Vampiric Tutor named and asked about, nothing recorded until then (E1); Lightning Bolt, outside Meren's colours, kept and flagged on the page (E5); Sol Ring named twice is in once (E6); Vampiric Tutor, a Game Changer, said to push the deck past its bracket and asked about before it is recorded, and named under the bracket on the page (AC9b); no price in chat (AC22). All by pattern and page | 0 of 1 as graded then, 1 of 1 regraded (2026-11-07); not yet judged at `--runs 8`. `bracket-push-flagged` failed on "the lowest bracket this deck can honestly claim 3" and was widened; the trace regraded passes. |
+| `lookup-unavailable` | Scryfall out of reach: deckwright says it could not look Sol Ring up, names it and asks for its text; nothing about it is said before that question; no web fallback; the page marks the card as the player's text (E2); no price in chat (AC22). All by pattern and page | 1 of 1 (2026-11-07), not yet judged at `--runs 8`. |
+| `no-code-execution` | Without a shell, deckwright says it needs code execution and how to turn it on, and does not start (E4, judged on the last message); no price in chat (AC22) | not recorded yet |

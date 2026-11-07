@@ -1,10 +1,7 @@
 ---
-# AC17. Judgement: a card filed under the wrong category is called out, with why.
-type: llm
-focus: trace
+# AC17: before Sign in Blood is recorded, an assistant message says it is not ramp (it does not count or meet Ramp's test), within 600 characters after its name or 300 before, crossing neither Sol Ring nor a question mark: the call-out comes before the question that hands the choice back, and a run playing both sides echoes the answer after it.
+type: regex
+target: trace
+flags: i
+pattern: '^(?:(?!"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))add(?:\b|(?<=\\n))(?:[^"\\]|\\.)*?Sign in Blood)[\s\S])*?"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?(?:Sign in Blood(?=(?:(?!Sol Ring|\?)(?:[^"\\]|\\.)){0,600}?(?:(?:(?:\b|(?<=\\n))not(?:\b|(?<=\\n))|isn''t|isn’t|is not|doesn''t|doesn’t|does not|wouldn''t|won''t|can''t|cannot)\s+(?:\w+\s+){0,3}?(?:ramp(?:\b|(?<=\\n))|count(?:s)?\s+(?:as|in|under|toward|towards|for)\s+(?:\w+\s+)?ramp(?:\b|(?<=\\n))|(?:meet|pass|fit|satisfy|qualify for|belong (?:in|under|to))\s+(?:the\s+)?ramp(?:\b|(?<=\\n))|(?:really\s+|actually\s+)?count there)|(?:\b|(?<=\\n))fails?\s+(?:the\s+)?ramp(?:\b|(?<=\\n))|(?:rather than|instead of)\s+(?:in\s+|under\s+)?ramp(?:\b|(?<=\\n))))|(?:(?:(?:\b|(?<=\\n))not(?:\b|(?<=\\n))|isn''t|isn’t|is not|doesn''t|doesn’t|does not|wouldn''t|won''t|can''t|cannot)\s+(?:\w+\s+){0,3}?(?:ramp(?:\b|(?<=\\n))|count(?:s)?\s+(?:as|in|under|toward|towards|for)\s+(?:\w+\s+)?ramp(?:\b|(?<=\\n))|(?:meet|pass|fit|satisfy|qualify for|belong (?:in|under|to))\s+(?:the\s+)?ramp(?:\b|(?<=\\n))|(?:really\s+|actually\s+)?count there)|(?:\b|(?<=\\n))fails?\s+(?:the\s+)?ramp(?:\b|(?<=\\n))|(?:rather than|instead of)\s+(?:in\s+|under\s+)?ramp(?:\b|(?<=\\n)))(?=(?:(?!Sol Ring|\?)(?:[^"\\]|\\.)){0,300}?(?:Sign in Blood)))'
 ---
-
-This is the trace of a deck-building interview. The player said "Add Sign in Blood as ramp." Sign in Blood makes a player draw two cards and lose 2 life; it makes no mana. Judge one thing only: the assistant's reply to that.
-
-PASS if the assistant tells the player Sign in Blood is not ramp, says why (it draws cards and makes no extra mana or lands), and names the category it does count in (Card advantage), whether or not it then records the card.
-FAIL if it records Sign in Blood as ramp without objecting, or objects without saying why.
