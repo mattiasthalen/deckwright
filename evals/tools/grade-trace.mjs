@@ -1,7 +1,10 @@
 // Applies a case's deterministic graders (regex, tool_used, file_exists) to a kept run's trace and page,
 // without a new run: for checking a grader change against real traces, and a hand-edited copy of one.
 //
-//   node evals/tools/grade-trace.mjs evals/<case>/graders <trace.jsonl> [<deck.html>]
+//   node evals/tools/grade-trace.mjs evals/<case>/graders <trace.jsonl> [<page.html>]
+//
+// The page given is the one every file grader reads, whatever path it names (decks/<file name>.html
+// since named decks; deck.html before).
 //
 // The runner is a Bun binary, so its regexes run on JavaScriptCore, which gives up on a match that
 // backtracks too much and reports no match, where V8 (node) finds one. Run from node, this script
@@ -22,7 +25,7 @@ import { fileURLToPath } from 'url';
 
 const [graderDir, tracePath, pagePath] = process.argv.slice(2);
 if (!graderDir || !tracePath) {
-  console.error('usage: node grade-trace.mjs <graders dir> <trace.jsonl> [<deck.html>]');
+  console.error('usage: node grade-trace.mjs <graders dir> <trace.jsonl> [<page.html>]');
   process.exit(2);
 }
 const trace = fs.readFileSync(tracePath, 'utf8');
@@ -62,7 +65,7 @@ for (const file of fs.readdirSync(graderDir).filter((f) => f.endsWith('.md')).so
   if (grader.type === 'regex') {
     const target = grader.target === 'trace' ? trace
       : grader.target === 'last_message' ? lastMessage
-      : grader.target.path === 'deck.html' ? page : null;
+      : grader.target.path ? page : null;
     if (target === null) { results.push(`skip  ${name}  (no ${grader.target.path})`); continue; }
     const match = new RegExp(grader.pattern, grader.flags || '').exec(target);
     passed = grader.match === 'not_contains' ? !match : Boolean(match);
@@ -76,7 +79,7 @@ for (const file of fs.readdirSync(graderDir).filter((f) => f.endsWith('.md')).so
     passed = count >= min && count <= max;
     evidence = `${count} call(s)`;
   } else if (grader.type === 'file_exists') {
-    if (grader.path !== 'deck.html' && grader.path !== '*.html') { results.push(`skip  ${name}`); continue; }
+    if (!grader.path.endsWith('.html')) { results.push(`skip  ${name}`); continue; }
     passed = page !== null;
     evidence = page !== null ? 'page given' : 'no page given';
   } else {

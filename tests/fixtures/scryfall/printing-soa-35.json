@@ -1,0 +1,102 @@
+{
+ "object": "card",
+ "id": "db68c546-aca8-45d0-bf45-15b951ce66e5",
+ "oracle_id": "ededbdae-d9dc-4206-9335-d7158f2d7700",
+ "multiverse_ids": [],
+ "resource_id": "FC3A95E803C7C6BB2DB33844843D6641EFE7061CFA6E1E8BE0E7B821029C6475",
+ "mtgo_id": 148377,
+ "arena_id": 102787,
+ "name": "Vampiric Tutor",
+ "lang": "en",
+ "released_at": "2026-04-24",
+ "uri": "https://api.scryfall.com/cards/db68c546-aca8-45d0-bf45-15b951ce66e5",
+ "scryfall_uri": "https://scryfall.com/card/soa/35/vampiric-tutor?utm_source=api",
+ "layout": "normal",
+ "mana_cost": "{B}",
+ "cmc": 1.0,
+ "type_line": "Instant",
+ "oracle_text": "Search your library for a card, then shuffle and put that card on top. You lose 2 life.",
+ "colors": [
+  "B"
+ ],
+ "color_identity": [
+  "B"
+ ],
+ "keywords": [],
+ "legalities": {
+  "standard": "not_legal",
+  "future": "not_legal",
+  "historic": "banned",
+  "timeless": "legal",
+  "gladiator": "legal",
+  "pioneer": "not_legal",
+  "modern": "not_legal",
+  "legacy": "banned",
+  "pauper": "not_legal",
+  "vintage": "restricted",
+  "penny": "not_legal",
+  "commander": "legal",
+  "oathbreaker": "legal",
+  "standardbrawl": "not_legal",
+  "brawl": "legal",
+  "competitivebrawl": "legal",
+  "alchemy": "not_legal",
+  "paupercommander": "not_legal",
+  "duel": "banned",
+  "oldschool": "not_legal",
+  "premodern": "banned",
+  "predh": "legal",
+  "tlr": "banned"
+ },
+ "games": [
+  "paper",
+  "mtgo",
+  "arena"
+ ],
+ "reserved": false,
+ "game_changer": true,
+ "foil": true,
+ "nonfoil": true,
+ "finishes": [
+  "nonfoil",
+  "foil"
+ ],
+ "oversized": false,
+ "promo": false,
+ "reprint": true,
+ "variation": false,
+ "set_id": "f57497ce-4c8f-45e3-9cd9-395148357189",
+ "set": "soa",
+ "set_name": "Secrets of Strixhaven Mystical Archive",
+ "set_type": "masterpiece",
+ "set_uri": "https://api.scryfall.com/sets/f57497ce-4c8f-45e3-9cd9-395148357189",
+ "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Asoa&unique=prints",
+ "scryfall_set_uri": "https://scryfall.com/sets/soa?utm_source=api",
+ "rulings_uri": "https://api.scryfall.com/cards/db68c546-aca8-45d0-bf45-15b951ce66e5/rulings",
+ "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3Aededbdae-d9dc-4206-9335-d7158f2d7700&unique=prints",
+ "collector_number": "35",
+ "digital": false,
+ "rarity": "mythic",
+ "flavor_text": "\"The only true immortality comes in the passage of knowledge. Mold one mind and you can live in thousands more.\"\n—*The Sanguine Influence*",
+ "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+ "artist": "Paul Adam",
+ "artist_ids": [
+  "712c8d39-9320-4eeb-abd4-704ed0fb6024"
+ ],
+ "illustration_id": "7daa26c0-67c5-46a1-a90d-42f516602510",
+ "border_color": "borderless",
+ "frame": "2015",
+ "frame_effects": [
+  "inverted",
+  "showcase"
+ ],
+ "security_stamp": "oval",
+ "full_art": false,
+ "textless": false,
+ "booster": false,
+ "story_spotlight": false,
+ "edhrec_rank": 117,
+ "related_uris": {
+  "edhrec": "https://edhrec.com/route/?cc=Vampiric+Tutor"
+ }
+}

@@ -1,0 +1,112 @@
+{
+ "object": "card",
+ "id": "5379a77e-4b98-4abc-b967-fbc76bb85fc6",
+ "oracle_id": "7bdb02d9-20e2-40a9-a895-f1da83d739f4",
+ "multiverse_ids": [],
+ "name": "Starscape Cleric",
+ "lang": "en",
+ "released_at": "2024-08-02",
+ "uri": "https://api.scryfall.com/cards/5379a77e-4b98-4abc-b967-fbc76bb85fc6",
+ "scryfall_uri": "https://scryfall.com/card/tblb/15/starscape-cleric?utm_source=api",
+ "layout": "token",
+ "mana_cost": "{1}{B}",
+ "cmc": 2.0,
+ "type_line": "Token Creature — Bat Cleric",
+ "oracle_text": "Flying\nThis creature can't block.\nWhenever you gain life, each opponent loses 1 life.\n(This token's mana cost is {1}{B}.)",
+ "power": "1",
+ "toughness": "1",
+ "colors": [
+  "B"
+ ],
+ "color_identity": [
+  "B"
+ ],
+ "keywords": [
+  "Flying"
+ ],
+ "all_parts": [
+  {
+   "object": "related_card",
+   "id": "5379a77e-4b98-4abc-b967-fbc76bb85fc6",
+   "component": "token",
+   "name": "Starscape Cleric",
+   "type_line": "Token Creature — Bat Cleric",
+   "uri": "https://api.scryfall.com/cards/5379a77e-4b98-4abc-b967-fbc76bb85fc6"
+  },
+  {
+   "object": "related_card",
+   "id": "53a938a7-0154-4350-87cb-00da24ec3824",
+   "component": "combo_piece",
+   "name": "Starscape Cleric",
+   "type_line": "Creature — Bat Cleric",
+   "uri": "https://api.scryfall.com/cards/53a938a7-0154-4350-87cb-00da24ec3824"
+  }
+ ],
+ "legalities": {
+  "standard": "not_legal",
+  "future": "not_legal",
+  "historic": "not_legal",
+  "timeless": "not_legal",
+  "gladiator": "not_legal",
+  "pioneer": "not_legal",
+  "modern": "not_legal",
+  "legacy": "not_legal",
+  "pauper": "not_legal",
+  "vintage": "not_legal",
+  "penny": "not_legal",
+  "commander": "not_legal",
+  "oathbreaker": "not_legal",
+  "standardbrawl": "not_legal",
+  "brawl": "not_legal",
+  "competitivebrawl": "not_legal",
+  "alchemy": "not_legal",
+  "paupercommander": "not_legal",
+  "duel": "not_legal",
+  "oldschool": "not_legal",
+  "premodern": "not_legal",
+  "predh": "not_legal",
+  "tlr": "not_legal"
+ },
+ "games": [
+  "paper"
+ ],
+ "reserved": false,
+ "game_changer": false,
+ "foil": true,
+ "nonfoil": true,
+ "finishes": [
+  "nonfoil",
+  "foil"
+ ],
+ "oversized": false,
+ "promo": false,
+ "reprint": false,
+ "variation": false,
+ "set_id": "98ffb0ad-639e-4861-b81d-dd5ae734badf",
+ "set": "tblb",
+ "set_name": "Bloomburrow Tokens",
+ "set_type": "token",
+ "set_uri": "https://api.scryfall.com/sets/98ffb0ad-639e-4861-b81d-dd5ae734badf",
+ "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Atblb&unique=prints",
+ "scryfall_set_uri": "https://scryfall.com/sets/tblb?utm_source=api",
+ "rulings_uri": "https://api.scryfall.com/cards/5379a77e-4b98-4abc-b967-fbc76bb85fc6/rulings",
+ "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A7bdb02d9-20e2-40a9-a895-f1da83d739f4&unique=prints",
+ "collector_number": "15",
+ "digital": false,
+ "rarity": "common",
+ "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+ "artist": "Danny Schwartz",
+ "artist_ids": [
+  "48e30a4a-5b4d-48e2-9c53-03125085374e"
+ ],
+ "illustration_id": "5b0a80eb-d67f-4c92-9bfe-9385dbd433b9",
+ "border_color": "black",
+ "frame": "2015",
+ "full_art": false,
+ "textless": false,
+ "booster": false,
+ "story_spotlight": false,
+ "related_uris": {
+  "edhrec": "https://edhrec.com/route/?cc=Starscape+Cleric"
+ }
+}

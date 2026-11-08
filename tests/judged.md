@@ -37,7 +37,7 @@ FAIL quotes the name or heading and its file.
 
 **Rubric:**
 
-1. For each eval named in the spec (`starts-with-commander`, `walks-template-in-order`, `suggests-per-category`, `suggestion-is-not-choice`, `critiques-named-card`, `wrong-category-called-out`, `looks-up-before-describing`, `player-bends-the-template`, `tally-after-category`, `ends-with-deck-page`, `bracket-push-flagged`, `unknown-card`, `lookup-unavailable`, `no-code-execution`, `colour-identity-flagged`, `singleton-duplicate`, `illegal-commander`, `ends-early`, `page-without-artifacts`, `collection-not-yet`, and `no-prices` in every case), a grader file of that name exists under `evals/<case>/graders/`.
+1. For each eval named in the spec (`starts-with-commander`, `walks-template-in-order`, `suggests-per-category`, `suggestion-is-not-choice`, `critiques-named-card`, `wrong-category-called-out`, `looks-up-before-describing`, `player-bends-the-template`, `tally-after-category`, `ends-with-deck-page`, `bracket-push-flagged`, `unknown-card`, `lookup-unavailable`, `no-code-execution`, `colour-identity-flagged`, `singleton-duplicate`, `illegal-commander`, `ends-early`, `page-without-artifacts`, `asks-for-collection` (which replaced `collection-not-yet` when C33 was amended on 2026-11-08), and `no-prices` in every case), a grader file of that name exists under `evals/<case>/graders/`.
 2. Each grader checks its own criterion: read its rubric or pattern against the criterion's wording, not just its name. A grader that would pass a run violating its criterion is a FAIL.
 3. The case's `prompt.md` contains the trap the grader needs: the player's script sets up the situation the criterion is about (for example, `card-traps` names Llanowar Elves as commander for `illegal-commander`).
 4. Every case carries a `no-prices` grader.
@@ -68,3 +68,30 @@ A step that says what to do without saying where (for example "enable code execu
 3. Before that, deckwright asks for the commander, before any category.
 
 Record: the date, the app version, whether each of the three held, and a screenshot of the first exchange. A FAIL on any of them fails the criterion.
+
+## C36: the skill's collection steps replace the S1 collection paragraph, and nothing else of S1 goes
+
+**Read:** `git diff 017a7a0 -- plugins/deckwright/skills/interview/SKILL.md`, beside `brief/s2-s3-brief.md` (B-5 to B-26), the spec's C36 and the lexicon (`docs/lexicon.md`).
+
+**Who says what.** The brief's B-n are behaviours of the whole change, and some are the script's alone. The skill must say the ones the interview carries out; the script's are held by unit tests, and the skill may refer to them but need not say them.
+
+| B-n | Said by | Held by |
+|---|---|---|
+| B-5, B-6, B-8, B-9, B-10, B-11, B-14 to B-24, B-26 | `SKILL.md`: the interview's steps | this rubric, and the evals the spec names |
+| B-7 (rows matched by Scryfall ID, tokens by printing, copies summed) | the script | `collection_token_by_printing`, `collection_csv_quantities` |
+| B-12 (an S1 deck file opens as one with no collection and no theme) | the script; S1's line asking whether to carry on with `deck.json` stays | `s1_deck_file_opens` |
+| B-13 (which folders outlive the conversation) | neither: a fact of the platform, recorded as assumption A6 | the evidence stage |
+| B-25 (the tally and the page show owned and not owned) | the script | `not_owned_marked` |
+
+Where a B-n has a script half and an interview half (B-6 keeps the file as handed over, B-10 titles the page, B-11 refuses a taken name), the skill says the interview half.
+
+**Rubric:** all four hold.
+
+1. Every B-n the table gives to `SKILL.md` is said in the added lines, once: a behaviour said in two steps, in different words or in two places that could drift apart, is a FAIL for that B-n. The command table's line for a command says what the script does, not what the interview does, so a B-n whose command a table line describes and whose step the interview gives is said once, by the step (the table's "Refuses (exit 2) a name whose file exists" and the start step's "ask whether to carry on with that deck or choose another name" are B-11 said once). List each B-n with the added line that says it. A script-only B-n the skill says anyway passes when the line does not contradict the script's contract in `tests/README.md`.
+2. The added lines use the lexicon's word for each concept the lexicon defines, and no synonym for it: *template*, *category*, *target*, *bracket target*, *tally*, *interview*, *suggestion*, *critique*, *lookup*, *deck page*, *available*, *theme*, *plan*. So "available", not "free" or "usable" (the player's own words, quoted as theirs, such as "only use the free cards", are not the skill's); "deck page", not "deck sheet"; *plan* only for the one sentence, never for the template's category of that name. Words the lexicon does not hold (collection, binder, the read, not owned, deck name) are plain words: item 2 does not judge them.
+3. The removed S1 lines are only: the paragraph saying building from the player's own cards is not supported yet; the lines telling the skill to look cards up through `cards/named`, and the parts of lines that held only because each lookup asked Scryfall one card at a time. Any other removed S1 instruction is a FAIL, named with its line. An S1 instruction moved but kept word for word is not removed.
+4. Each S1 step that still applies is kept word for word. A line changed only in the deck file's or the deck page's path (`deck.json` to `decks/<file name>.json`, `deck.html` to `decks/<file name>.html`, `--deck` given with the `file` that `new` printed), as named decks require and as C33 allows for the graders, is kept. Any other rewording of an S1 line counts as removed, under item 3.
+
+The steps the unit tests and evals rely on are fixed in [`tests/README.md`](README.md), "What the skill must do"; a B-n the skill says in a way that contradicts that section is a FAIL for that B-n.
+
+FAIL names the B-n or the S1 line, and what is wrong with it.

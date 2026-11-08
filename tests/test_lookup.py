@@ -1,12 +1,17 @@
-"""Lookups: AC4, AC4a, E1, E12. Run against the recorded Scryfall responses, never the network."""
+"""Lookups: AC4, E1, E12. Run against the recorded Scryfall responses, never the network.
+
+Since the bulk lookups, these hold the lookup's results and the per-card cache; the request
+etiquette S1's AC4a held for `cards/named` is now the bulk file's, in test_bulk.py (C2), and the
+S1 tests that asserted `cards/named` requests were moved there or deleted.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import json
-import re
 
 from conftest import (
+    BULK_FILE,
     CARD_FIELDS,
     COMMANDER,
     EXIT_NOT_RECORDED,
@@ -76,7 +81,7 @@ def test_lookup_fields_same_every_time(deck, unreachable_url):
     names = ("Sol Ring", "Vampiric Tutor", "Bloodline Keeper", "Black Lotus")
     first = deck.run("lookup", *names).stdout
     # The second run is answered from the cache, with Scryfall out of reach: same bytes.
-    second = deck.run("lookup", *names, api=unreachable_url).stdout
+    second = deck.offline(unreachable_url).run("lookup", *names).stdout
     assert first == second
     lotus = json.loads(first)[3]["card"]
     assert lotus["commander_legality"] == "banned"
@@ -91,7 +96,7 @@ def test_lookup_fields_from_prefilled_cache(deck, unreachable_url):
     # A misspelling cached under its own key holds the card Scryfall's fuzzy match gave.
     (cache / "vampiric-tutr.json").write_text(json.dumps(scryfall_card("Vampiric Tutor")), encoding="utf-8")
 
-    entries = lookup(deck, "Sol Ring", "Meren of Clan Nel Toth", "Vampiric Tutr", api=unreachable_url)
+    entries = lookup(deck.offline(unreachable_url), "Sol Ring", "Meren of Clan Nel Toth", "Vampiric Tutr")
     assert [e["result"] for e in entries] == ["found", "found", "closest_match"]
     assert_single_face(entries[0]["card"], scryfall_card("Sol Ring"))
     assert sorted(entries[1]["card"]["color_identity"]) == ["B", "G"]
@@ -101,7 +106,7 @@ def test_lookup_fields_from_prefilled_cache(deck, unreachable_url):
 def test_lookup_fields_cache_override(tmp_path, deck, unreachable_url):
     elsewhere = tmp_path / "elsewhere-cache"
     deck.run("lookup", "Sol Ring", env={"DECKWRIGHT_CACHE": str(elsewhere)})
-    assert (elsewhere / "sol-ring.json").is_file()
+    assert (elsewhere / BULK_FILE).is_file(), "the bulk file is kept in $DECKWRIGHT_CACHE"
     assert not (deck.cwd / "deckwright-cache").exists()
     again = lookup(deck, "Sol Ring", api=unreachable_url, env={"DECKWRIGHT_CACHE": str(elsewhere)})
     assert again[0]["result"] == "found"
@@ -112,72 +117,19 @@ def _hashed(query: str) -> str:
 
 
 def test_lookup_fields_cache_key_non_ascii(deck, unreachable_url):
-    # Fetched: an all-non-ASCII query gets a key from its hash, not an empty one.
-    entries = lookup(deck, "稲妻")
-    assert entries[0]["result"] == "closest_match" and entries[0]["card"]["name"] == "Lightning Bolt"
+    # Pre-filled, as S1 cached them: two all-non-ASCII queries, keyed by their hash alone, and one
+    # with an ASCII part, each read from its own file.
     cache = deck.cwd / "deckwright-cache"
-    assert (cache / (_hashed("稲妻") + ".json")).is_file(), sorted(p.name for p in cache.iterdir())
-
-    # Pre-filled: another all-non-ASCII query, and one with an ASCII part, each read from its own file.
-    queries = [("Молния", "", "Sol Ring"), ("Lim-Dûl's Vault", "lim-d-l-s-vault-", "Vampiric Tutor")]
+    cache.mkdir()
+    queries = [
+        ("稲妻", "", "Lightning Bolt"),
+        ("Молния", "", "Sol Ring"),
+        ("Lim-Dûl's Vault", "lim-d-l-s-vault-", "Vampiric Tutor"),
+    ]
     for query, ascii_key, card in queries:
         (cache / f"{ascii_key}{_hashed(query)}.json").write_text(json.dumps(scryfall_card(card)), encoding="utf-8")
-    entries = lookup(deck, "稲妻", *(q for q, _, _ in queries), api=unreachable_url)
+    entries = lookup(deck.offline(unreachable_url), *(q for q, _, _ in queries))
     assert [e["card"]["name"] for e in entries] == ["Lightning Bolt", "Sol Ring", "Vampiric Tutor"]
-    assert len(list(cache.glob("*.json"))) == 3, "three queries, three files"
-
-
-# AC4a --------------------------------------------------------------------------------
-
-
-def test_lookup_etiquette(deck, scryfall):
-    # Five requests from one run: four exact, and one fuzzy after the misspelling's miss.
-    lookup(deck, "Sol Ring", "Vampiric Tutor", "Vampiric Tutr", "Bloodline Keeper")
-    assert not scryfall.unrecorded, f"requests outside cards/named exact-then-fuzzy: {scryfall.unrecorded}"
-    reqs = scryfall.requests
-    assert len(reqs) == 5, [(r.path, r.query) for r in reqs]
-    assert [list(r.query) for r in reqs] == [["exact"], ["exact"], ["exact"], ["fuzzy"], ["exact"]]
-
-    for r in reqs:
-        agent = r.headers.get("user-agent", "")
-        assert re.match(r"deckwright/\d", agent), f"User-Agent must name deckwright and its version: {agent!r}"
-        assert "python-urllib" not in agent.lower()
-        assert "application/json" in r.headers.get("accept", ""), r.headers
-
-    gaps = [b.at - a.at for a, b in zip(reqs, reqs[1:])]
-    # Scryfall's docs allow cards/named 2 a second: 500 ms between the script's requests. Timed
-    # here at arrival, so 50 ms is allowed for the first connection's setup, which shortens the
-    # first gap as seen here.
-    assert min(gaps) >= 0.45, f"requests too close together: {[round(g, 3) for g in gaps]}"
-
-
-def test_lookup_etiquette_rate_limited(deck, scryfall):
-    deck.new()
-    before = deck.deck_file.read_bytes()
-    scryfall.limit = True
-
-    proc = deck.run("lookup", "Sol Ring", expect=EXIT_UNREACHABLE)
-    said = proc.stdout + proc.stderr
-    assert re.search(r"rate.?limit", said, re.I), f"the message should say Scryfall rate-limited the request: {said!r}"
-    assert "Sol Ring" in said, "the message names the card"
-    assert "Traceback" not in proc.stderr
-
-    deck.add("Sol Ring", "Ramp", expect=EXIT_UNREACHABLE)
-    assert deck.deck_file.read_bytes() == before, "nothing is written to the deck"
-    cache = deck.cwd / "deckwright-cache"
-    assert not cache.exists() or not (cache / "sol-ring.json").exists(), "a refused request is never cached"
-
-    scryfall.limit = False
-    assert lookup(deck, "Sol Ring")[0]["result"] == "found"
-
-
-def test_lookup_etiquette_fetches_once(deck, scryfall):
-    lookup(deck, "Sol Ring")
-    lookup(deck, "Sol Ring")
-    deck.new()
-    deck.add("Sol Ring", "Ramp")
-    sol_requests = [r for r in scryfall.requests if r.query.get("exact") == ["Sol Ring"]]
-    assert len(sol_requests) == 1, "a card is fetched once; later lookups read the cache"
 
 
 # E1 ----------------------------------------------------------------------------------
@@ -218,21 +170,11 @@ def test_lookup_found_normalised(deck):
     assert card_advantage["count"] == 3
 
 
-def test_lookup_not_found_is_not_unreachable(deck, unreachable_url, scryfall):
-    deck.new()
-    before = deck.deck_file.read_bytes()
-
+def test_lookup_not_found_is_not_unreachable(deck, unreachable_url):
+    # Scryfall out of reach with nothing cached is exit 3, never "not found". The other ways of
+    # being out of reach, and the bulk file's part in it, are test_bulk.py's (C5).
     proc = deck.run("lookup", "Lightning Bolt", api=unreachable_url, expect=EXIT_UNREACHABLE)
     assert "Lightning Bolt" in proc.stdout + proc.stderr, "the message names the card"
-
-    deck.add("Lightning Bolt", "Targeted disruption", api=unreachable_url, expect=EXIT_UNREACHABLE)
-    assert deck.deck_file.read_bytes() == before
-
-    # A proxy that blocks the host is unreachable too, not "not found".
-    scryfall.refuse = True
-    deck.run("lookup", "Lightning Bolt", expect=EXIT_UNREACHABLE)
-    scryfall.refuse = False
-
     # A failed reach is never cached: once Scryfall answers, the card is found.
     assert lookup(deck, "Lightning Bolt")[0]["result"] == "found"
 

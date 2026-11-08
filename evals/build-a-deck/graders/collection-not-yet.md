@@ -1,7 +1,0 @@
----
-# E14: an assistant message, within 400 characters of the collection, says building from it is not supported yet and that suggestions come from any card; the interview then carries on to the page.
-type: regex
-target: trace
-flags: i
-pattern: '"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?(?:(?:\b|(?<=\\n))collection(?:\b|(?<=\\n))|(?:\b|(?<=\\n))cards you own(?:\b|(?<=\\n))|(?:\b|(?<=\\n))your own cards(?:\b|(?<=\\n)))(?:(?=(?:[^"\\]|\\.){0,400}?(?:not (?:\w+\s+){0,2}?supported|isn''t supported|isn’t supported|unsupported|not (?:\w+\s+){0,3}?yet|(?:can''t|cannot|isn''t|isn’t|doesn''t)\s+(?:\w+\s+){0,5}?yet(?:\b|(?<=\\n))))|(?<=(?:not (?:\w+\s+){0,2}?supported|isn''t supported|isn’t supported|unsupported|not (?:\w+\s+){0,3}?yet|(?:can''t|cannot|isn''t|isn’t|doesn''t)\s+(?:\w+\s+){0,5}?yet(?:\b|(?<=\\n)))(?:[^"\\]|\\.){0,400}))(?:(?=(?:[^"\\]|\\.){0,400}?(?:(?:\b|(?<=\\n))any (?:\w+\s+){0,3}?cards?(?:\b|(?<=\\n))|(?:\b|(?<=\\n))every card(?:\b|(?<=\\n))|(?:\b|(?<=\\n))all cards(?:\b|(?<=\\n))|(?:\b|(?<=\\n))cards you don''t own(?:\b|(?<=\\n))|(?:\b|(?<=\\n))whole (?:card )?pool(?:\b|(?<=\\n))))|(?<=(?:(?:\b|(?<=\\n))any (?:\w+\s+){0,3}?cards?(?:\b|(?<=\\n))|(?:\b|(?<=\\n))every card(?:\b|(?<=\\n))|(?:\b|(?<=\\n))all cards(?:\b|(?<=\\n))|(?:\b|(?<=\\n))cards you don''t own(?:\b|(?<=\\n))|(?:\b|(?<=\\n))whole (?:card )?pool(?:\b|(?<=\\n)))(?:[^"\\]|\\.){0,400}))[\s\S]*?"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))page(?:\b|(?<=\\n))'
----
