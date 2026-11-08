@@ -40,6 +40,7 @@ Until the repo has its dev `pyproject.toml`, `uv run --no-project --with pytest 
 | `Xyzzy Plover Quux` (exact 404, fuzzy 404) | a card that does not exist |
 | `Lim-Dul's Vault`, `Smuggler’s Copter`, `smugglers copter` (each an exact 200) | queries that are the card once accents, punctuation and spaces are normalised away |
 | Seven Dwarves | its text allows up to seven copies |
+| Journey to Eternity // Atzal, Cave of Eternity | a double-faced card whose back face, not its front, is a Land |
 | Elbrus, the Binding Blade // Withengar Unbound | a double-faced card whose front is a Legendary Artifact and whose back, a Legendary Creature, has no mana cost |
 | `稲妻` (exact 404, fuzzy → Lightning Bolt), `Молния` (exact 404, fuzzy 404) | queries with no ASCII key, for the cache's hashed key |
 
@@ -96,7 +97,7 @@ Stdout is a JSON array with one entry per `NAME`, in argument order:
 ### `new`, `add`, `remove`, `target`, `bracket`
 
 - `new --template commander --commander NAME` writes a new `deck.json`.
-- `add NAME [--count N] [--category C …]`: `--count` defaults to 1; adding a name already in the deck adds to its copies (so a card named twice is held twice, for the checks to report). `--category` takes one or more category names exactly as the template spells them, may be given more than once (`--category A --category B` records under both), and may be left out. Lands come from the type line whatever is recorded.
+- `add NAME [--count N] [--category C …]`: `--count` defaults to 1; adding a name already in the deck adds to its copies (so a card named twice is held twice, for the checks to report). `--category` takes one or more category names exactly as the template spells them, may be given more than once (`--category A --category B` records under both), and may be left out. Lands come from the type line whatever is recorded, and from the front face's only: for a card shown with " // " in its type line, the part before it. Journey to Eternity // Atzal, Cave of Eternity, a Legendary Enchantment whose back is a Legendary Land, does not count in Lands.
 - `add` records the card by Scryfall's name, whatever the query's spelling.
 - `add NAME --from-player "TEXT" [--type-line LINE] [--count N] [--category C …]` records a card from the player's text with no lookup and no network, marked as such. The type line, when given, is used for the Lands category and the basic-land singleton exemption, read without regard to case: `add Forest --count 20 --from-player "({T}: Add {G}.)" --type-line "Basic Land — Forest"` counts 20 in Lands and is not flagged.
 - A looked-up `add` of a name already recorded from the player's text replaces that entry's card with the lookup and drops the player-text mark; its copies and categories are kept, and the new copies are added. The entry is matched as `remove` matches, so a player-text `Bloodline Keeper` is replaced by the looked-up `Bloodline Keeper // Lord of Lineage`.

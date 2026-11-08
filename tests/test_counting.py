@@ -68,6 +68,16 @@ def test_lands_from_type_line(deck):
     assert tally["total"] == 1 + 1 + 1 + 5 + 1, "a recorded card counts in the total whatever its categories"
 
 
+def test_lands_from_type_line_front_face(deck):
+    # Its front is a Legendary Enchantment; only the back, Atzal, Cave of Eternity, is a Land.
+    deck.new()
+    deck.add("Journey to Eternity")
+    tally = deck.tally()
+    assert category(tally, "Lands")["count"] == 0, "the type line rule reads the front face only"
+    assert category(tally, "Lands")["cards"] == []
+    assert tally["total"] == 1 + 1
+
+
 def test_checks(deck):
     deck.new()
     deck.add("Sol Ring", "Ramp")
