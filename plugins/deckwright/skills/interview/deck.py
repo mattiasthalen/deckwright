@@ -47,7 +47,7 @@ EXIT_NOT_RECORDED = 4
 BULK_FILE = "default-cards.jsonl.gz"
 BULK_INDEX = "default-cards.index.json"
 # Bumped whenever index_bulk changes what it keeps, so an index built by an older script is rebuilt.
-INDEX_FORMAT = 1
+INDEX_FORMAT = 2
 # Scryfall publishes Default Cards daily and asks clients to cache it; a week keeps card facts current.
 BULK_MAX_AGE = 7 * 24 * 3600
 # How near a name must be to another card's to be named as its closest match.
@@ -155,14 +155,15 @@ def index_bulk(path: Path) -> dict:
     """What the script needs from a bulk file, read line by line so the file is never held whole.
 
     `cards` holds each card's fixed fields under its comparable name, `faces` each face's comparable
-    name and the card it names, `printings` every printing's Scryfall ID and the comparable name of the
-    card it is ("" for a token or other non-card), `not_cards` the comparable names of non-cards.
+    name and the card it names, `printings` every printing's Scryfall ID and the key of the card it is
+    ("" for a token or other non-card), `not_cards` the comparable names of non-cards. Where two cards
+    share a comparable name ("Clear the Mind", the Un-card "Clear, the Mind"), the one that loses it is
+    kept in `shadowed`, reached only through its printings, so a row is never counted as the other card.
     """
-    cards: dict[str, dict] = {}
-    ranks: dict[str, int] = {}
-    faces: dict[str, str] = {}
-    printings: dict[str, str] = {}
-    reversible: dict[str, str] = {}
+    # comparable name -> exact name -> (rank, fixed fields, face names), in the file's order
+    candidates: dict[str, dict[str, tuple[int, dict, list[str]]]] = {}
+    printings: dict[str, tuple[str, str] | str] = {}
+    reversible: dict[str, dict] = {}
     not_cards: set[str] = set()
     try:
         with gzip.open(path, "rt", encoding="utf-8") as lines:
@@ -179,22 +180,55 @@ def index_bulk(path: Path) -> dict:
                     continue
                 if card.get("layout") == "reversible_card":
                     # Both faces of a reversible printing are one card printed twice ("Sol Ring // Sol Ring"),
-                    # which other printings carry under its own name; face 0 may name only its front.
-                    reversible[card["id"]] = comparable(card["card_faces"][0]["name"])
+                    # which other printings usually carry under its own name; face 0 may name only its front.
+                    reversible[card["id"]] = card
                     continue
-                printings[card["id"]] = key
-                if key and (key not in cards or rank(card) < ranks[key]):
-                    cards[key], ranks[key] = fixed_fields(card), rank(card)
-                    for face in card.get("card_faces", []):
-                        faces.setdefault(comparable(face.get("name", "")), key)
-    except (OSError, EOFError, zlib.error, ValueError, UnicodeDecodeError) as error:
+                if not key:
+                    printings[card["id"]] = ""
+                    continue
+                printings[card["id"]] = (key, card["name"])
+                named = candidates.setdefault(key, {})
+                if card["name"] not in named or rank(card) < named[card["name"]][0]:
+                    face_names = [f.get("name", "") for f in card.get("card_faces", [])]
+                    named[card["name"]] = (rank(card), fixed_fields(card), face_names)
+    except (OSError, EOFError, zlib.error, ValueError, UnicodeDecodeError, KeyError, TypeError) as error:
         raise BulkUnreadable(str(error)) from None
     if not printings and not reversible:
         raise BulkUnreadable("it holds no cards")
+    cards: dict[str, dict] = {}
+    shadowed: dict[str, dict] = {}
+    faces: dict[str, str] = {}
+    for key, named in candidates.items():
+        winner = min(named, key=lambda exact: named[exact][0])  # the first in the file among equals
+        cards[key] = named[winner][1]
+        for face in named[winner][2]:
+            faces.setdefault(comparable(face), key)
+        for exact, (_, fields, _) in named.items():
+            if exact != winner:
+                shadowed["=" + exact] = fields
     faces.pop("", None)
-    for scryfall_id, key in reversible.items():
-        printings[scryfall_id] = key if key in cards else faces.get(key, "")
-    return {"cards": cards, "faces": faces, "printings": printings, "not_cards": sorted(not_cards)}
+    for scryfall_id, card in reversible.items():
+        front = card["card_faces"][0]
+        key = comparable(front["name"])
+        if key in cards or key in faces:
+            printings[scryfall_id] = key if key in cards else faces[key]
+        elif key:
+            # The card's only printing in the file is reversible: its front face is the card.
+            whole = {k: v for k, v in card.items() if k != "card_faces"} | front
+            cards[key], printings[scryfall_id] = fixed_fields(whole), key
+        else:
+            printings[scryfall_id] = ""
+    resolved = {
+        scryfall_id: (k if isinstance(k, str) else k[0] if cards[k[0]]["name"] == k[1] else "=" + k[1])
+        for scryfall_id, k in printings.items()
+    }
+    return {
+        "cards": cards,
+        "shadowed": shadowed,
+        "faces": faces,
+        "printings": resolved,
+        "not_cards": sorted(not_cards),
+    }
 
 
 class Scryfall:
@@ -241,7 +275,8 @@ class Scryfall:
         index = self.index(what)
         if scryfall_id not in index["printings"]:
             return False, None
-        return True, index["cards"].get(index["printings"][scryfall_id])
+        key = index["printings"][scryfall_id]
+        return True, index["cards"].get(key) or index["shadowed"].get(key)
 
     def closest(self, name: str, what: str) -> dict | None:
         key = comparable(name)
@@ -696,7 +731,10 @@ def ownership(deck: dict, available: dict) -> dict:
     The marks are computed, never stored, so removing copies takes the not-owned ones first and a new
     collection or binder filter moves them at the next command.
     """
-    have = {matching_key(c["name"]): c["available"] for c in available["cards"]}
+    have: dict[str, int] = {}
+    for c in available["cards"]:
+        for n in names_of(c):
+            have[matching_key(n)] = max(have.get(matching_key(n), 0), c["available"])
     cards = []
     for e in sorted(deck["cards"], key=lambda e: by_name(e["card"]["name"])):
         # A card from the player's text may be recorded under a face name or another spelling.
