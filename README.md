@@ -10,7 +10,7 @@ The first template is Commander, after The Command Zone's deckbuilding template 
 
 Every lookup, count, check and the deck page come from a small Python script that ships with the skill (`plugins/deckwright/skills/interview/deck.py`, standard library only, run with `uv` or Python 3.11+). Without code execution deckwright says so and does not start.
 
-- **Claude app** (web, desktop, mobile): Settings → Capabilities → turn on **Code execution and file creation** (called **Create and edit files** in newer versions). The script needs to reach `api.scryfall.com` and `data.scryfall.io`, where it downloads Scryfall's card data (about 80 MB, kept for a week). On a Team or Enterprise plan, code execution's network access is limited by default and only an organisation owner can allow a domain: ask yours to allow both. Without it, deckwright asks you for each card's text instead of looking it up.
+- **Claude app** (web, desktop, mobile): Settings → Capabilities → turn on **Code execution and file creation** (called **Create and edit files** in newer versions). The script needs to reach `api.scryfall.com` and `data.scryfall.io`, where it downloads Scryfall's card data (about 80 MB, kept for a week). On a Team or Enterprise plan, code execution's network access is limited by default and only an organisation owner can allow a domain: ask yours to allow both. Without it, deckwright asks you for each card's text instead of looking it up, and cannot read a collection.
 - **Claude Code**: allow the Bash tool when asked.
 
 ## Install

@@ -22,10 +22,17 @@ token.
 
 Every lookup, single cards and collections alike, reads Scryfall's Default Cards bulk
 file. The script downloads it once and keeps it in its cache folder. It reuses the file
-while it is under a week old, and downloads it again after that. A collection row is
+while it is under a week old, and downloads it again after that, but only for a
+lookup, a new deck, an added card or a collection. Every other command reads whatever
+file is there, however old, and a command that only counts or renders never downloads:
+with no file at hand its tally carries no ownership. Where a download fails, a file
+already there is read instead. A collection row is
 matched by its printing's Scryfall ID, so a token printing is a token whatever its
-name. A card looked up once is kept in the per-card cache S1 already had, and answered from there first. A name is matched the way `cards/named` matched it: case, accents and punctuation
-ignored. A near miss names the closest card and records nothing. `cards/named` is no
+name. A card the per-card cache S1 already had holds is answered from there first;
+nothing new is written to it. A name is matched the way `cards/named` matched it: case,
+accents and punctuation ignored. Where several printings share a name, a printing from
+an Un-set or a memorabilia set gives way to any other, and a reversible-card printing is
+read through its faces. A near miss names the closest card and records nothing. `cards/named` is no
 longer called.
 
 Rejected:
@@ -46,8 +53,11 @@ Card facts no longer depend on per-request rate limits. A lookup after the first
 download costs no network at all, and in a folder that outlives the conversation the
 download happens once a week. "Did you mean" is now computed by the script, and S1's
 found, closest-match and not-found results have to hold with it. The first lookup in a
-conversation waits for an 81 MB download. Where `data.scryfall.io` is out of reach,
-there are no lookups at all: a single card falls back to the player's text (ADR-0001),
-and a collection cannot be read. A card already in the per-card cache needs neither the
-bulk file nor the network, so S1's recorded eval fixtures keep working; an eval that
-looks up a card they do not hold needs `data.scryfall.io`.
+conversation waits for an 81 MB download. Where `data.scryfall.io` is out of reach and
+no file was kept, there are no lookups at all: a single card falls back to the player's
+text (ADR-0001), and a collection cannot be read. A card already in the per-card cache
+needs neither the bulk file nor the network, so S1's recorded eval fixtures keep
+working; the eval scaffolds copy in one bulk file kept on the host, so a run never
+downloads it. Ownership is computed from the kept collection each time it is shown and
+never stored in a deck, so a new export changes every deck's ownership at once; the
+commander is not counted in it.

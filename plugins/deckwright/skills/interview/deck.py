@@ -12,6 +12,7 @@ and nowhere else.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import difflib
 import gzip
@@ -24,6 +25,7 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 import time
 import tomllib
 import unicodedata
@@ -50,15 +52,23 @@ INDEX_FORMAT = 1
 BULK_MAX_AGE = 7 * 24 * 3600
 # How near a name must be to another card's to be named as its closest match.
 NEAR = 0.85
-NOT_CARDS = {"token", "double_faced_token", "emblem", "art_series"}
+NOT_CARDS = {"token", "double_faced_token", "emblem", "art_series", "front_card"}
+# Playtest and souvenir sets reprint real names (and near names) as cards no deck plays.
+SIDE_SETS = {"funny", "memorabilia"}
+# Default Cards is about 81 MB; anything far past that is not it.
+BULK_MAX_BYTES = 1 << 30
+BULK_HOST = re.compile(r"https://[a-z0-9.-]+\.scryfall\.(?:io|com)/")
 
+# Past this a file name risks the file system's limit; a longer name keeps a hash of the whole.
+MAX_KEY = 100
 DECKS = Path("decks")
 COLLECTION = Path("deckwright-collection")
 MANABOX_COLUMNS = {
     "Binder Name", "Binder Type", "Name", "Set code", "Set name", "Collector number", "Foil", "Rarity",
     "Quantity", "ManaBox ID", "Scryfall ID", "Misprint", "Altered", "Condition", "Language", "Added",
 }  # fmt: skip
-LINE = re.compile(r"^\s*(\d+)\s+(.+?)\s*$")
+LINE = re.compile(r"^\s*([0-9]+)\s+(.+?)\s*$")
+WHOLE_NUMBER = re.compile(r"[0-9]+")
 
 
 class Failure(Exception):
@@ -69,7 +79,9 @@ class Failure(Exception):
 
 class Unreachable(Failure):
     def __init__(self, what: str, reason: str):
-        super().__init__(f"Scryfall could not be reached to look up {what} ({reason}). Nothing was recorded.", 3)
+        super().__init__(
+            f"Scryfall could not be reached to look up {what} ({reason}). Nothing was recorded.", EXIT_UNREACHABLE
+        )
 
 
 class BulkUnreadable(Exception):
@@ -90,7 +102,9 @@ def matching_key(name: str) -> str:
 def file_key(name: str) -> str:
     """A name as a file name: lowercase ASCII and dashes, with a hash where the name is not plain ASCII."""
     key = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-    if not key or not name.isascii():
+    if len(key) > MAX_KEY:
+        key = key[:MAX_KEY].rstrip("-") + "-" + hashlib.sha256(name.casefold().encode("utf-8")).hexdigest()[:12]
+    elif not key or not name.isascii():
         digest = hashlib.sha256(name.casefold().encode("utf-8")).hexdigest()[:12]
         key = f"{key}-{digest}" if key else digest
     return key
@@ -131,16 +145,24 @@ def is_card(card: dict) -> bool:
     return card.get("layout") not in NOT_CARDS and card.get("set_type") != "token"
 
 
+def rank(card: dict) -> int:
+    """Which printing speaks for a card when several share its name: an ordinary one before a playtest or
+    souvenir printing, so "Clear the Mind" is the real card and not the playtest "Clear, the Mind"."""
+    return 1 if card.get("set_type") in SIDE_SETS else 0
+
+
 def index_bulk(path: Path) -> dict:
     """What the script needs from a bulk file, read line by line so the file is never held whole.
 
     `cards` holds each card's fixed fields under its comparable name, `faces` each face's comparable
-    name and the card it names, `printings` every printing's Scryfall ID and its card's comparable
-    name ("" for a token or other non-card), `not_cards` the comparable names of non-cards.
+    name and the card it names, `printings` every printing's Scryfall ID and the comparable name of the
+    card it is ("" for a token or other non-card), `not_cards` the comparable names of non-cards.
     """
     cards: dict[str, dict] = {}
+    ranks: dict[str, int] = {}
     faces: dict[str, str] = {}
     printings: dict[str, str] = {}
+    reversible: dict[str, str] = {}
     not_cards: set[str] = set()
     try:
         with gzip.open(path, "rt", encoding="utf-8") as lines:
@@ -157,94 +179,118 @@ def index_bulk(path: Path) -> dict:
                     continue
                 if card.get("layout") == "reversible_card":
                     # Both faces of a reversible printing are one card printed twice ("Sol Ring // Sol Ring"),
-                    # which other printings carry under its own name.
-                    printings[card["id"]] = comparable(card["card_faces"][0]["name"])
+                    # which other printings carry under its own name; face 0 may name only its front.
+                    reversible[card["id"]] = comparable(card["card_faces"][0]["name"])
                     continue
                 printings[card["id"]] = key
-                if key and key not in cards:
-                    cards[key] = fixed_fields(card)
+                if key and (key not in cards or rank(card) < ranks[key]):
+                    cards[key], ranks[key] = fixed_fields(card), rank(card)
                     for face in card.get("card_faces", []):
                         faces.setdefault(comparable(face.get("name", "")), key)
     except (OSError, EOFError, zlib.error, ValueError, UnicodeDecodeError) as error:
         raise BulkUnreadable(str(error)) from None
-    if not printings:
+    if not printings and not reversible:
         raise BulkUnreadable("it holds no cards")
     faces.pop("", None)
+    for scryfall_id, key in reversible.items():
+        printings[scryfall_id] = key if key in cards else faces.get(key, "")
     return {"cards": cards, "faces": faces, "printings": printings, "not_cards": sorted(not_cards)}
 
 
 class Scryfall:
-    """Card facts from the per-card cache first, then from the Default Cards bulk file it keeps beside it."""
+    """Card facts from the per-card cache first, then from the Default Cards bulk file it keeps beside it.
 
-    def __init__(self, cache: Path):
+    `fresh` downloads a file a week old or more before answering: lookups and a collection handed
+    over want current facts. Without it, any readable file serves, and with `download` off there is
+    no network at all: the deck commands that only count never wait on one.
+    """
+
+    def __init__(self, cache: Path, fresh: bool, download: bool):
         self.cache = cache
         self.base = os.environ.get("DECKWRIGHT_SCRYFALL_API") or SCRYFALL
+        self.fresh = fresh
+        self.download = download
         self._index: dict | None = None
 
     def lookup(self, query: str) -> dict:
         """One `{"query", "result", "card"}` entry. Raises Unreachable when no source can answer."""
         cached = self._cached(query)
         if cached is not None:
-            found = comparable(query) in (comparable(n) for n in names_of(fixed_fields(cached)))
-            return {"query": query, "result": "found" if found else "closest_match", "card": fixed_fields(cached)}
-        card = self.by_name(query, what=repr(query))
+            card = fixed_fields(cached)
+            found = comparable(query) in (comparable(n) for n in names_of(card))
+            return {"query": query, "result": "found" if found else "closest_match", "card": card}
+        what = repr(query)
+        card = self.by_name(query, what)
         if card is not None:
             return {"query": query, "result": "found", "card": card}
-        close = self.closest(query, what=repr(query))
+        close = self.closest(query, what)
         if close is None:
             return {"query": query, "result": "not_found"}
         return {"query": query, "result": "closest_match", "card": close}
 
-    def by_name(self, name: str, what: str, fresh: bool = True) -> dict | None:
+    def by_name(self, name: str, what: str) -> dict | None:
         """The card whose name, or a face's name, is this one, normalised."""
         key = comparable(name)
         if not key:
             return None
-        index = self.index(what, fresh)
+        index = self.index(what)
         return index["cards"].get(key) or index["cards"].get(index["faces"].get(key, ""))
 
     def by_printing(self, scryfall_id: str, what: str) -> tuple[bool, dict | None]:
         """Whether the bulk file has this printing, and its card (None for a token or other non-card)."""
-        index = self.index(what, fresh=False)
+        index = self.index(what)
         if scryfall_id not in index["printings"]:
             return False, None
         return True, index["cards"].get(index["printings"][scryfall_id])
 
-    def closest(self, name: str, what: str, fresh: bool = True) -> dict | None:
-        index = self.index(what, fresh)
+    def closest(self, name: str, what: str) -> dict | None:
         key = comparable(name)
         if not key:
             return None
-        known = [*index["cards"], *index["faces"]]
-        close = difflib.get_close_matches(key, known, n=1, cutoff=NEAR)
+        index = self.index(what)
+        close = difflib.get_close_matches(key, [*index["cards"], *index["faces"]], n=1, cutoff=NEAR)
         if not close:
             return None
         return index["cards"].get(close[0]) or index["cards"][index["faces"][close[0]]]
 
     def is_not_a_card(self, name: str, what: str) -> bool:
         key = comparable(name)
-        return not key or key in self.index(what, fresh=False)["not_cards"]
+        return not key or key in self.index(what)["not_cards"]
 
-    def index(self, what: str, fresh: bool = True) -> dict:
-        """The bulk file's index, downloading the file when there is none readable.
+    def readable(self) -> bool:
+        """Whether a readable bulk file is at hand, so a collection can be read with no network."""
+        try:
+            self.index("the collection's cards")
+        except Unreachable:
+            return False
+        return True
 
-        `fresh` lookups also download a file a week old or more. A collection is read against any
-        readable file, so a tally or a page with a collection kept does not wait on the network.
+    def index(self, what: str) -> dict:
+        """The bulk file's index, downloading the file when there is none readable (or, fresh, a week old).
+
+        A stale file that reads still answers when the download fails, so a week offline loses nothing.
         """
         if self._index is None:
             bulk = self.cache / BULK_FILE
-            stale = not bulk.is_file() or (fresh and time.time() - bulk.stat().st_mtime >= BULK_MAX_AGE)
-            index = None if stale else self._read_index(bulk)
-            self._index = index if index is not None else self._download(what)
+            on_disk = self._read_index(bulk) if bulk.is_file() else None
+            stale = on_disk is None or (self.fresh and time.time() - bulk.stat().st_mtime >= BULK_MAX_AGE)
+            if stale and self.download:
+                try:
+                    on_disk = self._download(what)
+                except Unreachable:
+                    if on_disk is None:
+                        raise
+            if on_disk is None:
+                raise Unreachable(what, "no card data is kept and none was downloaded")
+            on_disk["not_cards"] = set(on_disk["not_cards"])
+            self._index = on_disk
         return self._index
 
     def _read_index(self, bulk: Path) -> dict | None:
-        source = [INDEX_FORMAT, bulk.stat().st_size, bulk.stat().st_mtime_ns]
         saved = self.cache / BULK_INDEX
         try:
             kept = json.loads(saved.read_text(encoding="utf-8"))
-            if kept.get("source") == source:
-                kept["not_cards"] = set(kept["not_cards"])
+            if kept.get("source") == index_source(bulk):
                 return kept
         except (OSError, ValueError, UnicodeDecodeError, AttributeError, KeyError, TypeError):
             pass
@@ -252,21 +298,22 @@ class Scryfall:
             index = index_bulk(bulk)
         except BulkUnreadable:
             return None
-        self._save_index(index, source)
-        index["not_cards"] = set(index["not_cards"])
+        self._save_index(index, bulk)
         return index
 
-    def _save_index(self, index: dict, source: list[int]) -> None:
+    def _save_index(self, index: dict, bulk: Path) -> None:
         saved = self.cache / BULK_INDEX
-        partial = saved.with_name(saved.name + ".part")
-        partial.write_text(json.dumps({"source": source, **index}, ensure_ascii=False), encoding="utf-8")
-        os.replace(partial, saved)
+        with side_file(saved) as partial:
+            partial.write_text(json.dumps({"source": index_source(bulk), **index}, ensure_ascii=False), "utf-8")
+            os.replace(partial, saved)
 
     def _get(self, url: str, what: str, accept: str):
         request = urllib.request.Request(url, headers={"User-Agent": f"deckwright/{VERSION}", "Accept": accept})
         try:
             return urllib.request.urlopen(request, timeout=60)
         except urllib.error.HTTPError as error:
+            if error.code == 429:
+                raise Unreachable(what, "HTTP 429: rate-limited; wait 30 seconds before looking anything up") from None
             raise Unreachable(what, f"HTTP {error.code}") from None
         except (urllib.error.URLError, TimeoutError, OSError) as error:
             raise Unreachable(what, str(getattr(error, "reason", error))) from None
@@ -281,23 +328,25 @@ class Scryfall:
             raise Unreachable(what, "the bulk data listing has no default_cards") from None
         except (http.client.HTTPException, OSError) as error:
             raise Unreachable(what, type(error).__name__) from None
+        if self.base == SCRYFALL and not BULK_HOST.match(str(uri)):
+            raise Unreachable(what, f"the listing points outside Scryfall: {str(uri)[:80]}")
 
         self.cache.mkdir(parents=True, exist_ok=True)
         bulk = self.cache / BULK_FILE
-        partial = bulk.with_name(bulk.name + ".part")
-        try:
-            with self._get(uri, what, "application/gzip, */*") as response, partial.open("wb") as out:
-                shutil.copyfileobj(response, out, 1 << 20)
-            index = index_bulk(partial)
-        except (http.client.HTTPException, OSError) as error:
-            partial.unlink(missing_ok=True)
-            raise Unreachable(what, f"the download was cut off: {type(error).__name__}") from None
-        except BulkUnreadable:
-            partial.unlink(missing_ok=True)
-            raise Unreachable(what, "the download was not a bulk file") from None
-        os.replace(partial, bulk)
-        self._save_index(index, [INDEX_FORMAT, bulk.stat().st_size, bulk.stat().st_mtime_ns])
-        index["not_cards"] = set(index["not_cards"])
+        with side_file(bulk) as partial:
+            try:
+                with self._get(uri, what, "application/gzip, */*") as response, partial.open("wb") as out:
+                    expected = int(response.headers.get("Content-Length") or 0)
+                    received = copy_at_most(response, out, BULK_MAX_BYTES)
+                if expected and received != expected:
+                    raise Unreachable(what, f"the download was cut off at {received} of {expected} bytes")
+                index = index_bulk(partial)
+                os.replace(partial, bulk)
+            except (http.client.HTTPException, OSError) as error:
+                raise Unreachable(what, f"the download was cut off: {type(error).__name__}") from None
+            except BulkUnreadable:
+                raise Unreachable(what, "the download was not a bulk file") from None
+        self._save_index(index, bulk)
         return index
 
     def _cached(self, query: str) -> dict | None:
@@ -312,6 +361,34 @@ class Scryfall:
         return card if isinstance(card, dict) and card.get("object") == "card" and "name" in card else None
 
 
+def index_source(bulk: Path) -> list[int]:
+    """What the saved index was built from: an index for another file, or by an older script, is rebuilt."""
+    return [INDEX_FORMAT, bulk.stat().st_size, bulk.stat().st_mtime_ns]
+
+
+@contextlib.contextmanager
+def side_file(final: Path):
+    """A side file of its own beside `final`, so two commands writing at once never share one; removed
+    unless it was moved into place."""
+    handle, name = tempfile.mkstemp(dir=final.parent, prefix=final.name + ".", suffix=".part")
+    os.close(handle)
+    partial = Path(name)
+    try:
+        yield partial
+    finally:
+        partial.unlink(missing_ok=True)
+
+
+def copy_at_most(source, out, limit: int) -> int:
+    copied = 0
+    while chunk := source.read(1 << 20):
+        copied += len(chunk)
+        if copied > limit:
+            raise OSError(f"more than {limit} bytes")
+        out.write(chunk)
+    return copied
+
+
 # The collection ------------------------------------------------------------------------
 
 
@@ -320,7 +397,7 @@ def kept_collection() -> Path | None:
     return files[0] if files else None
 
 
-def read_collection(data: bytes, scryfall: Scryfall, fresh: bool = False) -> tuple[list[dict], dict]:
+def read_collection(data: bytes, scryfall: Scryfall) -> tuple[list[dict], dict]:
     """The collection's copies, `[{name, copies, binder, binder_type}]`, and the report on every entry."""
     try:
         text = data.decode("utf-8-sig")
@@ -336,7 +413,7 @@ def read_collection(data: bytes, scryfall: Scryfall, fresh: bool = False) -> tup
         if scryfall.is_not_a_card(name, what):
             report["not_a_card"].append({"name": name, **where})
             return
-        close = scryfall.closest(name, what, fresh)
+        close = scryfall.closest(name, what)
         if close is not None:
             report["near_miss"].append({"name": name, **where, "card": close["name"]})
         else:
@@ -354,20 +431,22 @@ def read_collection(data: bytes, scryfall: Scryfall, fresh: bool = False) -> tup
             raise Failure(
                 f"The CSV export has no {', '.join(missing)} column. Export the collection from ManaBox again.", 2
             )
-        for row_number, row in enumerate(csv.DictReader(io.StringIO(text, newline="")), 2):
+        rows = csv.DictReader(io.StringIO(text, newline=""))
+        for row in rows:
             if not any((value or "").strip() for value in row.values() if isinstance(value, str)):
                 continue
             report["entries"] += 1
-            name, where = row["Name"] or "", {"row": row_number}
+            # line_num counts the lines read so far, blank ones included, as a spreadsheet numbers its rows.
+            name, where = row["Name"] or "", {"row": rows.line_num}
             quantity = (row["Quantity"] or "").strip()
-            if not quantity.isdigit() or int(quantity) < 1:
+            if not WHOLE_NUMBER.fullmatch(quantity) or int(quantity) < 1:
                 report["needs_quantity"].append({"name": name, **where})
                 continue
             listed, card = scryfall.by_printing((row["Scryfall ID"] or "").strip(), what)
             if listed and card is None:
-                report["matched"] += 1  # a token lot: matched, and counted as no card
+                report["not_a_card"].append({"name": name, **where})
                 continue
-            card = card or scryfall.by_name(name, what, fresh)
+            card = card or scryfall.by_name(name, what)
             if card is None:
                 unmatched(name, where)
                 continue
@@ -382,7 +461,7 @@ def read_collection(data: bytes, scryfall: Scryfall, fresh: bool = False) -> tup
             if not match or int(match.group(1)) < 1:
                 report["needs_quantity"].append({"name": name, "line": line_number})
                 continue
-            card = scryfall.by_name(name, what, fresh)
+            card = scryfall.by_name(name, what)
             if card is None:
                 unmatched(name, {"line": line_number})
                 continue
@@ -414,9 +493,13 @@ def availability(copies: list[dict], binders: dict) -> dict:
 
 
 def deck_availability(deck: dict | None, scryfall: Scryfall) -> dict | None:
-    """What the kept collection makes available to this deck, under its binder filter; None with no collection."""
+    """What the kept collection makes available to this deck, under its binder filter.
+
+    None with no collection, and None when no card data is at hand to read it with and this command
+    may not download it: a tally then carries no ownership rather than waiting on the network.
+    """
     path = kept_collection()
-    if path is None:
+    if path is None or (not scryfall.download and not scryfall.readable()):
         return None
     copies, _ = read_collection(path.read_bytes(), scryfall)
     return availability(copies, (deck or {}).get("binders", {}))
@@ -433,7 +516,7 @@ def narrowing(deck: dict, scryfall: Scryfall) -> dict:
     for c in available["cards"]:
         if c["available"] < 1:
             continue
-        card = scryfall.by_name(c["name"], "the collection's cards", fresh=False)
+        card = scryfall.by_name(c["name"], "the collection's cards")
         if card is None or not set(card["color_identity"]) <= identity or card["commander_legality"] != "legal":
             continue
         cards.append({"name": c["name"], "available": c["available"], "card": card, **judgements.get(c["name"], {})})
@@ -600,6 +683,8 @@ def tally(deck: dict, available: dict | None = None) -> dict:
     }
     if deck.get("name"):
         counted["name"] = deck["name"]
+    if "not_owned" in deck:
+        counted["not_owned"] = deck["not_owned"]
     if available is not None:
         counted["ownership"] = ownership(deck, available)
     return counted
@@ -611,10 +696,12 @@ def ownership(deck: dict, available: dict) -> dict:
     The marks are computed, never stored, so removing copies takes the not-owned ones first and a new
     collection or binder filter moves them at the next command.
     """
-    have = {c["name"]: c["available"] for c in available["cards"]}
+    have = {matching_key(c["name"]): c["available"] for c in available["cards"]}
     cards = []
     for e in sorted(deck["cards"], key=lambda e: by_name(e["card"]["name"])):
-        owned = min(e["count"], have.get(e["card"]["name"], 0))
+        # A card from the player's text may be recorded under a face name or another spelling.
+        available_copies = max((have.get(matching_key(n), 0) for n in names_of(e["card"])), default=0)
+        owned = min(e["count"], available_copies)
         cards.append({"name": e["card"]["name"], "owned": owned, "not_owned": e["count"] - owned})
     return {"owned": sum(c["owned"] for c in cards), "not_owned": sum(c["not_owned"] for c in cards), "cards": cards}
 
@@ -751,8 +838,13 @@ def render_page(deck: dict, available: dict | None = None) -> str:
 
 def run(args) -> str | None:
     deck_path = Path(args.deck or "deck.json")
+    looks_up = args.command in ("lookup", "new", "collection") or (args.command == "add" and args.from_player is None)
     # The cache, the collection and the decks belong to the working folder, so every deck shares them.
-    scryfall = Scryfall(Path(os.environ.get("DECKWRIGHT_CACHE") or "deckwright-cache"))
+    scryfall = Scryfall(
+        Path(os.environ.get("DECKWRIGHT_CACHE") or "deckwright-cache"),
+        fresh=looks_up,
+        download=looks_up or args.command in ("read", "judge", "available"),
+    )
 
     if args.command == "lookup":
         try:
@@ -772,9 +864,10 @@ def run(args) -> str | None:
         deck = {"template": load_template(args.template), "commander": looked_up(scryfall, args.commander), "cards": []}
         if args.name is not None:
             deck = {"name": args.name, **deck}
-            DECKS.mkdir(exist_ok=True)
+        counted = tally(deck, deck_availability(deck, scryfall))
+        deck_path.parent.mkdir(exist_ok=True)
         write_deck(deck_path, deck)
-        return as_json(tally(deck, deck_availability(deck, scryfall)))
+        return as_json({"file": deck_path.as_posix(), **counted})
 
     if args.command == "decks":
         listed = []
@@ -791,7 +884,7 @@ def run(args) -> str | None:
             data = handed.read_bytes()
         except OSError as error:
             raise Failure(f"The collection file cannot be read: {error.strerror or error}.", 2) from None
-        _, report = read_collection(data, scryfall, fresh=True)
+        _, report = read_collection(data, scryfall)
         shutil.rmtree(COLLECTION, ignore_errors=True)
         COLLECTION.mkdir()
         (COLLECTION / handed.name).write_bytes(data)
@@ -801,8 +894,14 @@ def run(args) -> str | None:
         deck = read_deck(deck_path) if args.deck else None
         if kept_collection() is None:
             raise Failure("No collection is kept: hand one over with collection FILE.", 2)
-        if args.include or args.exclude:
-            binders = {"include": args.include or [], "exclude": args.exclude or []}
+        if args.default or args.include or args.exclude:
+            binders = {} if args.default else {"include": args.include or [], "exclude": args.exclude or []}
+            copies, _ = read_collection(kept_collection().read_bytes(), scryfall)
+            known = sorted({c["binder"] for c in copies if c["binder"]})
+            unknown = [b for b in [*binders.get("include", []), *binders.get("exclude", [])] if b not in known]
+            if unknown:
+                listed = ", ".join(known) or "none: a list of lines has no binders"
+                raise Failure(f"The collection has no binder {unknown[0]!r}. Its binders: {listed}.", 2)
             if deck is None:
                 deck = {"binders": binders}
             else:
@@ -836,6 +935,8 @@ def changed(args, deck: dict, deck_path: Path, scryfall: Scryfall) -> str | None
 
     if args.command in ("theme", "plan"):
         deck[args.command] = args.text
+    elif args.command == "not-owned":
+        deck["not_owned"] = args.answer == "yes"
     elif args.command == "add":
         add(deck, scryfall, args)
     elif args.command == "remove":
@@ -898,17 +999,22 @@ def judge(deck: dict, deck_path: Path, scryfall: Scryfall, given: str) -> str:
             raise ValueError("expected a list of {name, categories, serves_theme}")
     except ValueError as error:
         raise Failure(f"The judgements are not readable ({error}).", 2) from None
-    read = {matching_key(n): e["name"] for e in narrowing(deck, scryfall)["cards"] for n in names_of(e["card"])}
+    cards = narrowing(deck, scryfall)["cards"]
+    read = {matching_key(n): e["name"] for e in cards for n in names_of(e["card"])}
     kept = deck.setdefault("judgements", {})
     for j in judgements:
         name = read.get(matching_key(j["name"]))
         if name is None:
             raise Failure(f"{j['name']!r} is not in this deck's read. Nothing was recorded.", 2)
-        kept[name] = {"categories": category_names(deck, j.get("categories") or [])}
+        # A field left out keeps what was judged before, so a new theme is judged without the categories.
+        judgement = kept.get(name, {}) | {"categories": kept.get(name, {}).get("categories", [])}
+        if "categories" in j:
+            judgement["categories"] = category_names(deck, j["categories"] or [])
         if "serves_theme" in j:
-            kept[name]["serves_theme"] = bool(j["serves_theme"])
+            judgement["serves_theme"] = bool(j["serves_theme"])
+        kept[name] = judgement
     write_deck(deck_path, deck)
-    return as_json({"unjudged": narrowing(deck, scryfall)["unjudged"], "judged": len(kept)})
+    return as_json({"unjudged": sum(1 for e in cards if e["name"] not in kept), "judged": len(kept)})
 
 
 def at_least(lowest: int, n: int, what: str) -> None:
@@ -949,12 +1055,16 @@ def parser() -> argparse.ArgumentParser:
     available = command("available", "Print the copies owned and available, and those held back per binder.")
     available.add_argument("--include", action="append", metavar="BINDER", help="make a deck binder's copies available")
     available.add_argument("--exclude", action="append", metavar="BINDER", help="hold a binder's copies back")
+    available.add_argument("--default", action="store_true", help="drop the deck's filter: only deck binders held back")
 
     command("read", "Print the narrowing: available cards this deck can use, with their judgements.")
     judge_command = command("judge", "Record the read's judgements: a JSON list of {name, categories, serves_theme}.")
     judge_command.add_argument("judgements", metavar="JSON")
     command("theme", "Set the deck's theme, in the player's words.").add_argument("text", metavar="TEXT")
     command("plan", "Set the deck's plan, one sentence.").add_argument("text", metavar="TEXT")
+    command("not-owned", "Record the player's answer: build this deck with cards they don't own?").add_argument(
+        "answer", choices=["yes", "no"]
+    )
 
     add_command = command("add", "Record a card the player said yes to.")
     add_command.add_argument("name", metavar="NAME")

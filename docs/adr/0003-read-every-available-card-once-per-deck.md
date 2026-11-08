@@ -24,6 +24,8 @@ records for each card which categories it counts in (none, one or several) and w
 it serves the theme. The judgements are stored in that deck's file. Categories counted
 from the type line, such as Lands, are left to the script. Searching the collection by
 text or type is a way to find cards during a category, not a way to classify them.
+When the player asks for theme ideas, the same read comes first, before the plan, and
+the themes offered are the ones found in it.
 
 Rejected:
 
