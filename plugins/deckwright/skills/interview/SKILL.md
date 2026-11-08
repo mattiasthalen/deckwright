@@ -49,7 +49,7 @@ Nothing is said about a card that did not come from a lookup in this conversatio
 - **Closest match**: say you could not find the name and ask whether the player meant the card Scryfall named. Record it only by that card's name, once they say yes.
 - **Not found**: say so, and ask what card they meant.
 - **Exit 3, Scryfall asked us to slow down** (the message says rate-limited): wait the time it names, then look the card up again. Do not ask the player for its text.
-- **Exit 3, Scryfall out of reach**: say you could not look the card up, name it, and ask the player for its type line and its text. Say nothing about the card until they give it. Do not search the web or fetch Scryfall any other way. Record it with `add --from-player`; the page marks it as the player's text.
+- **Exit 3, Scryfall out of reach**: say you could not look the card up, name it, and ask the player for its type line and its text. Say nothing about the card until they give it. Do not search the web or fetch Scryfall any other way. Critique it from the player's text alone. Its legality and whether it is a Game Changer are unknown, and stay unknown: say they could not be checked, never fill them in from memory or from any list you recall, and do not flag the card for them. Record it with `add --from-player`; the page marks it as the player's text. Try the lookup again for each new card the player names, since Scryfall may be back.
 
 Never mention prices, in any currency.
 
