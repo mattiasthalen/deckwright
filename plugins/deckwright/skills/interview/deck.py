@@ -264,7 +264,8 @@ def by_name(name: str):
 def counts_in(entry: dict, category: dict) -> bool:
     word = category.get("from_type_line")
     if word:
-        return re.search(rf"\b{re.escape(word)}\b", entry["card"]["type_line"], re.I) is not None
+        front = entry["card"]["type_line"].split(" // ")[0]
+        return re.search(rf"\b{re.escape(word)}\b", front, re.I) is not None
     return category["name"] in entry["categories"]
 
 

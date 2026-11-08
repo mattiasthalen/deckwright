@@ -62,7 +62,7 @@ Never mention prices, in any currency.
 **Each category**, in template order:
 
 1. Say in a sentence or two what the category is for, from its `counts_when`, and its target.
-2. Offer a few suggestions within the commander's colour identity, each with one line on what it does. Run one `lookup` of all of them before you write any of their names. A suggestion is never a choice: record it only when the player says yes to it.
+2. Offer a few suggestions within the commander's colour identity, each with one line on what it does. Suggest no card you would flag in step 3: none that is a Game Changer the bracket target does not allow, none you judge mass land destruction, chained extra turns, or half of a two-card infinite combo with a card already in the deck or among your suggestions. Run one `lookup` of all of them before you write any of their names. A suggestion is never a choice: record it only when the player says yes to it.
 3. For each card the player names, in this order, every time, familiar card or not:
    1. Look it up, unless it was looked up earlier in this conversation.
    2. Critique it in your reply, before any `add` for it: what the lookup says it does, in a sentence; which categories it counts in by their `counts_when`, named even when it seems obvious; and whether that is the category the player meant ("sure, but it doesn't count there", and why). A category whose `counts_when` reads the type line is counted by the script from the card's type line; you judge the rest.
