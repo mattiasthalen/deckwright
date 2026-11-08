@@ -13,6 +13,7 @@ from conftest import (
     COMMANDER,
     EXIT_USAGE,
     MANABOX,
+    Deckwright,
     category,
     escaped,
     manabox_csv,
@@ -100,6 +101,29 @@ def test_read_narrows_to_deck(deck, player):
     assert read["cards"] == [] and read["unjudged"] == 0
 
 
+def test_read_narrows_to_deck_commander_left_out(deck, player):
+    """Re-plan item 4: the commander is the deck's already, so the read never lists it, even with
+    copies of it in the collection, matched by name whatever the collection's spelling."""
+    rows = [manabox_row(scryfall_card(COMMANDER), 2), manabox_row(scryfall_card("Vampiric Tutor"), 1)]
+    deck.collection(write_file(player, "export.csv", manabox_csv(*rows)))
+    built = deck.named("Commander Owned")
+    assert COMMANDER in {c["name"] for c in built.available()["cards"]}, "the collection holds the commander"
+
+    read = built.read()
+    names = [e["name"] for e in read["cards"]]
+    assert "Vampiric Tutor" in names
+    assert not [n for n in names if "meren" in n.casefold()], f"the commander is left out of the read: {names}"
+    assert read["unjudged"] == len(read["cards"]) == 1
+
+    # The collection as lines, in another case and punctuation: still the commander, still left out.
+    report = deck.collection(write_file(player, "lines.txt", "1 MEREN OF CLAN NEL-TOTH\n1 vampiric tutor\n"))
+    assert report["matched"] == 2, report
+    assert COMMANDER in {c["name"] for c in built.available()["cards"]}
+    read = built.read()
+    names = [e["name"] for e in read["cards"]]
+    assert names == ["Vampiric Tutor"], f"the commander is left out of the read: {names}"
+
+
 # C16 ---------------------------------------------------------------------------------
 
 
@@ -164,6 +188,46 @@ def test_read_judgements_recorded(deck, player):
     assert "Uncharted Haven" in lands and "Mudflat Village" in lands
     assert "Bakersbane Duo" not in lands, "a creature judged under Lands does not count there"
     assert "Uncharted Haven" in category(tally, "Ramp")["cards"]
+
+
+def test_read_judgements_recorded_unjudged_add_refused(deck, player):
+    """Re-plan item 4: on a deck with a read, `add` of a card the read has not judged, given no
+    --category, counted by no type-line category and not in the deck, would count nowhere. It is
+    refused with exit 2, naming judge and --category, and nothing is recorded."""
+    deck.collection(MANABOX)
+    built = deck.named("Judged Read")
+    built.judge([{"name": "Starscape Cleric", "categories": ["Card advantage"], "serves_theme": True}])
+
+    before = built.deck_file.read_bytes()
+    proc = built.add("Sol Ring", expect=EXIT_USAGE)
+    said = proc.stdout + proc.stderr
+    assert "Traceback" not in said
+    assert "judge" in said and "--category" in said, f"the message names judge and --category: {said!r}"
+    assert built.deck_file.read_bytes() == before, "nothing is recorded"
+    assert built.tally()["total"] == 1
+
+    # A land counts in Lands from its type line: recorded, unjudged and with no --category.
+    built.add("Command Tower")
+    assert "Command Tower" in category(built.tally(), "Lands")["cards"]
+    # A judged card takes the read's categories.
+    built.add("Starscape Cleric")
+    # --category given: recorded under it.
+    built.add("Sol Ring", "Ramp")
+    assert "Sol Ring" in category(built.tally(), "Ramp")["cards"]
+    # Already in the deck: more copies, with no --category.
+    built.add("Sol Ring")
+    ramp = category(built.tally(), "Ramp")
+    assert ramp["cards"] == ["Sol Ring"] and ramp["count"] == 2, f"two copies, under the categories kept: {ramp}"
+
+    # A deck with no read records as before: one never judged, beside a kept collection ...
+    unread = deck.named("No Read Yet")
+    unread.add("Sol Ring")
+    assert unread.tally()["total"] == 2
+    # ... and one in a folder with no collection at all.
+    bare = Deckwright(player, deck.api)
+    bare.new()
+    bare.add("Sol Ring")
+    assert bare.tally()["total"] == 2
 
 
 def test_read_judgements_recorded_field_left_out(deck):
