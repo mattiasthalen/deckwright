@@ -32,3 +32,15 @@ recall: nothing is said about a card that did not come from a lookup or from the
 
 **deck page** — The styled page the *interview* ends with. Distinct from the decklist,
 the import text it carries.
+
+**available** — A copy the player owns that this deck may use. Distinct from owned:
+copies in a ManaBox deck start as not available, and the player's own words change
+what is.
+
+**theme** — What the player wants the deck built around, in their own words, such as
+"Bloomburrow rats". Distinct from the *plan*, which settles the theme against the
+commander.
+
+**plan** — The one sentence saying what this deck is trying to do, settled from the
+commander and the *theme*. Distinct from the Plan *category*, the *template*'s share of
+cards that serve it.
