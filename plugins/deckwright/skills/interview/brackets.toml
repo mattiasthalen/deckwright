@@ -1,0 +1,17 @@
+# The Game Changer limit of each bracket. The lowest bracket a deck fits is the lowest
+# bracket here whose limit its Game Changers stay within. Bracket 1 is left out: what sets
+# it apart from 2 is intent, which no count can see.
+source = "Wizards of the Coast: the Game Changer limits per bracket from the Commander format page (https://magic.wizards.com/en/formats/commander, read 2026-11-07), and the Game Changer list as of the Commander Brackets Beta Update, October 21, 2025 (https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-october-21-2025)"
+date = 2025-10-21
+
+[[brackets]]
+bracket = 2
+max_game_changers = 0
+
+[[brackets]]
+bracket = 3
+max_game_changers = 3
+
+[[brackets]]
+bracket = 4
+# Bracket 4 has no limit.

@@ -1,0 +1,36 @@
+# The Commander template, after The Command Zone's deckbuilding template (episode 658).
+# One card may count in several categories; Lands is counted from the type line.
+name = "Commander"
+deck_size = 100
+bracket_target = 2
+
+[[categories]]
+name = "Lands"
+target = 38
+counts_when = "the card's type line includes Land"
+from_type_line = "Land"
+
+[[categories]]
+name = "Ramp"
+target = 10
+counts_when = "it puts extra mana or lands into play beyond the land drop"
+
+[[categories]]
+name = "Card advantage"
+target = 12
+counts_when = "it starts as one card and gives you more than one card"
+
+[[categories]]
+name = "Targeted disruption"
+target = 12
+counts_when = "one card deals with one opponent's thing: removal, bounce, counter, phasing"
+
+[[categories]]
+name = "Mass disruption"
+target = 6
+counts_when = "one card deals with many things: board wipes, mass artifact or enchantment removal, wide taxes, graveyard hate"
+
+[[categories]]
+name = "Plan"
+target = 30
+counts_when = "it does what this deck is trying to do"

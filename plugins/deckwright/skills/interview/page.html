@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<style>
+:root {
+  --bg: #f7f5f0; --surface: #ffffff; --ink: #1d1b18; --muted: #6b665d; --line: #e3ded4;
+  --accent: #2f6f4f; --warn: #a3462b; --own: #5a4fa3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161513; --surface: #201f1c; --ink: #ece8e0; --muted: #a29c90; --line: #34322d;
+    --accent: #6fbf94; --warn: #e48a6c; --own: #a99cf0;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161513; --surface: #201f1c; --ink: #ece8e0; --muted: #a29c90; --line: #34322d;
+  --accent: #6fbf94; --warn: #e48a6c; --own: #a99cf0;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; }
+header { margin-bottom: 20px; }
+h1 { font-size: 1.8rem; margin: 0; }
+h2 { font-size: 1.1rem; margin: 0 0 8px; }
+h3 { font-size: 1rem; margin: 0; display: flex; justify-content: space-between; gap: 8px; }
+.sub { color: var(--muted); margin: 4px 0 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.total { font-size: 1.4rem; font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.category { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.category.done .count { color: var(--accent); }
+.category.open .count { color: var(--muted); }
+.when { color: var(--muted); font-size: 0.85rem; margin: 4px 0 8px; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+.bar span { display: block; height: 100%; background: var(--accent); }
+ul { margin: 0; padding-left: 0; list-style: none; }
+li { padding: 2px 0; }
+li .n { display: inline-block; min-width: 2ch; color: var(--muted); text-align: right; margin-right: 4px; }
+.empty { color: var(--muted); font-style: italic; }
+.mark { font-size: 0.75rem; border-radius: 4px; padding: 0 5px; margin-left: 4px; border: 1px solid currentColor; }
+.flag { color: var(--warn); }
+.own { color: var(--own); }
+.bracket.over .lowest { color: var(--warn); }
+pre { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 14px/1.45 ui-monospace, Menlo, Consolas, monospace; margin: 8px 0 0; }
+button { font: inherit; background: var(--accent); color: var(--surface); border: 0; border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1 data-section="commander">{{commander}}</h1>
+  <p class="sub">Commander · colour identity {{identity}} · template {{template}}</p>
+</header>
+
+<section class="card" data-section="total">
+  <h2>Total</h2>
+  <p class="total">{{total}}</p>
+  <p class="sub">{{standing}}</p>
+</section>
+
+<div class="grid">{{categories}}</div>
+
+<section class="card" data-section="checks">
+  <h2>Checks</h2>
+  <ul>{{checks}}</ul>
+</section>
+
+<section class="card bracket {{bracket_state}}" data-section="bracket">
+  <h2>Bracket</h2>
+  <p>Bracket target: <strong>{{bracket_target}}</strong> · lowest bracket it fits: <strong class="lowest">{{bracket_lowest}}</strong>{{bracket_over}}</p>
+  <p class="sub">Game Changers: {{game_changers}}</p>
+</section>
+
+<section class="card">
+  <h2>Cards from the player's text</h2>
+  <p data-section="player-text">{{player_text}}</p>
+</section>
+
+<section class="card">
+  <div class="row"><h2>Decklist</h2><button type="button" id="copy">Copy decklist</button></div>
+  <pre id="decklist" data-section="decklist">{{decklist}}</pre>
+</section>
+</main>
+<script>
+document.getElementById("copy").addEventListener("click", function () {
+  var list = document.getElementById("decklist");
+  var button = this;
+  function done(label) { button.textContent = label; setTimeout(function () { button.textContent = "Copy decklist"; }, 1500); }
+  function select() {
+    var range = document.createRange();
+    range.selectNodeContents(list);
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    done("Selected: copy it");
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(list.textContent).then(function () { done("Copied"); }, select);
+  } else {
+    select();
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+---
+# AC14: after Ramp is introduced and before the player's first Ramp card (Sol Ring) is recorded, one assistant message lists at least two cards, each a list item with a line of at least 15 characters on what it does after the name. A list of bare names fails.
+type: regex
+target: trace
+pattern: '"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?(?:(?:\b|(?<=\\n))Ramp(?:\b|(?<=\\n))(?=(?:[^"\\]|\\.){0,300}?(?:(?:\b|(?<=\\n))10(?:\b|(?<=\\n))))|(?:\b|(?<=\\n))10 [Rr]amp(?:\b|(?<=\\n)))(?:(?=(?:[^"\\]|\\.){0,400}?(?:extra mana|more mana|mana or lands|lands? (?:onto|into) (?:play|the battlefield)|beyond (?:the|your)(?: one)? land drop))|(?<=(?:extra mana|more mana|mana or lands|lands? (?:onto|into) (?:play|the battlefield)|beyond (?:the|your)(?: one)? land drop)(?:[^"\\]|\\.){0,400}))(?:(?!"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))add(?:\b|(?<=\\n))(?:[^"\\]|\\.)*?Sol Ring)[\s\S])*?"type":"text","text":"(?:[^"\\]|\\.)*?\\n(?:[-*•]|\d+[.)])\s+(?:\*\*)?[A-Z][^\\*`{(]{1,40}?(?:\*\*)?(?:\s*(?:`[^`\\]*`|\{[^}\\]*\}|\([^)\\]*\)))*\s*(?:—|–|:|-)\s*[^\\]{15,}(?:[^"\\]|\\.)*?\\n(?:[-*•]|\d+[.)])\s+(?:\*\*)?[A-Z][^\\*`{(]{1,40}?(?:\*\*)?(?:\s*(?:`[^`\\]*`|\{[^}\\]*\}|\([^)\\]*\)))*\s*(?:—|–|:|-)\s*[^\\]{15,}'
+---
