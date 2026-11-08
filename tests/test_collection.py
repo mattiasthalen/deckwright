@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 
 import pytest
 from conftest import (
@@ -16,15 +17,19 @@ from conftest import (
     EXIT_USAGE,
     MANABOX,
     MANABOX_HEADER,
+    bulk_cards,
     copy_tree_files,
     manabox_csv,
     manabox_row,
     printing,
     scryfall_card,
+    with_reversible,
     write_file,
 )
 
 GROUPS = ("near_miss", "not_a_card", "unknown")
+# manabox.csv's two token lots, each sharing a card's name: what `collection` reports as not cards.
+TOKEN_LOTS = [{"name": "Splash Lasher", "row": 23}, {"name": "Starscape Cleric", "row": 27}]
 
 
 @pytest.fixture
@@ -75,8 +80,9 @@ def fixture_copies() -> dict[str, int]:
 def test_collection_csv_quantities(deck, player):
     report = deck.collection(MANABOX)
     assert report["entries"] == 35, "every row of the export is an entry"
-    assert report["matched"] == 35, f"every real row matches a card or a token: {report}"
-    assert reported(report) == 0, report
+    assert report["matched"] == 33, f"every real row but the two token lots matches a card: {report}"
+    assert sorted(report["not_a_card"], key=lambda m: m["row"]) == TOKEN_LOTS, "the two token lots are not cards"
+    assert report["matched"] + reported(report) == report["entries"], report
 
     owned = copies(deck.available())
     expected = fixture_copies()
@@ -136,10 +142,18 @@ def test_collection_lines(deck, player):
 
 def test_collection_token_by_printing(deck):
     report = deck.collection(MANABOX)
-    assert report["matched"] == report["entries"], "a token lot matches, as a token"
+    # B-8, C10: a token lot is not a card. It is reported by its name and row, and never matched,
+    # though a card of the same name is on other rows (D2).
+    assert sorted((m["name"], m["row"]) for m in report["not_a_card"]) == [
+        ("Splash Lasher", 23),
+        ("Starscape Cleric", 27),
+    ], report
+    assert report["matched"] == report["entries"] - 2 == 33, report
+    assert all(report[g] == [] for g in ("near_miss", "unknown", "needs_quantity")), report
     owned = copies(deck.available())
-    # Six copies of the card on three rows, and a token lot of two by the same name.
+    # Six copies of the card on three rows; the token lot of two by the same name counts nothing.
     assert owned["Starscape Cleric"] == (6, 6)
+    # Two copies of the card on two rows; the token lot of one counts nothing.
     assert owned["Splash Lasher"] == (2, 2)
 
     deck.new()
@@ -388,3 +402,186 @@ def test_available_filter(deck, player):
     deck.run("available", "--deck", "deck.json", "--exclude", "Trade binder")
     read = {e["name"]: e["available"] for e in deck.read()["cards"]}
     assert "Vampiric Tutor" not in read and read.get("Sol Ring") is None
+
+
+# A1, P1: where printings share a name, the playable one is the card -----------------------
+
+# Printings that share a card's name, or its name once normalised, and are not that card: a
+# Jumpstart theme card (layout `front_card`, type "Card"), an art-series card, and an Un-set card.
+SHADOWS = [("ffdn", "8"), ("acmm", "64"), ("unk", "UU11a")]
+
+
+def shadowed_bulk(first: bool) -> list[dict]:
+    """The stand-in's bulk file with the shadowing printings before every other line, or after."""
+    shadows = [printing(*p) for p in SHADOWS]
+    ids = {c["id"] for c in shadows}
+    rest = [c for c in bulk_cards() if c["id"] not in ids]
+    return shadows + rest if first else rest + shadows
+
+
+def ownership(tally: dict) -> dict[str, tuple[int, int]]:
+    return {c["name"]: (c["owned"], c["not_owned"]) for c in tally["ownership"]["cards"]}
+
+
+@pytest.mark.parametrize("first", [True, False], ids=["shadows first in the file", "shadows last in the file"])
+def test_collection_playable_printing_wins(deck, scryfall, player, first):
+    scryfall.bulk = shadowed_bulk(first)
+    rows = [
+        manabox_row(printing("8ed", "196"), 1),  # row 2: Inferno, the instant
+        manabox_row(printing("rna", "34"), 2),  # row 3: Clear the Mind
+        manabox_row(printing("ffdn", "8"), 1),  # row 4: Inferno, a Jumpstart theme card
+        manabox_row(printing("acmm", "64"), 1),  # row 5: Demonic Tutor // Demonic Tutor, an art card
+        manabox_row(scryfall_card("Demonic Tutor"), 1),  # row 6
+    ]
+    report = hand_over(deck, player, "export.csv", manabox_csv(*rows))
+    not_cards = sorted(m["row"] for m in report["not_a_card"])
+    assert not_cards == [4, 5], f"a theme card and an art card are not cards: {report}"
+    assert report["matched"] == 3 and report["matched"] + reported(report) == report["entries"] == 5, report
+
+    owned = copies(deck.available())
+    assert owned == {"Inferno": (1, 1), "Clear the Mind": (2, 2), "Demonic Tutor": (1, 1)}, (
+        "the theme card's and the art card's rows count nothing"
+    )
+
+    # The card read for a row is the printing's card, never the theme card's facts.
+    deck.new()
+    tutor = {e["name"]: e for e in deck.read()["cards"]}["Demonic Tutor"]["card"]
+    assert (tutor["type_line"], tutor["commander_legality"]) == ("Sorcery", "legal")
+    for name in ("Inferno", "Clear the Mind", "Demonic Tutor"):
+        deck.add(name, "Plan")
+    tally = deck.tally()
+    assert tally["checks"]["commander_legality"] == [], "the playable printings are legal; the shadows are not"
+    owned = ownership(tally)
+    assert owned["Inferno"] == owned["Clear the Mind"] == owned["Demonic Tutor"] == (1, 0)
+
+
+@pytest.mark.parametrize("first", [True, False], ids=["shadows first in the file", "shadows last in the file"])
+def test_collection_playable_printing_wins_un_card_row(deck, scryfall, player, first):
+    """C8: a row is matched by its Scryfall ID. The Un-card Clear, the Mind is a card of its own
+    (another oracle card), so its row is never counted as Clear the Mind, whose name it shares
+    once normalised."""
+    scryfall.bulk = shadowed_bulk(first)
+    rows = [manabox_row(printing("rna", "34"), 2), manabox_row(printing("unk", "UU11a"), 1)]
+    report = hand_over(deck, player, "export.csv", manabox_csv(*rows))
+    assert report["matched"] + reported(report) == report["entries"] == 2, report
+    owned = copies(deck.available())
+    assert owned.get("Clear the Mind") == (2, 2), f"the Un-card's row is not Clear the Mind: {owned}"
+    assert owned.get("Clear, the Mind") in (None, (1, 1)), owned
+
+
+# A5, P2 ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("where", ["first", "last", "only"], ids=lambda w: f"reversible {w} in the file")
+def test_collection_reversible_printing(deck, scryfall, player, where):
+    reversible = printing("sld", "1512")
+    assert reversible["layout"] == "reversible_card" and reversible["name"] == "Sol Ring // Sol Ring"
+    scryfall.bulk = with_reversible(reversible, where)
+
+    report = hand_over(deck, player, "export.csv", manabox_csv(manabox_row(reversible, 2)))
+    assert (report["entries"], report["matched"]) == (1, 1), report
+    assert copies(deck.available()) == {"Sol Ring": (2, 2)}, "a reversible printing's copies are the card's"
+
+    report = hand_over(
+        deck, player, "both.csv", manabox_csv(manabox_row(reversible, 2), manabox_row(scryfall_card("Sol Ring"), 1))
+    )
+    assert copies(deck.available()) == {"Sol Ring": (3, 3)}, "summed with the card's other printings"
+
+    found = deck.json("lookup", "Sol Ring")[0]
+    assert found["result"] == "found"
+    assert (found["card"]["name"], found["card"]["type_line"]) == ("Sol Ring", "Artifact"), found
+
+    deck.new()
+    sol = {e["name"]: e for e in deck.read()["cards"]}["Sol Ring"]
+    assert sol["available"] == 3 and sol["card"]["type_line"] == "Artifact"
+    deck.add("Sol Ring", "Ramp")
+    assert ownership(deck.tally()) == {"Sol Ring": (1, 0)}
+
+
+# A9 ----------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "quantity", ["²", "1²", "３"], ids=["superscript two", "one superscript two", "fullwidth three"]
+)
+def test_collection_quantity_not_a_plain_number(deck, player, quantity):
+    """A quantity Python calls a digit but that is no plain whole number is refused or reported, never a traceback."""
+    hand_over(deck, player, "before.txt", "2 Forest\n")
+    export = manabox_csv(manabox_row(scryfall_card("Sol Ring"), quantity), manabox_row(scryfall_card("Swamp"), 4))
+    for name, content, key, at in [
+        ("export.csv", export, "row", 2),
+        ("list.txt", f"{quantity} Sol Ring\n4 Swamp\n", "line", 1),
+    ]:
+        proc = deck.run("collection", str(write_file(player, name, content)), expect=None)
+        assert "Traceback" not in proc.stderr, proc.stderr
+        assert proc.returncode in (0, EXIT_USAGE), (proc.returncode, proc.stdout, proc.stderr)
+        if proc.returncode == EXIT_USAGE:
+            assert (proc.stdout + proc.stderr).strip(), "it says why"
+            assert copies(deck.available()) == {"Forest": (2, 2)}, "the collection kept before stays"
+            continue
+        report = json.loads(proc.stdout)
+        assert [m[key] for m in report["needs_quantity"]] == [at], report
+        assert copies(deck.available()) == {"Swamp": (4, 4)}, "the row or line counts nothing"
+        hand_over(deck, player, "before.txt", "2 Forest\n")
+
+
+# A10 ---------------------------------------------------------------------------------
+
+
+def test_collection_rows_after_a_blank_line(deck, player):
+    unknown_id = "00000000-0000-4000-8000-000000000000"
+    lines = [
+        MANABOX_HEADER,  # row 1
+        manabox_row(scryfall_card("Sol Ring"), 1),  # row 2
+        "",  # row 3: blank, as a spreadsheet shows it
+        manabox_row(scryfall_card("Forest"), "three"),  # row 4
+        manabox_row({**printing("trc", "460"), "id": unknown_id, "name": "Cultivat"}, 1),  # row 5
+    ]
+    report = hand_over(deck, player, "export.csv", ("\r\n".join(lines) + "\r\n").encode("utf-8"))
+    assert [(m["name"], m["row"]) for m in report["needs_quantity"]] == [("Forest", 4)], report
+    assert [(m["name"], m["row"]) for m in report["near_miss"]] == [("Cultivat", 5)], report
+    assert report["matched"] == 1 and report["matched"] + reported(report) == report["entries"], report
+
+
+# A13 ---------------------------------------------------------------------------------
+
+
+def test_available_unknown_binder(deck, player):
+    hand_over(deck, player, "export.csv", manabox_csv(*BINDERS))
+    deck.new()
+    default = held_back(deck.available("--deck", "deck.json"))
+    before = deck.deck_file.read_bytes()
+
+    for flags in (
+        ("--include", "NoSuchBinder"),
+        ("--exclude", "NoSuchBinder"),
+        ("--include", "Vren deck", "--include", "NoSuchBinder"),
+    ):
+        for with_deck in ((), ("--deck", "deck.json")):
+            proc = deck.run("available", *with_deck, *flags, expect=EXIT_USAGE)
+            said = proc.stdout + proc.stderr
+            assert "Traceback" not in proc.stderr, proc.stderr
+            for binder in ("Trade binder", "Vren deck", "Lands", "Meren deck"):
+                assert binder in said, f"the refusal lists the collection's binders: {said!r}"
+            assert deck.deck_file.read_bytes() == before, "nothing is kept"
+    assert held_back(deck.available("--deck", "deck.json")) == default
+
+
+# A6 ----------------------------------------------------------------------------------
+
+
+def test_available_default_clears_filter(deck, player):
+    hand_over(deck, player, "export.csv", manabox_csv(*BINDERS))
+    deck.new()
+    deck.run("available", "--deck", "deck.json", "--include", "Vren deck")
+    assert held_back(deck.available("--deck", "deck.json")) == [("Meren deck", 5)]
+
+    cleared = deck.available("--deck", "deck.json", "--default")
+    assert held_back(cleared) == [("Meren deck", 5), ("Vren deck", 2)], "--default is the default availability"
+    assert held_back(deck.available("--deck", "deck.json")) == [("Meren deck", 5), ("Vren deck", 2)], (
+        "and the deck no longer keeps the filter"
+    )
+    read = {e["name"]: e["available"] for e in deck.read()["cards"]}
+    assert "Vampiric Tutor" not in read and read.get("Sol Ring") == 1
+    deck.add("Vampiric Tutor", "Plan")
+    assert ownership(deck.tally()) == {"Vampiric Tutor": (0, 1)}

@@ -11,6 +11,7 @@ import gzip
 import json
 import re
 import shutil
+import time
 
 import pytest
 from conftest import (
@@ -26,10 +27,14 @@ from conftest import (
     bulk_cards,
     category,
     jsonl_gz,
+    manabox_csv,
+    manabox_row,
     place_bulk,
     printing,
     read_page,
     scryfall_card,
+    with_reversible,
+    write_file,
 )
 
 
@@ -347,3 +352,177 @@ def test_bulk_cache_unreadable(deck, scryfall, how):
     assert any(json.loads(line)["name"] == "Sol Ring" for line in kept.splitlines() if line.strip()), (
         "the damaged file is replaced by the downloaded one"
     )
+
+
+# A1, P1: where printings share a name, the playable one answers ---------------------------
+
+# Each is (query, the shadowing printing, the card the query must find, its type line). The
+# shadows are a Jumpstart theme card (layout `front_card`, type "Card"), an art-series card whose
+# faces carry the card's name, and an Un-set card whose name is the card's once normalised.
+SHADOWED = [
+    ("Inferno", ("ffdn", "8"), "Inferno", "Instant"),
+    ("Demonic Tutor", ("acmm", "64"), "Demonic Tutor", "Sorcery"),
+    ("Clear the Mind", ("unk", "UU11a"), "Clear the Mind", "Sorcery"),
+]
+
+
+@pytest.mark.parametrize("first", [True, False], ids=["shadows first in the file", "shadows last in the file"])
+def test_bulk_lookup_playable_printing_wins(deck, scryfall, first):
+    shadows = [printing(*shadow) for _, shadow, _, _ in SHADOWED]
+    ids = {c["id"] for c in shadows}
+    rest = [c for c in bulk_cards() if c["id"] not in ids]
+    place_bulk(deck.cache, shadows + rest if first else rest + shadows)
+
+    entries = lookup(deck, *(query for query, _, _, _ in SHADOWED))
+    for entry, (query, _, name, type_line) in zip(entries, SHADOWED):
+        assert entry["result"] == "found", entry
+        card = entry["card"]
+        assert (card["name"], card["type_line"], card["commander_legality"]) == (name, type_line, "legal"), (
+            f"{query!r} is the playable card, not a printing that shares its name: {card}"
+        )
+    assert not scryfall.requests and not scryfall.data_requests
+
+    deck.new()
+    for query, *_ in SHADOWED:
+        deck.add(query, "Plan")
+    assert deck.tally()["checks"]["commander_legality"] == [], "every card recorded is the legal one"
+
+
+# A5, P2 ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("where", ["first", "last", "only"], ids=lambda w: f"reversible {w} in the file")
+def test_bulk_lookup_reversible_printing(deck, where):
+    reversible = printing("sld", "1512")
+    assert reversible["layout"] == "reversible_card"
+    place_bulk(deck.cache, with_reversible(reversible, where))
+
+    entry = lookup(deck, "Sol Ring")[0]
+    assert entry["result"] == "found"
+    assert_fixed_fields(entry["card"], scryfall_card("Sol Ring"))
+
+
+# A2 ----------------------------------------------------------------------------------
+
+
+def _side_by_side(deck, *args, runs: int = 6) -> list:
+    procs = [deck.spawn(*args) for _ in range(runs)]
+    done = []
+    for proc in procs:
+        out, err = proc.communicate(timeout=90)
+        done.append((proc.returncode, out, err))
+    return done
+
+
+@pytest.mark.parametrize("bulk_there", [False, True], ids=["first download", "bulk file there, nothing else"])
+def test_bulk_concurrent_first_lookups(deck, scryfall, bulk_there):
+    """Two commands at once in one folder never share a temporary file: none fails, and the kept
+    file is whole (A2)."""
+    if bulk_there:
+        place_bulk(deck.cache)
+    scryfall.delay = 0.5
+
+    for code, out, err in _side_by_side(deck, "lookup", "Sol Ring"):
+        assert "Traceback" not in err, err
+        assert code == 0, (code, out, err)
+        assert json.loads(out)[0]["result"] == "found", out
+
+    kept = gzip.decompress((deck.cache / BULK_FILE).read_bytes()).decode("utf-8")
+    names = {json.loads(line)["name"] for line in kept.splitlines() if line.strip()}
+    assert names == {c["name"] for c in bulk_cards()}, "the kept file is whole"
+    leftovers = [p.name for p in deck.cache.iterdir() if p.name.endswith((".part", ".tmp"))]
+    assert not leftovers, f"no temporary file is left behind: {leftovers}"
+    assert lookup(deck, "Vampiric Tutor")[0]["result"] == "found", "and a later command reads it"
+
+
+# A3 ----------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("how", ["out of reach", "rate-limited", "blocked by a proxy"])
+def test_bulk_stale_file_when_unreachable(deck, scryfall, unreachable_url, how):
+    """A bulk file a week old or more is fetched again; when that fails, the file there answers."""
+    place_bulk(deck.cache, age=2 * WEEK)
+    runner = deck.offline(unreachable_url) if how == "out of reach" else deck
+    scryfall.limit = how == "rate-limited"
+    scryfall.refuse = how == "blocked by a proxy"
+
+    entry = lookup(runner, "Sol Ring")[0]
+    assert entry["result"] == "found", entry
+    assert_fixed_fields(entry["card"], scryfall_card("Sol Ring"))
+    prefill_commander(deck)
+    runner.new()
+    runner.add("Sol Ring", "Ramp")
+    assert category(runner.tally(), "Ramp")["cards"] == ["Sol Ring"]
+    assert (deck.cache / BULK_FILE).is_file(), "the stale file is kept, not dropped"
+
+
+# M1, A8 ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("shape", ["ManaBox CSV", "list of lines"])
+def test_bulk_refresh_after_a_week_collection(deck, scryfall, tmp_path, shape):
+    """`collection` refreshes a bulk file a week old, as a lookup does, for a CSV too (M1)."""
+    stale = [c for c in bulk_cards() if c["name"] != "Cultivate"]
+    place_bulk(deck.cache, stale, age=WEEK + 60)
+    player = tmp_path / "player"
+    player.mkdir()
+    if shape == "ManaBox CSV":
+        handed = write_file(player, "export.csv", manabox_csv(manabox_row(printing("trc", "460"), 2)))
+    else:
+        handed = write_file(player, "list.txt", "2 Cultivate\n")
+
+    report = deck.collection(handed)
+    assert [r.path for r in scryfall.data_requests] == [BULK_PATH], "a file a week old is fetched again"
+    assert report["matched"] == 1, f"and the new file is the one read: {report}"
+    cards = deck.available()["cards"]
+    assert [(c["name"], c["owned"]) for c in cards] == [("Cultivate", 2)]
+
+
+# M5 ----------------------------------------------------------------------------------
+
+
+def test_bulk_rate_limited_said(deck, scryfall):
+    """A 429 is exit 3, and the message says Scryfall rate-limited the script and to wait."""
+    scryfall.limit = True
+    proc = deck.run("lookup", "Sol Ring", expect=EXIT_UNREACHABLE)
+    text = said(proc)
+    assert "Traceback" not in proc.stderr, proc.stderr
+    assert "Sol Ring" in text, text
+    assert re.search(r"rate.?limit", text, re.I), f"the message says it was rate-limited: {text!r}"
+    assert re.search(r"\bwait", text, re.I), f"the message says to wait: {text!r}"
+    assert not (deck.cache / BULK_FILE).exists()
+
+
+# P3 ----------------------------------------------------------------------------------
+
+
+def test_bulk_download_interrupted_said(deck, scryfall):
+    """A download cut short of its Content-Length is said to be cut off, not a file that is not a bulk file."""
+    scryfall.cut_off = True
+    proc = deck.run("lookup", "Sol Ring", expect=EXIT_UNREACHABLE)
+    text = said(proc)
+    assert "Traceback" not in proc.stderr, proc.stderr
+    assert re.search(r"cut (off|short)|incomplete|interrupted|truncated", text, re.I), (
+        f"the message says the download was cut off: {text!r}"
+    )
+    assert not re.search(r"not a bulk file", text, re.I), text
+    assert not (deck.cache / BULK_FILE).exists()
+    leftovers = [p.name for p in deck.cache.iterdir()] if deck.cache.exists() else []
+    assert not [n for n in leftovers if n.endswith((".part", ".tmp", ".gz"))], f"no partial file is kept: {leftovers}"
+
+
+# S2 ----------------------------------------------------------------------------------
+
+
+def test_bulk_download_over_the_cap(deck, scryfall):
+    """A download larger than the cap (the builder's, under 2 GiB) is refused: exit 3, nothing kept,
+    rather than read until the disk or the time runs out. The stand-in claims 100 GiB and sends 3."""
+    scryfall.huge = True
+    started = time.monotonic()
+    proc = deck.run("lookup", "Sol Ring", expect=EXIT_UNREACHABLE)
+    took = time.monotonic() - started
+    assert "Traceback" not in proc.stderr, proc.stderr
+    assert took < 25, f"refused, not read for {took:.0f} s"
+    assert not (deck.cache / BULK_FILE).exists()
+    leftovers = [p.name for p in deck.cache.iterdir()] if deck.cache.exists() else []
+    assert not [n for n in leftovers if n.endswith((".part", ".tmp", ".gz"))], leftovers

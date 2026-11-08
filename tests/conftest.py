@@ -107,6 +107,14 @@ def bulk_cards() -> list[dict]:
     return list(by_id.values())
 
 
+def with_reversible(reversible: dict, where: str) -> list[dict]:
+    """The bulk file with a reversible-card printing first, last, or as its card's only printing."""
+    rest = [c for c in bulk_cards() if c["id"] != reversible["id"]]
+    if where == "only":
+        rest = [c for c in rest if c["name"] != reversible["card_faces"][0]["name"]]
+    return [reversible, *rest] if where == "first" else [*rest, reversible]
+
+
 def printing(set_code: str, collector_number: str) -> dict:
     """One printing's card object, from `printing-<set>-<collector number>.json`."""
     return json.loads((RECORDED / f"printing-{set_code}-{collector_number}.json").read_text(encoding="utf-8"))
@@ -167,6 +175,10 @@ class FakeScryfall:
     `limit = True` makes both answer as Scryfall does past its rate limit: 429 and an error object.
     `cards_refused = True` makes every `/cards/…` request a 500: a lookup must not need one.
     `cut_off = True` makes the data host send half the file under the whole file's length and hang up.
+    `delay` seconds is how long the data host waits halfway through the file, so concurrent downloads overlap.
+    `huge = True` makes the data host claim a file of 100 GiB and send 3 GiB as fast as it is read,
+    then hold the connection for the rest of 30 seconds: a script that caps the download hangs up
+    long before, one that does not is still reading.
     An unrecorded request gets a 500, which a correct script reports as unreachable (exit 3),
     so a test that trips one fails loudly rather than seeing a made-up answer.
     """
@@ -179,6 +191,8 @@ class FakeScryfall:
     limit: bool = False
     cards_refused: bool = False
     cut_off: bool = False
+    delay: float = 0.0
+    huge: bool = False
     bulk: list[dict] = field(default_factory=bulk_cards)
     unrecorded: list[str] = field(default_factory=list)
 
@@ -273,6 +287,10 @@ def _serve_data(fake: FakeScryfall):
                 fake.unrecorded.append(self.path)
                 return self._send(500, b"", "text/plain")
             payload = jsonl_gz(fake.bulk)
+            if fake.huge:
+                return self._trickle(payload)
+            if fake.delay:
+                return self._send_slowly(payload)
             if not fake.cut_off:
                 return self._send(200, payload, "application/gzip")
             self.send_response(200)
@@ -281,6 +299,36 @@ def _serve_data(fake: FakeScryfall):
             self.end_headers()
             self.wfile.write(payload[: len(payload) // 2])
             self.wfile.flush()
+            self.close_connection = True
+
+        def _send_slowly(self, payload):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/gzip")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            half = len(payload) // 2
+            self.wfile.write(payload[:half])
+            self.wfile.flush()
+            time.sleep(fake.delay)
+            self.wfile.write(payload[half:])
+
+        def _trickle(self, payload):
+            # Claims 100 GiB and sends zeros as fast as the script reads, up to 3 GiB, then holds
+            # the connection open until 30 s have passed.
+            self.send_response(200)
+            self.send_header("Content-Type", "application/gzip")
+            self.send_header("Content-Length", str(100 * 1024**3))
+            self.end_headers()
+            until = time.monotonic() + 30
+            chunk = bytes(4 * 1024**2)
+            try:
+                for _ in range(3 * 1024**3 // len(chunk)):
+                    self.wfile.write(chunk)
+                self.wfile.flush()
+                while time.monotonic() < until:
+                    time.sleep(0.1)
+            except OSError:
+                pass  # the script hung up, as a capped one does
             self.close_connection = True
 
         def _send(self, status, payload, ctype):
@@ -319,7 +367,9 @@ def unreachable_url() -> str:
 
 
 # Commands that act on one deck file, and so take `--deck PATH` after the command.
-DECK_COMMANDS = {"add", "remove", "target", "bracket", "tally", "page", "read", "judge", "theme", "plan", "available"}
+DECK_COMMANDS = {
+    "add", "remove", "target", "bracket", "tally", "page", "read", "judge", "theme", "plan", "available", "not-owned",
+}
 
 
 class Deckwright:
@@ -353,7 +403,8 @@ class Deckwright:
             port = urlsplit(api).port
             env["DECKWRIGHT_CACHE"] = str(self.cwd.parent / f"never-reached-cache-{port}")
         env.update(extra or {})
-        return env
+        # A key given as None is taken out, so a test can run with the script's own Scryfall base.
+        return {k: v for k, v in env.items() if v is not None}
 
     def offline(self, api: str) -> Deckwright:
         """The same working folder, deck and cache, with Scryfall at `api` (out of reach)."""
@@ -382,6 +433,19 @@ class Deckwright:
                 f"stdout: {proc.stdout}\nstderr: {proc.stderr}"
             )
         return proc
+
+    def spawn(self, *args: str, api: str | None = None, env: dict | None = None) -> subprocess.Popen:
+        """Starts a command and returns at once, so a test can run several side by side."""
+        assert self.script.exists(), f"the script is not built yet: {self.script}"
+        return subprocess.Popen(
+            [sys.executable, str(self.script), *args],
+            cwd=self.cwd,
+            env=self.env(api, env),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+        )
 
     def json(self, *args: str, **kw):
         return json.loads(self.run(*args, **kw).stdout)

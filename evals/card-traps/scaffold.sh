@@ -11,6 +11,4 @@ if [ ! -d "$here/fixture" ]; then
   exit 1
 fi
 cp -R "$here/fixture/." .
-bulk="$("$here/../tools/bulk-cache.sh")"
-mkdir -p deckwright-cache
-cp "$bulk" deckwright-cache/default-cards.jsonl.gz
+"$here/../tools/bulk-cache.sh" deckwright-cache >/dev/null

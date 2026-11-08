@@ -136,7 +136,8 @@ def test_read_judgements_recorded(deck, player):
     assert all(judged(e) == (None, None) for e in unjudged["cards"]), "another deck's read is its own"
     assert unjudged["unjudged"] == len(unjudged["cards"])
 
-    # Judged again, a card's judgement is replaced.
+    # Judged again with both fields, a card's judgement is replaced. A field left out is kept:
+    # test_read_judgements_recorded_field_left_out.
     graveyard.judge([{"name": "Vampiric Tutor", "categories": ["Card advantage"], "serves_theme": False}])
     cards = {e["name"]: e for e in graveyard.read()["cards"]}
     assert judged(cards["Vampiric Tutor"]) == (["Card advantage"], False)
@@ -163,6 +164,37 @@ def test_read_judgements_recorded(deck, player):
     assert "Uncharted Haven" in lands and "Mudflat Village" in lands
     assert "Bakersbane Duo" not in lands, "a creature judged under Lands does not count there"
     assert "Uncharted Haven" in category(tally, "Ramp")["cards"]
+
+
+def test_read_judgements_recorded_field_left_out(deck):
+    """D1: a judgement that leaves out `categories` keeps the categories recorded before, as a new
+    theme re-judges theme fit only (B-18, ADR-0003); one that leaves out `serves_theme` keeps that."""
+    deck.collection(MANABOX)
+    rats = deck.named("Theme Changes")
+    rats.judge([
+        {"name": "Starscape Cleric", "categories": ["Card advantage", "Plan"], "serves_theme": True},
+        {"name": "Uncharted Haven", "categories": ["Ramp"], "serves_theme": False},
+        {"name": "Feed the Cycle", "categories": ["Targeted disruption"]},
+    ])
+
+    # A new theme: theme fit judged again, categories not given.
+    rats.run("theme", "Bats, not rats")
+    rats.judge([{"name": "Starscape Cleric", "serves_theme": False}, {"name": "Uncharted Haven", "serves_theme": True}])
+    cards = by_name(rats.read())
+    assert judged(cards["Starscape Cleric"]) == (["Card advantage", "Plan"], False), "the categories are kept"
+    assert judged(cards["Uncharted Haven"]) == (["Ramp"], True)
+
+    # Categories given, theme fit not: the theme fit recorded before is kept.
+    rats.judge([{"name": "Uncharted Haven", "categories": ["Ramp", "Card advantage"]}])
+    cards = by_name(rats.read())
+    assert judged(cards["Uncharted Haven"]) == (["Ramp", "Card advantage"], True), "the theme fit is kept"
+    assert judged(cards["Feed the Cycle"]) == (["Targeted disruption"], None), "a field never given stays absent"
+
+    # A yes with no category still takes the categories the read kept.
+    rats.add("Starscape Cleric")
+    tally = rats.tally()
+    assert "Starscape Cleric" in category(tally, "Card advantage")["cards"]
+    assert "Starscape Cleric" in category(tally, "Plan")["cards"]
 
 
 # C21 ---------------------------------------------------------------------------------

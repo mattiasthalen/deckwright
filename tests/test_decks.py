@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 import shutil
 
@@ -87,6 +88,42 @@ def test_deck_named_files_odd_characters(deck):
         assert read_page(raw).section("name").strip() == name
     assert file_key('Rats: "The/Pack" <3?*|\\') == "rats-the-pack-3"
     assert len({e["file"] for e in deck.json("decks")}) == 3
+
+
+# D4 ----------------------------------------------------------------------------------
+
+
+def test_deck_new_prints_file(deck):
+    """`new --name` prints the deck's `file`, the path every later command takes as `--deck`, so
+    the skill never derives it from the name: a name outside ASCII is keyed with a hash."""
+    for name in ("Rat Pack", "Råttornas kväll", "稲妻デッキ"):
+        out = json.loads(deck.new(name=name).stdout)
+        assert out["file"] == f"decks/{file_key(name)}.json", out.get("file")
+        assert (deck.cwd / out["file"]).is_file()
+        assert deck.using(out["file"]).tally()["name"] == name
+    assert sorted(e["file"] for e in deck.json("decks")) == sorted(
+        f"decks/{file_key(n)}.json" for n in ("Rat Pack", "Råttornas kväll", "稲妻デッキ")
+    )
+
+
+# A11 ---------------------------------------------------------------------------------
+
+
+def test_deck_name_very_long(deck):
+    """A name far past a file name's limit (255 bytes) still starts a deck, whose file name fits."""
+    for name in ("Rats " * 60, "Råttornas kväll och natt " * 12, "x" * 300):
+        proc = deck.new(name=name)
+        assert "Traceback" not in proc.stderr, proc.stderr
+        file = json.loads(proc.stdout)["file"]
+        assert re.fullmatch(r"decks/[a-z0-9-]+\.json", file), file
+        assert len(file.removeprefix("decks/").encode("utf-8")) <= 255
+        built = deck.using(file)
+        assert built.tally()["name"] == name
+        built.run("page")
+        raw = (deck.cwd / file).with_suffix(".html").read_text(encoding="utf-8")
+        assert name in title(raw), "the page shows the whole name as given"
+        deck.new("Bloodline Keeper", name=name, expect=EXIT_USAGE)  # still never overwritten
+    assert len(deck.json("decks")) == 3
 
 
 # C32 ---------------------------------------------------------------------------------
