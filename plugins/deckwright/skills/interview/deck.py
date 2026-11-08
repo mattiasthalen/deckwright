@@ -580,9 +580,10 @@ def narrowing(deck: dict, scryfall: Scryfall) -> dict:
         raise Failure("No collection is kept: hand one over with collection FILE.", 2)
     identity = set(deck["commander"]["color_identity"])
     judgements = deck.get("judgements", {})
+    commander = {matching_key(n) for n in names_of(deck["commander"])}
     cards = []
     for c in available["cards"]:
-        if c["available"] < 1:
+        if c["available"] < 1 or matching_key(c["name"]) in commander:
             continue
         # A card that lost its name to another is never looked up by it: it would be the other card.
         card = c.get("card") or scryfall.by_name(c["name"], "the collection's cards")
@@ -1061,7 +1062,19 @@ def add(deck: dict, scryfall: Scryfall, args) -> None:
                 failure.code,
             ) from None
         if args.category is None:
-            categories = deck.get("judgements", {}).get(card["name"], {}).get("categories", [])
+            judged = deck.get("judgements", {}).get(card["name"])
+            by_type = any(
+                counts_in({"card": card}, c) for c in deck["template"]["categories"] if c.get("from_type_line")
+            )
+            read_kept = "judgements" in deck  # a deck built from a collection
+            if read_kept and judged is None and not by_type and recorded(deck, card["name"]) is None:
+                # Without a judgement there are no categories to record it under, and it would count nowhere.
+                raise Failure(
+                    f"{card['name']!r} has no judgement in this deck's read. Judge it with judge, or give "
+                    "--category. Nothing was recorded.",
+                    2,
+                )
+            categories = (judged or {}).get("categories", [])
     entry = next((e for name in names_of(card) if (e := recorded(deck, name))), None)
     if entry is None:
         entry = {"card": card, "count": 0, "categories": []}
