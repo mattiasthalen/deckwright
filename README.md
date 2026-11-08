@@ -2,13 +2,15 @@
 
 A deckbuilding tutor for Claude. AI-assisted, not AI-generated: deckwright interviews you through a format's template, one category at a time, suggests and critiques cards it has looked up on Scryfall, and records only the cards you say yes to. It ends with a deck page that carries the decklist in ManaBox's import format.
 
+Hand it your collection, a ManaBox CSV export or a plain list of cards, and it suggests from the cards you own first, holding back the ones already in your ManaBox decks unless you say otherwise. Name a theme ("Bloomburrow rats") and it puts the cards that serve it first in every category, without changing the template. Every deck has a name and its own file, so you can build many and pick any of them up again.
+
 The first template is Commander, after The Command Zone's deckbuilding template (episode 658): 38 lands, 10 ramp, 12 card advantage, 12 targeted disruption, 6 mass disruption, 30 for the deck's plan.
 
 ## Code execution is required
 
 Every lookup, count, check and the deck page come from a small Python script that ships with the skill (`plugins/deckwright/skills/interview/deck.py`, standard library only, run with `uv` or Python 3.11+). Without code execution deckwright says so and does not start.
 
-- **Claude app** (web, desktop, mobile): Settings → Capabilities → turn on **Code execution and file creation** (called **Create and edit files** in newer versions). The script needs to reach `api.scryfall.com`. On a Team or Enterprise plan, code execution's network access is limited by default and only an organisation owner can allow a domain: ask yours to allow `api.scryfall.com`. Without it, deckwright asks you for each card's text instead of looking it up.
+- **Claude app** (web, desktop, mobile): Settings → Capabilities → turn on **Code execution and file creation** (called **Create and edit files** in newer versions). The script needs to reach `api.scryfall.com` and `data.scryfall.io`, where it downloads Scryfall's card data (about 80 MB, kept for a week). On a Team or Enterprise plan, code execution's network access is limited by default and only an organisation owner can allow a domain: ask yours to allow both. Without it, deckwright asks you for each card's text instead of looking it up.
 - **Claude Code**: allow the Bash tool when asked.
 
 ## Install
