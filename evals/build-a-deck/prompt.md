@@ -16,5 +16,6 @@ help me build a commander deck
 3. For ramp, once you've offered suggestions: "No thanks to the first one you suggested." Then: "Add Sol Ring." Then: "Add Sign in Blood as ramp."
 4. If you tell me Sign in Blood isn't ramp: "Fair enough, put it under card advantage then."
 5. When ramp is done: "By the way, I've got a big collection. Can you build from the cards I own?"
+   Whenever you ask me for my collection: "No collection."
 6. Then: "Let's stop there for today. Show me the deck page."
 7. To any other question: "Nothing more from me on that. Carry on."
