@@ -68,3 +68,18 @@ A step that says what to do without saying where (for example "enable code execu
 3. Before that, deckwright asks for the commander, before any category.
 
 Record: the date, the app version, whether each of the three held, and a screenshot of the first exchange. A FAIL on any of them fails the criterion.
+
+## C36: the skill's collection steps replace the S1 collection paragraph, and nothing else of S1 goes
+
+**Read:** `git diff 017a7a0 -- plugins/deckwright/skills/interview/SKILL.md`, beside `brief/s2-s3-brief.md` (B-5 to B-26) and the lexicon (`docs/lexicon.md`).
+
+**Rubric:** all four hold.
+
+1. Every one of B-5 to B-26 is said in the added lines, once each: a behaviour said twice in different words, or in two places that could drift apart, is a FAIL for that B-n. List each B-n with the added line that says it.
+2. The added lines use the lexicon's words for what they name (collection, binder, deck binder, the read, theme, plan sentence, not owned, deck name and the rest the lexicon holds), and no synonym for a term the lexicon defines.
+3. The removed lines are only the S1 paragraph saying building from the player's own cards is not supported yet, and the lines telling the skill to look cards up through `cards/named`. Any other removed S1 instruction is a FAIL, named with its line; an S1 instruction moved but kept word for word is not removed.
+4. Each S1 step that still applies is kept word for word: a reworded S1 line counts as removed.
+
+The steps the unit tests and evals rely on are fixed in [`tests/README.md`](README.md), "What the skill must do"; a B-n the skill says in a way that contradicts that section is a FAIL for that B-n.
+
+FAIL names the B-n or the S1 line, and what is wrong with it.

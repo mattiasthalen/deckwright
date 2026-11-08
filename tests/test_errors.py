@@ -84,6 +84,7 @@ def test_exit_usage_template_missing_key(tmp_path, scryfall):
 
 
 def test_lookup_fields_corrupt_cache_refetched(deck, scryfall):
+    """A per-card cache file that is not a card is treated as missing: the bulk file answers."""
     cache = deck.cwd / "deckwright-cache"
     cache.mkdir()
     (cache / "sol-ring.json").write_text("{not json", encoding="utf-8")
@@ -93,10 +94,8 @@ def test_lookup_fields_corrupt_cache_refetched(deck, scryfall):
     entries = deck.json("lookup", "Sol Ring", "Vampiric Tutor", "Mana Vault")
     assert [e["result"] for e in entries] == ["found", "found", "found"]
     assert [e["card"]["name"] for e in entries] == ["Sol Ring", "Vampiric Tutor", "Mana Vault"]
-    fetched = [r.query.get("exact", [None])[0] for r in scryfall.requests]
-    assert fetched == ["Sol Ring", "Vampiric Tutor", "Mana Vault"], "a file that is not a card is treated as missing"
-    rewritten = json.loads((cache / "sol-ring.json").read_text(encoding="utf-8"))
-    assert rewritten["name"] == scryfall_card("Sol Ring")["name"]
+    assert entries[0]["card"]["oracle_text"] == scryfall_card("Sol Ring")["oracle_text"]
+    assert not scryfall.card_requests, "answered from the bulk file, not cards/…"
 
 
 def _break(deck: Deckwright, how: str):

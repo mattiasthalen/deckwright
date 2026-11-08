@@ -1,0 +1,6 @@
+---
+# C17: a read or judge output shows "unjudged": 0 (tests/README.md) before any assistant message lists a card from the narrowing as a list item, which is the first suggestion from the collection. A recap that lists a narrowed card before the read is done fails too, which is stricter than the criterion.
+type: regex
+target: trace
+pattern: '^(?:(?<![^\n])(?![^\n]*(?:"(?:name":"Bash"|role":"assistant")|unjudged))(?=(?<L1>[^\n]*\n))\k<L1>|(?!(?<![^\n])(?![^\n]*(?:"(?:name":"Bash"|role":"assistant")|unjudged)))(?!"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?\\n\s*(?:[-*•]|\d+[.)])\s+(?:\*\*|__|\[)?(?:Island|Swamp|Uncharted Haven|Mudflat Village|Lilypad Village|Hidden Grotto|Fabled Passage|Fountainport|Azure Beastbinder|Daggerfang Duo|Lightshell Duo|Mindwhisker|Nightwhorl Hermit|Persistent Marshstalker|Shoreline Looter|Thornplate Intimidator|Thought Shucker|Wick(?:\x27|’|\x27\\\\\x27\x27|\x27\\\"\x27\\\"\x27)s Patrol|Mind Drill Assailant|Tidecaller Mentor|Arcane Epiphany|Bellowing Crier|Bitter Triumph|Feed the Cycle|Nocturnal Hunger|Banishing Betrayal|Aetherspouts|Blitzball|Hydro-Channeler|Strixhaven Skycoach|Vampiric Tutor|Vengeful Bloodwitch|Starscape Cleric|Splash Lasher)(?:\b|(?<=\\n)))[\s\S])*?\\"unjudged\\":\s*0(?![0-9])'
+---
