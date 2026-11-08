@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import os
 import re
 import shutil
 import time
@@ -523,6 +524,61 @@ def test_bulk_download_over_the_cap(deck, scryfall):
     took = time.monotonic() - started
     assert "Traceback" not in proc.stderr, proc.stderr
     assert took < 25, f"refused, not read for {took:.0f} s"
+    assert re.search(r"larger|too large|too big|over the cap|exceed", said(proc), re.I), (
+        f"the message says the file is larger than the cap: {said(proc)!r}"
+    )
+    assert not re.search(r"cut (off|short)", said(proc), re.I), said(proc)
     assert not (deck.cache / BULK_FILE).exists()
     leftovers = [p.name for p in deck.cache.iterdir()] if deck.cache.exists() else []
     assert not [n for n in leftovers if n.endswith((".part", ".tmp", ".gz"))], leftovers
+
+
+def test_bulk_download_over_the_cap_claimed(deck, scryfall):
+    """R2-D5: a `Content-Length` past the cap is refused from the header, before the body is read:
+    exit 3 at once, saying the file is larger than the cap (not that it was cut off), nothing kept.
+    The stand-in claims 100 GiB and sends a byte every 0.1 s, so a script that reads first waits."""
+    scryfall.claims_over_cap = True
+    started = time.monotonic()
+    proc = deck.run("lookup", "Sol Ring", expect=EXIT_UNREACHABLE)
+    took = time.monotonic() - started
+    text = said(proc)
+    assert "Traceback" not in proc.stderr, proc.stderr
+    assert took < 10, f"refused from the Content-Length, not after reading for {took:.0f} s"
+    assert re.search(r"larger|too large|too big|over the cap|exceed", text, re.I), (
+        f"the message says the file is larger than the cap: {text!r}"
+    )
+    assert not re.search(r"cut (off|short)", text, re.I), text
+    assert not (deck.cache / BULK_FILE).exists()
+    leftovers = [p.name for p in deck.cache.iterdir()] if deck.cache.exists() else []
+    assert not [n for n in leftovers if n.endswith((".part", ".tmp", ".gz"))], leftovers
+
+
+# R2-M1 -------------------------------------------------------------------------------
+
+# Blank lines a bulk file may hold and a reader skips: enough that reading them all takes seconds.
+SLOW_LINES = 120_000_000
+
+
+def test_bulk_stale_file_not_read_before_download(deck, scryfall):
+    """R2-M1: a bulk file a week old, with no saved index for it, is about to be replaced, so a
+    lookup downloads the new one without reading the old one first. The old file here is
+    readable gzip of only blank lines, which a reader skips one by one for seconds before finding
+    no card; the control is the same lookup with no old file at all."""
+    started = time.monotonic()
+    deck.run("lookup", "Sol Ring", env={"DECKWRIGHT_CACHE": str(deck.cwd / "control-cache")})
+    control = time.monotonic() - started
+
+    deck.cache.mkdir()
+    old = deck.cache / BULK_FILE
+    old.write_bytes(gzip.compress(b"\n" * SLOW_LINES, compresslevel=9, mtime=0))
+    then = time.time() - 2 * WEEK
+    os.utime(old, (then, then))
+
+    started = time.monotonic()
+    entry = json.loads(deck.run("lookup", "Sol Ring").stdout)[0]
+    took = time.monotonic() - started
+    assert entry["result"] == "found", entry
+    assert len(scryfall.downloads) == 2, "the control and the lookup each downloaded once"
+    assert took < control + 3, (
+        f"the old file was read before the download: {took:.1f} s against {control:.1f} s with none"
+    )

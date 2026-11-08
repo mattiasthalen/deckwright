@@ -201,6 +201,28 @@ def test_bulk_host_not_scryfall_refused(deck, scryfall, proxy, certificates, tmp
     assert not (deck.cache / BULK_FILE).exists(), "nothing is kept"
 
 
+@pytest.mark.parametrize("to", ["https on another host", "https on a look-alike host", "plain http"])
+def test_bulk_host_redirect_off_scryfall_refused(deck, scryfall, proxy, certificates, to):
+    """R2-P1: a listing that points at https://data.scryfall.io is followed, but a 302 from there to
+    a host that is not Scryfall's is refused: exit 3, the card named, nothing kept, though the host
+    it was sent to serves a good bulk file."""
+    scryfall.listing = listing_pointing_at(scryfall, "https://data.scryfall.io" + BULK_PATH)
+    scryfall.redirect = {
+        "https on another host": "https://evil.example" + BULK_PATH,
+        "https on a look-alike host": "https://data.scryfall.io.evil.example" + BULK_PATH,
+        "plain http": "http://evil.example" + BULK_PATH,
+    }[to]
+    env = through(deck, proxy, certificates)
+
+    proc = deck.run("lookup", "Sol Ring", env=env, expect=EXIT_UNREACHABLE)
+    assert "Traceback" not in proc.stderr, proc.stderr
+    assert "Sol Ring" in said(proc)
+    assert "data.scryfall.io:443" in proxy.connects, f"the listed address was asked for: {proxy.connects}"
+    assert not (deck.cache / BULK_FILE).exists(), "nothing is kept"
+    leftovers = [p.name for p in deck.cache.iterdir()] if deck.cache.exists() else []
+    assert not [n for n in leftovers if n.endswith((".part", ".tmp", ".gz"))], leftovers
+
+
 # P4 ----------------------------------------------------------------------------------
 
 

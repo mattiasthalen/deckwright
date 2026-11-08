@@ -177,8 +177,13 @@ class FakeScryfall:
     `cut_off = True` makes the data host send half the file under the whole file's length and hang up.
     `delay` seconds is how long the data host waits halfway through the file, so concurrent downloads overlap.
     `huge = True` makes the data host claim a file of 100 GiB and send 3 GiB as fast as it is read,
-    then hold the connection for the rest of 30 seconds: a script that caps the download hangs up
-    long before, one that does not is still reading.
+    with no `Content-Length`, then hold the connection for the rest of 30 seconds: a script that
+    counts what it reads against its cap hangs up long before, one that does not is still reading.
+    `claims_over_cap = True` makes it claim a `Content-Length` of 100 GiB and send one byte every
+    0.1 s for up to 30 seconds: a script that checks the claimed length refuses at once, one that
+    reads first is still waiting.
+    `redirect`, when set, makes a request for the file that reaches a Scryfall host by name (its
+    `Host` header) answer 302 to that address; any other host serves the file.
     An unrecorded request gets a 500, which a correct script reports as unreachable (exit 3),
     so a test that trips one fails loudly rather than seeing a made-up answer.
     """
@@ -193,6 +198,8 @@ class FakeScryfall:
     cut_off: bool = False
     delay: float = 0.0
     huge: bool = False
+    claims_over_cap: bool = False
+    redirect: str = ""
     bulk: list[dict] = field(default_factory=bulk_cards)
     unrecorded: list[str] = field(default_factory=list)
 
@@ -286,7 +293,16 @@ def _serve_data(fake: FakeScryfall):
             if parts.path != BULK_PATH:
                 fake.unrecorded.append(self.path)
                 return self._send(500, b"", "text/plain")
+            host = (self.headers.get("Host") or "").rsplit(":", 1)[0]
+            if fake.redirect and host.endswith((".scryfall.io", ".scryfall.com")):
+                self.send_response(302)
+                self.send_header("Location", fake.redirect)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             payload = jsonl_gz(fake.bulk)
+            if fake.claims_over_cap:
+                return self._claim_over_cap()
             if fake.huge:
                 return self._trickle(payload)
             if fake.delay:
@@ -313,11 +329,10 @@ def _serve_data(fake: FakeScryfall):
             self.wfile.write(payload[half:])
 
         def _trickle(self, payload):
-            # Claims 100 GiB and sends zeros as fast as the script reads, up to 3 GiB, then holds
-            # the connection open until 30 s have passed.
+            # Sends zeros as fast as the script reads, up to 3 GiB, with no Content-Length (the body
+            # ends when the connection does), then holds the connection open until 30 s have passed.
             self.send_response(200)
             self.send_header("Content-Type", "application/gzip")
-            self.send_header("Content-Length", str(100 * 1024**3))
             self.end_headers()
             until = time.monotonic() + 30
             chunk = bytes(4 * 1024**2)
@@ -329,6 +344,22 @@ def _serve_data(fake: FakeScryfall):
                     time.sleep(0.1)
             except OSError:
                 pass  # the script hung up, as a capped one does
+            self.close_connection = True
+
+        def _claim_over_cap(self):
+            # Claims 100 GiB and sends a byte every 0.1 s until 30 s have passed or the script hangs up.
+            self.send_response(200)
+            self.send_header("Content-Type", "application/gzip")
+            self.send_header("Content-Length", str(100 * 1024**3))
+            self.end_headers()
+            until = time.monotonic() + 30
+            try:
+                while time.monotonic() < until:
+                    self.wfile.write(b"\0")
+                    self.wfile.flush()
+                    time.sleep(0.1)
+            except OSError:
+                pass
             self.close_connection = True
 
         def _send(self, status, payload, ctype):

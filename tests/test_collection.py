@@ -469,6 +469,41 @@ def test_collection_playable_printing_wins_un_card_row(deck, scryfall, player, f
     assert owned.get("Clear, the Mind") in (None, (1, 1)), owned
 
 
+# R2-D1, R2-A1: a shadowed card held alone -----------------------------------------------
+
+# (the card, its printing; the card of its own that shares its name once normalised, its printing)
+ALONE = [
+    ("Clear the Mind", ("rna", "34"), "Clear, the Mind", ("unk", "UU11a")),  # an Un-card
+    ("Wasteland", ("ema", "248"), "Waste Land", ("cmb2", "121")),  # a playtest card
+]
+
+
+@pytest.mark.parametrize("first", [True, False], ids=["shadow first in the file", "shadow last in the file"])
+@pytest.mark.parametrize("card, card_printing, shadow, shadow_printing", ALONE, ids=[a[2] for a in ALONE])
+def test_collection_playable_printing_wins_un_card_row_held_alone(
+    deck, scryfall, player, first, card, card_printing, shadow, shadow_printing
+):
+    """R2-D1: a collection holding only the Un-card Clear, the Mind, or only the playtest Waste Land,
+    holds no Clear the Mind and no Wasteland. Neither `available` nor `read` lists it under the
+    other card's name, and the other card, looked up and added, is not owned."""
+    printed = printing(*shadow_printing)
+    assert printed["name"] == shadow
+    rest = [c for c in bulk_cards() if c["id"] != printed["id"]]
+    scryfall.bulk = [printed, *rest] if first else [*rest, printed]
+    assert any(c["name"] == card for c in rest), f"the bulk file holds {card} itself"
+
+    hand_over(deck, player, "export.csv", manabox_csv(manabox_row(printed, 1)))
+    owned = copies(deck.available())
+    assert card not in owned, f"{shadow}'s row is not {card}: {owned}"
+
+    deck.new()
+    read = deck.read()["cards"]
+    assert not [e for e in read if card in (e["name"], e["card"]["name"])], f"{shadow} is not read as {card}: {read}"
+
+    deck.add(card, "Plan")
+    assert ownership(deck.tally()) == {card: (0, 1)}, f"{card} is not owned: the collection holds only {shadow}"
+
+
 # A5, P2 ------------------------------------------------------------------------------
 
 
@@ -568,6 +603,24 @@ def test_available_unknown_binder(deck, player):
 
 
 # A6 ----------------------------------------------------------------------------------
+
+
+def test_available_default_alone(deck, player):
+    """R2-A5: `--default` drops the filter, so it is given alone: beside `--include` or `--exclude`
+    it is a usage error, exit 2, and the filter the deck kept stays."""
+    hand_over(deck, player, "export.csv", manabox_csv(*BINDERS))
+    deck.new()
+    deck.run("available", "--deck", "deck.json", "--include", "Vren deck")
+    before = deck.deck_file.read_bytes()
+    kept = held_back(deck.available("--deck", "deck.json"))
+    assert kept == [("Meren deck", 5)]
+
+    for flags in (("--include", "Meren deck"), ("--exclude", "Trade binder")):
+        for with_deck in ((), ("--deck", "deck.json")):
+            proc = deck.run("available", *with_deck, "--default", *flags, expect=EXIT_USAGE)
+            assert "Traceback" not in proc.stderr, proc.stderr
+            assert deck.deck_file.read_bytes() == before, "nothing is kept"
+    assert held_back(deck.available("--deck", "deck.json")) == kept
 
 
 def test_available_default_clears_filter(deck, player):

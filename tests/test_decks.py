@@ -106,6 +106,14 @@ def test_deck_new_prints_file(deck):
     )
 
 
+def test_deck_new_missing_parents(deck):
+    """R2-A4: `new --deck a/b/c.json` makes the folders it needs and writes the deck, with no traceback."""
+    proc = deck.run("new", "--template", "commander", "--commander", COMMANDER, "--deck", "a/b/c.json")
+    assert "Traceback" not in proc.stderr, proc.stderr
+    assert (deck.cwd / "a" / "b" / "c.json").is_file()
+    assert deck.using("a/b/c.json").tally()["total"] == 1
+
+
 # A11 ---------------------------------------------------------------------------------
 
 

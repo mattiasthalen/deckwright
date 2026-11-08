@@ -14,6 +14,7 @@ from conftest import (
     Deckwright,
     manabox_csv,
     manabox_row,
+    printing,
     read_page,
     scryfall_card,
     write_file,
@@ -175,6 +176,28 @@ def test_not_owned_joined_by_face_name_from_player(deck, player, unreachable_url
     built = deck.named("Back Face")
     built.offline(unreachable_url).run("add", "Lord of Lineage", "--from-player", "Flying.", "--category", "Plan")
     assert ownership(built.tally()) == {"Lord of Lineage": (1, 0)}
+
+
+# R2-A2: a looked-up card is joined by its own name only ---------------------------------
+
+
+def test_not_owned_shared_face_name_not_joined(deck, player):
+    """R2-A2: Emeritus of Woe // Demonic Tutor has a face named Demonic Tutor and is not Demonic
+    Tutor. Owning one, the other, looked up and added, is not owned, either way round."""
+    emeritus, tutor = printing("sos", "80"), scryfall_card("Demonic Tutor")
+    assert emeritus["name"] == "Emeritus of Woe // Demonic Tutor" and tutor["name"] == "Demonic Tutor"
+
+    deck.collection(write_file(player, "emeritus.csv", manabox_csv(manabox_row(emeritus, 1))))
+    built = deck.named("Shared Face")
+    built.add("Demonic Tutor", "Plan")
+    assert ownership(built.tally()) == {"Demonic Tutor": (0, 1)}, "owning Emeritus of Woe is not owning Demonic Tutor"
+
+    deck.collection(write_file(player, "tutor.csv", manabox_csv(manabox_row(tutor, 1))))
+    built.run("remove", "Demonic Tutor")
+    built.add("Emeritus of Woe", "Plan")
+    assert ownership(built.tally()) == {"Emeritus of Woe // Demonic Tutor": (0, 1)}, (
+        "owning Demonic Tutor is not owning Emeritus of Woe"
+    )
 
 
 # A7, D16: with a collection and no bulk file, counting and rendering stay off the network --

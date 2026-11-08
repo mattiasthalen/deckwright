@@ -197,6 +197,20 @@ def test_read_judgements_recorded_field_left_out(deck):
     assert "Starscape Cleric" in category(tally, "Plan")["cards"]
 
 
+def test_read_judgements_recorded_whole_name_first(deck, player):
+    """R2-A3: with Demonic Tutor and Emeritus of Woe // Demonic Tutor both in the read, a judgement
+    of "Demonic Tutor" is the card of that name, not the card with a face of that name."""
+    rows = [manabox_row(scryfall_card("Demonic Tutor"), 1), manabox_row(printing("sos", "80"), 1)]
+    deck.collection(write_file(player, "export.csv", manabox_csv(*rows)))
+    built = deck.named("Two Tutors")
+    assert {"Demonic Tutor", "Emeritus of Woe // Demonic Tutor"} <= set(by_name(built.read()))
+
+    built.judge([{"name": "Demonic Tutor", "categories": ["Plan"], "serves_theme": True}])
+    cards = by_name(built.read())
+    assert judged(cards["Demonic Tutor"]) == (["Plan"], True), "the judgement is Demonic Tutor's"
+    assert judged(cards["Emeritus of Woe // Demonic Tutor"]) == (None, None), "and not Emeritus of Woe's"
+
+
 # C21 ---------------------------------------------------------------------------------
 
 
