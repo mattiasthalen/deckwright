@@ -51,7 +51,7 @@ button { font: inherit; background: var(--accent); color: var(--surface); border
 </head>
 <body>
 <main>
-<header>
+<header>{{name_section}}
   <h1 data-section="commander">{{commander}}</h1>
   <p class="sub">Commander · colour identity {{identity}} · template {{template}}</p>
 </header>
@@ -62,7 +62,7 @@ button { font: inherit; background: var(--accent); color: var(--surface); border
   <p class="sub">{{standing}}</p>
 </section>
 
-<div class="grid">{{categories}}</div>
+{{theme_section}}<div class="grid">{{categories}}</div>{{ownership_section}}
 
 <section class="card" data-section="checks">
   <h2>Checks</h2>
