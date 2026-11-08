@@ -278,6 +278,12 @@ class Scryfall:
         key = index["printings"][scryfall_id]
         return True, index["cards"].get(key) or index["shadowed"].get(key)
 
+    def shadowed(self, card: dict, what: str) -> bool:
+        """Whether a card from a printing lost its comparable name to another card ("Clear, the Mind" to
+        "Clear the Mind"), so a lookup of its name finds the other card."""
+        winner = self.index(what)["cards"].get(comparable(card["name"]))
+        return winner is not None and winner["name"] != card["name"]
+
     def closest(self, name: str, what: str) -> dict | None:
         key = comparable(name)
         if not key:
@@ -307,12 +313,14 @@ class Scryfall:
         """
         if self._index is None:
             bulk = self.cache / BULK_FILE
-            on_disk = self._read_index(bulk) if bulk.is_file() else None
-            stale = on_disk is None or (self.fresh and time.time() - bulk.stat().st_mtime >= BULK_MAX_AGE)
-            if stale and self.download:
+            old = self.fresh and bulk.is_file() and time.time() - bulk.stat().st_mtime >= BULK_MAX_AGE
+            # A file about to be replaced is read only if the download fails: reading it costs seconds.
+            on_disk = None if old and self.download else self._read_index(bulk) if bulk.is_file() else None
+            if on_disk is None and self.download:
                 try:
                     on_disk = self._download(what)
                 except Unreachable:
+                    on_disk = self._read_index(bulk) if bulk.is_file() else None
                     if on_disk is None:
                         raise
             if on_disk is None:
@@ -371,7 +379,12 @@ class Scryfall:
         with side_file(bulk) as partial:
             try:
                 with self._get(uri, what, "application/gzip, */*") as response, partial.open("wb") as out:
+                    # urllib follows redirects, so the host is checked again where the file came from.
+                    if self.base == SCRYFALL and not BULK_HOST.match(response.geturl()):
+                        raise Unreachable(what, f"the download was sent outside Scryfall: {response.geturl()[:80]}")
                     expected = int(response.headers.get("Content-Length") or 0)
+                    if expected > BULK_MAX_BYTES:
+                        raise TooLarge
                     received = copy_at_most(response, out, BULK_MAX_BYTES)
                 if expected and received != expected:
                     raise Unreachable(what, f"the download was cut off at {received} of {expected} bytes")
@@ -381,6 +394,8 @@ class Scryfall:
                 raise Unreachable(what, f"the download was cut off: {type(error).__name__}") from None
             except BulkUnreadable:
                 raise Unreachable(what, "the download was not a bulk file") from None
+            except TooLarge:
+                raise Unreachable(what, f"the bulk file is larger than the {BULK_MAX_BYTES} bytes kept") from None
         self._save_index(index, bulk)
         return index
 
@@ -414,12 +429,16 @@ def side_file(final: Path):
         partial.unlink(missing_ok=True)
 
 
+class TooLarge(Exception):
+    pass
+
+
 def copy_at_most(source, out, limit: int) -> int:
     copied = 0
     while chunk := source.read(1 << 20):
         copied += len(chunk)
         if copied > limit:
-            raise OSError(f"more than {limit} bytes")
+            raise TooLarge
         out.write(chunk)
     return copied
 
@@ -456,7 +475,10 @@ def read_collection(data: bytes, scryfall: Scryfall) -> tuple[list[dict], dict]:
 
     def count(card: dict, quantity: int, binder: str = "", binder_type: str = "") -> None:
         report["matched"] += 1
-        copies.append({"name": card["name"], "copies": quantity, "binder": binder, "binder_type": binder_type})
+        copy = {"name": card["name"], "copies": quantity, "binder": binder, "binder_type": binder_type}
+        if scryfall.shadowed(card, what):
+            copy["card"] = card
+        copies.append(copy)
 
     lines = text.splitlines()
     header = [c.strip() for c in next(csv.reader(lines[:1]), [])]
@@ -514,7 +536,10 @@ def availability(copies: list[dict], binders: dict) -> dict:
     owned: dict[str, int] = {}
     available: dict[str, int] = {}
     held: dict[str, int] = {}
+    shadowed: dict[str, dict] = {}
     for c in copies:
+        if "card" in c:
+            shadowed[c["name"]] = c["card"]
         owned[c["name"]] = owned.get(c["name"], 0) + c["copies"]
         available.setdefault(c["name"], 0)
         if c["binder"] in exclude or (c["binder_type"] == "deck" and c["binder"] not in include):
@@ -522,7 +547,15 @@ def availability(copies: list[dict], binders: dict) -> dict:
         else:
             available[c["name"]] += c["copies"]
     return {
-        "cards": [{"name": n, "owned": owned[n], "available": available[n]} for n in sorted(owned, key=by_name)],
+        "cards": [
+            {
+                "name": n,
+                "owned": owned[n],
+                "available": available[n],
+                **({"card": shadowed[n]} if n in shadowed else {}),
+            }
+            for n in sorted(owned, key=by_name)
+        ],
         "held_back": [{"binder": b, "copies": held[b]} for b in sorted(held)],
     }
 
@@ -551,7 +584,8 @@ def narrowing(deck: dict, scryfall: Scryfall) -> dict:
     for c in available["cards"]:
         if c["available"] < 1:
             continue
-        card = scryfall.by_name(c["name"], "the collection's cards")
+        # A card that lost its name to another is never looked up by it: it would be the other card.
+        card = c.get("card") or scryfall.by_name(c["name"], "the collection's cards")
         if card is None or not set(card["color_identity"]) <= identity or card["commander_legality"] != "legal":
             continue
         cards.append({"name": c["name"], "available": c["available"], "card": card, **judgements.get(c["name"], {})})
@@ -731,14 +765,24 @@ def ownership(deck: dict, available: dict) -> dict:
     The marks are computed, never stored, so removing copies takes the not-owned ones first and a new
     collection or binder filter moves them at the next command.
     """
-    have: dict[str, int] = {}
-    for c in available["cards"]:
-        for n in names_of(c):
-            have[matching_key(n)] = max(have.get(matching_key(n), 0), c["available"])
+    exact = {c["name"]: c["available"] for c in available["cards"]}
+    # A card that lost its name to another shares that card's spellings, so it is joined only by its own.
+    joinable = [c for c in available["cards"] if "card" not in c]
+    spelled = {matching_key(c["name"]): c["available"] for c in joinable}
+    faced: dict[str, int] = {}
+    for c in joinable:
+        for n in names_of(c)[1:]:
+            faced[matching_key(n)] = max(faced.get(matching_key(n), 0), c["available"])
     cards = []
     for e in sorted(deck["cards"], key=lambda e: by_name(e["card"]["name"])):
-        # A card from the player's text may be recorded under a face name or another spelling.
-        available_copies = max((have.get(matching_key(n), 0) for n in names_of(e["card"])), default=0)
+        name = e["card"]["name"]
+        available_copies = exact.get(name, 0)
+        if e.get("from_player") and not available_copies:
+            # The player's text may give another spelling or one face's name. A looked-up card has its
+            # own name, as the collection's cards do: a face it shares with another card is not it.
+            available_copies = spelled.get(matching_key(name)) or max(
+                (faced.get(matching_key(n), 0) for n in names_of(e["card"])), default=0
+            )
         owned = min(e["count"], available_copies)
         cards.append({"name": e["card"]["name"], "owned": owned, "not_owned": e["count"] - owned})
     return {"owned": sum(c["owned"] for c in cards), "not_owned": sum(c["not_owned"] for c in cards), "cards": cards}
@@ -903,7 +947,7 @@ def run(args) -> str | None:
         if args.name is not None:
             deck = {"name": args.name, **deck}
         counted = tally(deck, deck_availability(deck, scryfall))
-        deck_path.parent.mkdir(exist_ok=True)
+        deck_path.parent.mkdir(parents=True, exist_ok=True)
         write_deck(deck_path, deck)
         return as_json({"file": deck_path.as_posix(), **counted})
 
@@ -932,6 +976,8 @@ def run(args) -> str | None:
         deck = read_deck(deck_path) if args.deck else None
         if kept_collection() is None:
             raise Failure("No collection is kept: hand one over with collection FILE.", 2)
+        if args.default and (args.include or args.exclude):
+            raise Failure("--default drops the filter: give it alone, or --include and --exclude without it.", 2)
         if args.default or args.include or args.exclude:
             binders = {} if args.default else {"include": args.include or [], "exclude": args.exclude or []}
             copies, _ = read_collection(kept_collection().read_bytes(), scryfall)
@@ -1038,14 +1084,18 @@ def judge(deck: dict, deck_path: Path, scryfall: Scryfall, given: str) -> str:
     except ValueError as error:
         raise Failure(f"The judgements are not readable ({error}).", 2) from None
     cards = narrowing(deck, scryfall)["cards"]
-    read = {matching_key(n): e["name"] for e in cards for n in names_of(e["card"])}
+    # A whole name before a face's: "Demonic Tutor" is that card, not "Emeritus of Woe // Demonic Tutor".
+    read = {matching_key(e["name"]): e["name"] for e in cards}
+    for e in cards:
+        for n in names_of(e["card"]):
+            read.setdefault(matching_key(n), e["name"])
     kept = deck.setdefault("judgements", {})
     for j in judgements:
         name = read.get(matching_key(j["name"]))
         if name is None:
             raise Failure(f"{j['name']!r} is not in this deck's read. Nothing was recorded.", 2)
         # A field left out keeps what was judged before, so a new theme is judged without the categories.
-        judgement = kept.get(name, {}) | {"categories": kept.get(name, {}).get("categories", [])}
+        judgement = {"categories": [], **kept.get(name, {})}
         if "categories" in j:
             judgement["categories"] = category_names(deck, j["categories"] or [])
         if "serves_theme" in j:

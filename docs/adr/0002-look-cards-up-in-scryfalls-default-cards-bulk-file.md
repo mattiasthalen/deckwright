@@ -24,7 +24,8 @@ Every lookup, single cards and collections alike, reads Scryfall's Default Cards
 file. The script downloads it once and keeps it in its cache folder. It reuses the file
 while it is under a week old, and downloads it again after that, but only for a
 lookup, a new deck, an added card or a collection. Every other command reads whatever
-file is there, however old, and a command that only counts or renders never downloads:
+file is there, however old; the read, judging and the available cards download one only
+when none is kept, and a command that only counts or renders never downloads:
 with no file at hand its tally carries no ownership. Where a download fails, a file
 already there is read instead. A collection row is
 matched by its printing's Scryfall ID, so a token printing is a token whatever its
