@@ -152,14 +152,15 @@ def test_bulk_cache_refuses_other_hosts(host, uri):
 
 # S4: the number check (AC22) -----------------------------------------------------------
 #
-#   node evals/tools/review-numbers.mjs DECK_FILE TALLY_FILE
+#   node evals/tools/review-numbers.mjs DECK_FILE TALLY_FILE [TRACE]
 #
 # reads the written review (`review.text`) of a kept run's deck file, strips the name of every card
 # the deck file names (the commander, the cards, the swaps and the maybeboard), drops turn spans
 # ("turns 4–6", "turns 7+", "turns 7 and on"; a single "turn 8" is not a span), and fails (exit 1)
 # on any number left that neither the stored measures (`review.measures`) nor the tally (that run's
-# `deck.py tally` stdout, saved to TALLY_FILE) carries, at any depth, printing each such number on a
-# line of its own. Exit 0 when every number is carried; exit 2 when the deck file has no written
+# `deck.py tally` stdout, saved to TALLY_FILE) carries, at any depth, nor a card's copies in the deck
+# file, nor (Q2) any number a `deck.py` command printed in TRACE, the run's trace, printing each such
+# number on a line of its own. Exit 0 when every number is carried; exit 2 when the deck file has no written
 # review or cannot be read (`cards`, `swaps` or `maybeboard` not a list). A number is a run of
 # digits, with a decimal part where there is one (`2.94`).
 
@@ -274,6 +275,95 @@ def test_review_numbers_unreadable_deck(tmp_path, case):
                           timeout=60)
     assert proc.returncode == 2, proc.stdout + proc.stderr
     assert "    at " not in proc.stderr, f"a plain message, no stack trace: {proc.stderr}"
+
+
+def trace_line(role: str, *blocks: dict) -> str:
+    return json.dumps({"type": role, "message": {"role": role, "content": list(blocks)}})
+
+
+def run_trace(*calls: tuple[str, str | list]) -> str:
+    """A trace of Bash calls, each `(command, what it printed)`, in Claude Code's session JSON. A
+    printed list is the content-block form of a tool result."""
+    lines = []
+    for n, (command, printed) in enumerate(calls):
+        lines.append(trace_line("assistant", {"type": "tool_use", "id": f"toolu_{n}", "name": "Bash",
+                                              "input": {"command": command}}))
+        lines.append(trace_line("user", {"type": "tool_result", "tool_use_id": f"toolu_{n}", "content": printed}))
+    return "\n".join(lines) + "\n"
+
+
+def numbers_check_with(tmp_path, text: str, trace: str | None = None, counts: dict[str, int] | None = None):
+    """numbers_check with a run's trace given (Q2), and the deck's cards at the copies given."""
+    deck = {
+        "name": "Meren Recursion",
+        "commander": {"name": "Meren of Clan Nel Toth"},
+        "cards": [{"card": {"name": name}, "count": n, "categories": []} for name, n in (counts or {}).items()],
+        "review": {"measures": MEASURES, "text": text},
+    }
+    deck_file, tally_file, trace_file = tmp_path / "deck.json", tmp_path / "tally.json", tmp_path / "trace.jsonl"
+    deck_file.write_text(json.dumps(deck), encoding="utf-8")
+    tally_file.write_text(json.dumps(TALLY), encoding="utf-8")
+    args = ["node", str(NUMBERS), str(deck_file), str(tally_file)]
+    if trace is not None:
+        trace_file.write_text(trace, encoding="utf-8")
+        args.append(str(trace_file))
+    return subprocess.run(args, capture_output=True, text=True, timeout=60)
+
+
+EARLIER_MEASURE = json.dumps({"colours": [{"colour": "B", "pips": 58, "sources": 24}], "average_mana_value": 3.03})
+
+
+@needs_node
+def test_review_numbers_carries_the_runs_output(tmp_path):
+    """Q2: given the run's trace, a number any `deck.py` command printed in it is carried, the earlier
+    measures included: a review written again after swaps may compare with the first."""
+    text = "Black came down from 58 pips, and the average from 3.03."
+    alone = numbers_check_with(tmp_path, text)
+    assert alone.returncode == 1 and alone.stdout.split() == ["58", "3.03"], alone.stdout
+
+    trace = run_trace(
+        ("uv run plugins/deckwright/skills/interview/deck.py measure --deck decks/meren-recursion.json",
+         EARLIER_MEASURE),
+    )
+    proc = numbers_check_with(tmp_path, text, trace)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+    # A tool result given as content blocks is read the same way.
+    blocks = run_trace(("python deck.py tally", [{"type": "text", "text": EARLIER_MEASURE}]))
+    assert numbers_check_with(tmp_path, text, blocks).returncode == 0
+
+
+@needs_node
+def test_review_numbers_carries_only_deck_py_output(tmp_path):
+    """Q2: what another command printed is not the script's: its numbers stay stray."""
+    trace = run_trace(
+        ("ls decks && wc -c decks/meren-recursion.json", "77 decks/meren-recursion.json"),
+        ("uv run deck.py measure --deck decks/meren-recursion.json", EARLIER_MEASURE),
+    )
+    proc = numbers_check_with(tmp_path, "The deck file is 77 bytes; black had 58 pips.", trace)
+    assert proc.returncode == 1 and proc.stdout.split() == ["77"], proc.stdout
+
+
+@needs_node
+def test_review_numbers_carries_card_copies(tmp_path):
+    """Q2: a card's copies in the deck file are carried ("12 Forests and 13 Swamps"), with or without
+    the trace."""
+    text = "It runs 25 Forests and 26 Swamps."
+    assert numbers_check_with(tmp_path, text).stdout.split() == ["25", "26"]
+    proc = numbers_check_with(tmp_path, text, counts={"Forest": 25, "Swamp": 26, "Sol Ring": 1})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+@needs_node
+def test_review_numbers_unreadable_trace(tmp_path):
+    """Q2: a trace named that cannot be read is exit 2, as an unreadable deck file is."""
+    deck_file, tally_file = tmp_path / "deck.json", tmp_path / "tally.json"
+    deck_file.write_text(json.dumps({"cards": [], "review": {"measures": MEASURES, "text": "Ramp is 5."}}),
+                         encoding="utf-8")
+    tally_file.write_text(json.dumps(TALLY), encoding="utf-8")
+    proc = subprocess.run(["node", str(NUMBERS), str(deck_file), str(tally_file), str(tmp_path / "missing.jsonl")],
+                          capture_output=True, text=True, timeout=60)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
 
 
 @needs_node

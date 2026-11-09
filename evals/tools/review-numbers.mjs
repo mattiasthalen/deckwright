@@ -1,32 +1,40 @@
-// The number check (AC22): every number in a written review is one `measure` printed, or the tally.
+// The number check (AC22): every number in a written review is one a `deck.py` command printed in
+// that run, or a card's copies.
 //
-//   node evals/tools/review-numbers.mjs <deck file> <tally file>
+//   node evals/tools/review-numbers.mjs <deck file> <tally file> [<trace>]
 //
 // Run over each kept run's workspace after an eval with --keep-temp: the deck file is the run's
-// decks/<file name>.json, and the tally file that run's `deck.py tally --deck …` stdout, saved.
+// decks/<file name>.json, the tally file that run's `deck.py tally --deck …` stdout, saved, and the
+// trace the run's trace.jsonl. Without the trace only the last measures and tally are known, so a
+// review written again after swaps that compares with the first ("down from 58 pips") reads as stray.
 //
 // It reads the written review (`review.text`), strips the name of every card the deck file names
 // (the commander, the cards and their faces, the swaps, the maybeboard), drops turn spans ("turns
 // 4–6", "turns 7-9", "turns 7+", "turns 7 and on"), and reads what numbers are left. A number is
 // carried when it equals a number anywhere in the stored measures (`review.measures`) or the tally,
-// at any depth. A single "turn 8" is not a span, so its 8 must be carried like any other number.
+// at any depth; a card's copies in the deck file (`cards[].count`: "12 Forests and 13 Swamps"); or,
+// given the trace, a number in the output of any Bash command of the run that ran `deck.py` (every
+// `measure`, `tally`, `add` or `swap` it printed, the earlier ones included). A single "turn 8" is
+// not a span, so its 8 must be carried like any other number.
 //
 // Exit 0 when every number is carried; 1 when one is not, printing each such number on a line of
 // its own; 2 when the deck file has no written review, or the files cannot be read (not JSON, not a
-// JSON object, or `cards`, `swaps` or `maybeboard` not a list).
+// JSON object, or `cards`, `swaps` or `maybeboard` not a list; a trace that cannot be read).
 import fs from 'fs';
 
-const [deckPath, tallyPath] = process.argv.slice(2);
+const [deckPath, tallyPath, tracePath] = process.argv.slice(2);
 if (!deckPath || !tallyPath) {
-  console.error('usage: node review-numbers.mjs <deck file> <tally file>');
+  console.error('usage: node review-numbers.mjs <deck file> <tally file> [<trace>]');
   process.exit(2);
 }
 
 let deck;
 let tally;
+let trace = '';
 try {
   deck = JSON.parse(fs.readFileSync(deckPath, 'utf8'));
   tally = JSON.parse(fs.readFileSync(tallyPath, 'utf8'));
+  if (tracePath) trace = fs.readFileSync(tracePath, 'utf8');
 } catch (error) {
   console.error(`review-numbers: cannot read the files: ${error.message}`);
   process.exit(2);
@@ -52,6 +60,24 @@ const carried = new Set();
   else if (Array.isArray(value)) value.forEach(collect);
   else if (value && typeof value === 'object') Object.values(value).forEach(collect);
 })([deck.review.measures, tally]);
+for (const entry of deck.cards || []) if (typeof entry?.count === 'number') carried.add(entry.count);
+
+// What every `deck.py` command printed: each Bash call's result, matched to its call by id.
+const deckCalls = new Set();
+for (const line of trace.split('\n')) {
+  let record;
+  try { record = JSON.parse(line); } catch { continue; }
+  const blocks = Array.isArray(record?.message?.content) ? record.message.content : [];
+  for (const block of blocks) {
+    if (block?.type === 'tool_use' && block.name === 'Bash' && /deck\.py/.test(block.input?.command || '')) {
+      deckCalls.add(block.id);
+    } else if (block?.type === 'tool_result' && deckCalls.has(block.tool_use_id)) {
+      const printed = typeof block.content === 'string' ? block.content
+        : (Array.isArray(block.content) ? block.content : []).map((part) => part?.text || '').join('\n');
+      for (const number of printed.matchAll(/(?<![\d.])\d+(?:\.\d+)?/g)) carried.add(Number(number[0]));
+    }
+  }
+}
 
 const names = new Set();
 const addName = (name) => {
