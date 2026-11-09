@@ -17,6 +17,8 @@ The interview needs a shell to run `deck.py`. If you have no tool that runs shel
 
 Run every command from one working folder for the whole conversation, the one that holds the decks, the collection and the script's cache, `deckwright-cache/`. Where a folder outlives the conversation, work there: in Claude Code, the folder the session runs in; in a project with a shared folder, that folder. Decks, the collection and the downloaded card data are then there for the next conversation. In a plain chat nothing outlives the conversation: each one starts with the player's export again, and the first lookup downloads Scryfall's card data once.
 
+Run each `deck.py` command on its own and read its output whole: no pipe, no filter, no `head` or `tail`, no second command in the same call. A field it prints only sometimes, such as `orphaned_maybeboard` or `left_maybeboard`, is lost to anything that cuts the output.
+
 ```sh
 uv run <this skill's folder>/deck.py <command> …
 ```
@@ -97,7 +99,7 @@ The lookup reads Scryfall's card data, downloaded once and kept a week in `deckw
 
       End that reply with the question in so many words, "Keep it?", even when you also ask where to put it; an answer to where is not a yes to keeping. The card is the player's choice; you flag, you never remove. Record it only after a yes to that question. Otherwise, a card the player asks to add is a yes.
    4. Record it with `add`, under every category it counts in. Only now, after the critique has been written out in a reply: never record a card in the same step that first names it. With a theme, give `--serves-theme yes` or `no` too, as you judge it, unless the read already judged the card.
-4. When the player leaves a category, by moving on, jumping elsewhere or stopping, run `tally` before anything else and show its counts, each as `count / target`, with the total against the deck size and anything the checks or the bracket flag. Show no count that did not come from the script.
+4. When the player leaves a category, by moving on, jumping elsewhere or stopping, run `tally` before anything else and show its counts, each as `count / target`, with the total against the deck size and anything the checks or the bracket flag. Show no count that did not come from the script. Then go on to the next category in template order, unless the player named another or stopped: the template sets the order, so do not ask whether to start it.
 
 **The player steers.** They can skip a category, change a target (`target`), change the bracket target (`bracket`), jump to any category, go back to one, remove a card (`remove`) or stop. Follow, and say what changed. Every later tally and the page use the change. A change to the deck's cards, a target, the bracket target, the theme or the plan after the review makes it unreviewed: review it again before the improvements and before the page.
 
