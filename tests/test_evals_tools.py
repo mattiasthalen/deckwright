@@ -155,12 +155,12 @@ def test_bulk_cache_refuses_other_hosts(host, uri):
 #   node evals/tools/review-numbers.mjs DECK_FILE TALLY_FILE
 #
 # reads the written review (`review.text`) of a kept run's deck file, strips the name of every card
-# the deck file names (the commander, the cards, the swaps and the maybeboard), drops turn ranges
-# ("turns 4–6"), and fails (exit 1) on any number left that neither the stored measures
-# (`review.measures`) nor the tally (that run's `deck.py tally` stdout, saved to TALLY_FILE) carries,
-# at any depth, printing each such number on a line of its own. Exit 0 when every number is carried;
-# exit 2 when the deck file has no written review. A number is a run of digits, with a decimal part
-# where there is one (`2.94`).
+# the deck file names (the commander, the cards, the swaps and the maybeboard), drops turn spans
+# ("turns 4–6", "turns 7+", "turns 7 and on"; a single "turn 8" is not a span), and fails (exit 1)
+# on any number left that neither the stored measures (`review.measures`) nor the tally (that run's
+# `deck.py tally` stdout, saved to TALLY_FILE) carries, at any depth, printing each such number on a
+# line of its own. Exit 0 when every number is carried; exit 2 when the deck file has no written
+# review. A number is a run of digits, with a decimal part where there is one (`2.94`).
 
 NUMBERS = ROOT / "evals" / "tools" / "review-numbers.mjs"
 needs_node = pytest.mark.skipif(not shutil.which("node"), reason="needs node")
@@ -223,7 +223,7 @@ def test_review_numbers_carried(tmp_path):
         ("Ramp is 6 short of its target.", "6"),  # 10 - 5, worked out by the writer: not printed by measure
         ("About 30% of the deck is creatures.", "30"),
         ("The average is 2.9.", "2.9"),
-        ("It wins on turn 8 with 23 sources.", "8"),  # one turn is not a range
+        ("It wins on turn 6 with 23 sources.", "6"),  # one turn is not a span
     ],
 )
 def test_review_numbers_stray(tmp_path, text, stray):
@@ -234,10 +234,11 @@ def test_review_numbers_stray(tmp_path, text, stray):
 
 @needs_node
 def test_review_numbers_exempt(tmp_path):
-    """Card names are stripped before numbers are read, and turn ranges are no count."""
+    """Card names are stripped before numbers are read, and turn spans, closed or open-ended, are no count."""
     text = (
-        "Borrowing 100,000 Arrows draws on turns 4–6, and +2 Mace holds the ground on turns 7-9. "
-        "Late, Ulamog, the Ceaseless Hunger ends it; 1996 World Champion is on the maybeboard."
+        "Borrowing 100,000 Arrows draws on turns 4–6, and +2 Mace holds the ground on turns 13-15. "
+        "Late, Ulamog, the Ceaseless Hunger ends it on turns 21+, or turns 25 and on; "
+        "1996 World Champion is on the maybeboard."
     )
     proc = numbers_check(
         tmp_path, text, cards=("Borrowing 100,000 Arrows",), swaps=[("Sol Ring", "+2 Mace")],
