@@ -50,3 +50,6 @@
   `//tmp`, so `TMPDIR` must be outside `/tmp`; a shell command reaches only the domains
   granted with `WebFetch(domain:…)`; an `llm` grader on the trace sees only its first and
   last 12 lines, mostly streaming deltas (measured 2026-11-07; see evals/README.md).
+- An `llm` grader can instead judge a file the run leaves, with `focus: { source: file,
+  path }`; the runner takes three judge votes per grader, and two passes is a pass
+  (probed 2026-11-09; see evals/README.md).

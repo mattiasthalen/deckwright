@@ -62,3 +62,10 @@ working; the eval scaffolds copy in one bulk file kept on the host, so a run nev
 downloads it. Ownership is computed from the kept collection each time it is shown and
 never stored in a deck, so a new export changes every deck's ownership at once; the
 commander is not counted in it.
+
+## Addendum 2026-11-09
+
+S4's commands follow the rule as each one looks a card up. `swap` and `maybeboard add`
+look up the card coming in, so they download a file a week old again, as an added card
+does. `measure` looks up again every card recorded from the player's text, so it
+downloads one when none is kept, as the read does; it reuses a file of any age.

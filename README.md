@@ -1,6 +1,6 @@
 # deckwright
 
-A deckbuilding tutor for Claude. AI-assisted, not AI-generated: deckwright interviews you through a format's template, one category at a time, suggests and critiques cards it has looked up on Scryfall, and records only the cards you say yes to. It ends with a deck page that carries the decklist in ManaBox's import format.
+A deckbuilding tutor for Claude. AI-assisted, not AI-generated: deckwright interviews you through a format's template, one category at a time, suggests and critiques cards it has looked up on Scryfall, and records only the cards you say yes to. Once the deck is full it reviews the whole deck from measures it computes (curve, colour balance, card types, theme density), then offers improvements one swap at a time: you choose each one, and a card you don't own yet can go on the maybeboard instead. It ends with a deck page, for a finished deck, that carries the review, the swaps and the decklist in ManaBox's import format.
 
 Hand it your collection, a ManaBox CSV export or a plain list of cards, and it suggests from the cards you own first, holding back the ones already in your ManaBox decks unless you say otherwise. Name a theme ("Bloomburrow rats") and it puts the cards that serve it first in every category, without changing the template. Every deck has a name and its own file, so you can build many and pick any of them up again.
 

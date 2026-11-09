@@ -19,7 +19,7 @@ its *target*, the total against the deck size, the checks and the bracket. Only 
 gives a count; nothing is counted by hand.
 
 **interview** — The guided walk through a *template* while the player builds a deck. It
-ends with the deck's *review*.
+ends with the deck's *review*, the improvements the player chooses, and the deck page.
 
 **review** — deckwright's judgement of a whole deck once it holds the deck size: how it
 wins, its curve against its mana, how it fares without its commander, and its
