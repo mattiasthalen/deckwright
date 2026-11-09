@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import time
@@ -323,3 +324,21 @@ def test_review_text_is_plain(deck):
     review = raw_section(raw, "review")
     between = review[review.index("no](link).") : review.index("Second paragraph")]
     assert re.search(r"<\w", between), f"the paragraphs are separate elements: {between!r}"
+
+
+def test_measures_are_plain(deck):
+    """R1: what the deck file's stored measures hold is shown as text, never read as markup, the colour
+    and the theme density included: a deck file is the builder's to write, and can be edited by hand."""
+    reviewable(deck)
+    deck.run("theme", "Graveyard")
+    deck.measure()
+    stored = deck.stored()
+    measures = stored["review"]["measures"]
+    measures["colours"][0]["colour"] = "<b>B</b>"
+    measures["theme_density"] = {"serving": "<i>7</i>", "of": 99}
+    deck.deck_file.write_text(json.dumps(stored, ensure_ascii=False), encoding="utf-8")
+
+    raw = raw_section(deck.page(), "measures")
+    for markup in ("<b>B</b>", "<i>7</i>"):
+        assert markup not in raw, f"{markup} is read as markup: {raw!r}"
+        assert escaped(markup) in raw, f"{markup} is shown as written, escaped: {raw!r}"

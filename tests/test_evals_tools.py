@@ -160,7 +160,8 @@ def test_bulk_cache_refuses_other_hosts(host, uri):
 # on any number left that neither the stored measures (`review.measures`) nor the tally (that run's
 # `deck.py tally` stdout, saved to TALLY_FILE) carries, at any depth, printing each such number on a
 # line of its own. Exit 0 when every number is carried; exit 2 when the deck file has no written
-# review. A number is a run of digits, with a decimal part where there is one (`2.94`).
+# review or cannot be read (`cards`, `swaps` or `maybeboard` not a list). A number is a run of
+# digits, with a decimal part where there is one (`2.94`).
 
 NUMBERS = ROOT / "evals" / "tools" / "review-numbers.mjs"
 needs_node = pytest.mark.skipif(not shutil.which("node"), reason="needs node")
@@ -245,6 +246,21 @@ def test_review_numbers_exempt(tmp_path):
         board=[("1996 World Champion", "+2 Mace")],
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+@needs_node
+@pytest.mark.parametrize("key", ["cards", "swaps", "maybeboard"])
+def test_review_numbers_unreadable_deck(tmp_path, key):
+    """R4: a deck file whose card lists are not lists cannot be read: exit 2, never a stray-number exit 1."""
+    deck = {"commander": {"name": "Meren of Clan Nel Toth"}, "cards": [], key: {"Sol Ring": 1},
+            "review": {"measures": MEASURES, "text": "Ramp is 5."}}
+    deck_file, tally_file = tmp_path / "deck.json", tmp_path / "tally.json"
+    deck_file.write_text(json.dumps(deck), encoding="utf-8")
+    tally_file.write_text(json.dumps(TALLY), encoding="utf-8")
+    proc = subprocess.run(["node", str(NUMBERS), str(deck_file), str(tally_file)], capture_output=True, text=True,
+                          timeout=60)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "    at " not in proc.stderr, f"a plain message, no stack trace: {proc.stderr}"
 
 
 @needs_node

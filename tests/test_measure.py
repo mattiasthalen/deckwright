@@ -217,3 +217,33 @@ def test_refuses_short_deck_and_over_by_one(deck, total):
     deck.fill(total)
     before = deck.deck_file.read_bytes()
     assert_refused(deck.run("measure", expect=None), deck, before, EXIT_USAGE)
+
+
+def test_player_text_card_keeps_its_theme_fit(deck, unreachable_url):
+    """R20: a card recorded from the player's text, spelt as the player typed it, keeps its theme fit when
+    `measure` finds it: the judgement moves to the looked-up name and the card counts as serving."""
+    deck.new()
+    deck.run("theme", "Big mana")
+    deck.offline(unreachable_url).run(
+        "add", "grim monolith", "--from-player", "{T}: Add {C}{C}{C}.", "--type-line", "Artifact",
+        "--serves-theme", "yes",
+    )
+    deck.fill()
+    measured = deck.measure()
+
+    assert measured["not_counted"] == [], "the bulk file knows Grim Monolith under its own spelling"
+    assert measured["theme_density"] == {"serving": 1, "of": 99}, measured.get("theme_density")
+    judgements = deck.stored()["judgements"]
+    assert judgements.get("Grim Monolith", {}).get("serves_theme") is True, judgements
+    assert "grim monolith" not in judgements, "the player's spelling gives way to the card's"
+
+
+def test_split_card(deck):
+    """R31: a split card is cast as either half, so the pips of both halves count, and its mana value is
+    Scryfall's, the halves added up: Destined // Lead is {1}{B} // {3}{G}, mana value 6."""
+    deck.new()
+    deck.add("Destined // Lead")
+    deck.fill()
+    measured = deck.measure()
+    assert {c["colour"]: c["pips"] for c in measured["colours"]} == {"B": 1, "G": 1}, measured["colours"]
+    assert curve_of(measured) == {6.0: 1}, measured["curve"]

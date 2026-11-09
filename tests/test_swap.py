@@ -12,6 +12,7 @@ import re
 import shutil
 
 from conftest import (
+    COMMANDER,
     EXIT_NOT_RECORDED,
     EXIT_UNREACHABLE,
     EXIT_USAGE,
@@ -198,3 +199,18 @@ def test_swaps_recorded_in_order(deck):
     first, second = swaps.find("Removal over draw"), swaps.find("Instant speed after all")
     assert 0 <= first < second, f"the page lists both, in the order made: {swaps!r}"
     assert swaps.find("Sign in Blood") < first and swaps.find("Nocturnal Hunger") > first, swaps
+
+
+def test_refuses_the_commander_in(deck):
+    """R18: the commander is in the deck already, so it cannot come in by swap."""
+    full_deck(deck)
+    before = deck.deck_file.read_bytes()
+    assert_refused(deck.run("swap", "Sol Ring", COMMANDER, "--why", "x", expect=None), deck, before)
+
+
+def test_refuses_a_basic_land_for_itself(deck):
+    """R24: a swap of a card for itself changes nothing, so it is refused, a basic land too (a basic may
+    otherwise come in while copies of it are in the deck)."""
+    full_deck(deck)
+    before = deck.deck_file.read_bytes()
+    assert_refused(deck.run("swap", "Swamp", "Swamp", "--why", "x", expect=None), deck, before)

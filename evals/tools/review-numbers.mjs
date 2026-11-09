@@ -12,7 +12,8 @@
 // at any depth. A single "turn 8" is not a span, so its 8 must be carried like any other number.
 //
 // Exit 0 when every number is carried; 1 when one is not, printing each such number on a line of
-// its own; 2 when the deck file has no written review, or the files cannot be read.
+// its own; 2 when the deck file has no written review, or the files cannot be read (not JSON, or
+// `cards`, `swaps` or `maybeboard` not a list).
 import fs from 'fs';
 
 const [deckPath, tallyPath] = process.argv.slice(2);
@@ -28,6 +29,11 @@ try {
   tally = JSON.parse(fs.readFileSync(tallyPath, 'utf8'));
 } catch (error) {
   console.error(`review-numbers: cannot read the files: ${error.message}`);
+  process.exit(2);
+}
+const lists = ['cards', 'swaps', 'maybeboard'].filter((key) => key in deck && !Array.isArray(deck[key]));
+if (lists.length) {
+  console.error(`review-numbers: cannot read ${deckPath}: ${lists.join(', ')} is not a list`);
   process.exit(2);
 }
 const text = deck?.review?.text;

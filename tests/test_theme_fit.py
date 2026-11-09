@@ -7,8 +7,19 @@ deck has one place for it; `measure`'s theme density reads it.
 
 from __future__ import annotations
 
+import json
+
 import pytest
-from conftest import EXIT_USAGE, MANABOX, assert_refused, category
+from conftest import (
+    EXIT_USAGE,
+    MANABOX,
+    assert_refused,
+    category,
+    manabox_csv,
+    manabox_row,
+    scryfall_card,
+    write_file,
+)
 
 
 def fit(deck, name: str):
@@ -84,3 +95,20 @@ def test_add_records_theme_fit_only_yes_or_no(deck, answer):
     before = deck.deck_file.read_bytes()
     proc = deck.run("add", "Sol Ring", "--serves-theme", answer, expect=None)
     assert_refused(proc, deck, before, EXIT_USAGE)
+
+
+def test_judge_with_an_empty_narrowing(deck, tmp_path):
+    """R29: with a collection kept, `unjudged` counts the narrowing only. A collection holding nothing in
+    Meren's colours narrows to nothing, so nothing is unjudged, whatever the deck's own cards are."""
+    player = tmp_path / "player"
+    player.mkdir()
+    deck.collection(write_file(player, "export.csv", manabox_csv(manabox_row(scryfall_card("Lightning Bolt"), 2))))
+    deck.new()
+    deck.run("theme", "Graveyard")
+    deck.add("Sign in Blood", "Card advantage")
+    deck.add("Sol Ring", "Ramp")
+    assert deck.read()["cards"] == [], "Lightning Bolt is outside Meren's colours"
+
+    out = json.loads(deck.judge([{"name": "Sign in Blood", "serves_theme": True}]).stdout)
+    assert out["unjudged"] == 0, f"the deck's own unjudged Sol Ring is not the narrowing: {out}"
+    assert fit(deck, "Sign in Blood") is True

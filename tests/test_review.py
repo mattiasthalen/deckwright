@@ -134,3 +134,14 @@ def test_what_clears_reviewed_not_the_maybeboard(deck, step):
     deck.run(*command)
     assert deck.stored().get("review") == kept, f"{step} leaves the review as it was"
     assert mark(deck) is None, f"after {step} the deck is still finished"
+
+
+@pytest.mark.parametrize("text", ["", "  \n\t "])
+def test_review_refuses_blank_text(deck, text):
+    """R23: a written review has words: a blank one records nothing, and the deck is still not reviewed."""
+    full_deck(deck)
+    deck.measure()
+    before = deck.deck_file.read_bytes()
+    assert_refused(deck.run("review", text, expect=None), deck, before)
+    assert not reviewed(deck)
+    assert mark(deck) is not None

@@ -6,10 +6,11 @@ spells them (P4). It counts towards nothing, so it changes no count and no revie
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 
-from conftest import EXIT_NOT_RECORDED, EXIT_UNREACHABLE, EXIT_USAGE, Deckwright, assert_refused, said
+from conftest import COMMANDER, EXIT_NOT_RECORDED, EXIT_UNREACHABLE, EXIT_USAGE, Deckwright, assert_refused, said
 
 
 def full_deck(deck: Deckwright, started: bool = False) -> Deckwright:
@@ -119,3 +120,29 @@ def test_lookup_failure_changes_nothing(deck, unreachable_url):
         "maybeboard", "add", "Demonic Tutor", "--replaces", "Sol Ring", "--why", "x", "--from-player", "t", expect=None
     )
     assert_refused(proc, deck, before, EXIT_USAGE, by_argparse=True)
+
+
+def test_refuses_the_commander(deck):
+    """R18: the commander is in the deck, so it is never on the maybeboard."""
+    full_deck(deck)
+    before = deck.deck_file.read_bytes()
+    proc = deck.run("maybeboard", "add", COMMANDER, "--replaces", "Sign in Blood", "--why", "x", expect=None)
+    assert_refused(proc, deck, before)
+
+
+def test_remove_flags_orphaned_maybeboard_entries(deck):
+    """R17: `remove` of the card a maybeboard entry replaces prints the entry as `orphaned_maybeboard`, as
+    `swap` does, and leaves it as it was; a remove that leaves copies of the card orphans nothing."""
+    full_deck(deck)
+    deck.maybeboard_add("Demonic Tutor", "Sign in Blood", "Finds the combo")
+    deck.maybeboard_add("Feed the Cycle", "Swamp", "Removal over a land")
+    entries = board(deck)
+
+    partial = json.loads(deck.run("remove", "Swamp", "--count", "1").stdout)
+    assert "orphaned_maybeboard" not in partial, "Swamps are left, so the entry still has its card"
+
+    out = json.loads(deck.run("remove", "Sign in Blood").stdout)
+    assert out["orphaned_maybeboard"] == [
+        {"name": "Demonic Tutor", "replaces": "Sign in Blood", "why": "Finds the combo"}
+    ], out.get("orphaned_maybeboard")
+    assert board(deck) == entries, "the entries are left for the player to drop or pair anew"

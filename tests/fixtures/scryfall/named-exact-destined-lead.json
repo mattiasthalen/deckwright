@@ -1,0 +1,126 @@
+{
+  "body": {
+    "artist": "Magali Villeneuve",
+    "artist_ids": [
+      "9e6a55ae-be4d-4c23-a2a5-135737ffd879"
+    ],
+    "booster": true,
+    "border_color": "black",
+    "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+    "card_faces": [
+      {
+        "artist": "Magali Villeneuve",
+        "artist_id": "9e6a55ae-be4d-4c23-a2a5-135737ffd879",
+        "illustration_id": "2ca519df-4f1c-4896-8251-469dccea92b2",
+        "mana_cost": "{1}{B}",
+        "name": "Destined",
+        "object": "card_face",
+        "oracle_text": "Target creature gets +1/+0 and gains indestructible until end of turn.",
+        "type_line": "Instant"
+      },
+      {
+        "artist": "Magali Villeneuve",
+        "artist_id": "9e6a55ae-be4d-4c23-a2a5-135737ffd879",
+        "mana_cost": "{3}{G}",
+        "name": "Lead",
+        "object": "card_face",
+        "oracle_text": "Aftermath (Cast this spell only from your graveyard. Then exile it.)\nAll creatures able to block target creature this turn do so.",
+        "type_line": "Sorcery"
+      }
+    ],
+    "cmc": 6.0,
+    "collector_number": "217",
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "colors": [
+      "B",
+      "G"
+    ],
+    "digital": false,
+    "edhrec_rank": 19601,
+    "finishes": [
+      "nonfoil",
+      "foil"
+    ],
+    "foil": true,
+    "frame": "2015",
+    "full_art": false,
+    "game_changer": false,
+    "games": [
+      "paper",
+      "mtgo"
+    ],
+    "id": "5cf5c549-1e2a-4c47-baf7-e608661b3088",
+    "illustration_id": "2ca519df-4f1c-4896-8251-469dccea92b2",
+    "keywords": [
+      "Aftermath"
+    ],
+    "lang": "en",
+    "layout": "split",
+    "legalities": {
+      "alchemy": "not_legal",
+      "brawl": "legal",
+      "commander": "legal",
+      "competitivebrawl": "legal",
+      "duel": "legal",
+      "future": "not_legal",
+      "gladiator": "legal",
+      "historic": "legal",
+      "legacy": "legal",
+      "modern": "legal",
+      "oathbreaker": "legal",
+      "oldschool": "not_legal",
+      "pauper": "not_legal",
+      "paupercommander": "not_legal",
+      "penny": "not_legal",
+      "pioneer": "legal",
+      "predh": "not_legal",
+      "premodern": "not_legal",
+      "standard": "not_legal",
+      "standardbrawl": "not_legal",
+      "timeless": "legal",
+      "tlr": "not_legal",
+      "vintage": "legal"
+    },
+    "mana_cost": "{1}{B} // {3}{G}",
+    "mtgo_id": 64068,
+    "multiverse_ids": [
+      426919
+    ],
+    "name": "Destined // Lead",
+    "nonfoil": true,
+    "object": "card",
+    "oracle_id": "7ebde396-6672-491a-a6ce-1de49b12379b",
+    "oversized": false,
+    "penny_rank": 12121,
+    "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A7ebde396-6672-491a-a6ce-1de49b12379b&unique=prints",
+    "promo": false,
+    "rarity": "uncommon",
+    "related_uris": {
+      "edhrec": "https://edhrec.com/route/?cc=Destined+%2F%2F+Lead",
+      "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=426919&printed=false"
+    },
+    "released_at": "2017-04-28",
+    "reprint": false,
+    "reserved": false,
+    "rulings_uri": "https://api.scryfall.com/cards/5cf5c549-1e2a-4c47-baf7-e608661b3088/rulings",
+    "scryfall_set_uri": "https://scryfall.com/sets/akh?utm_source=api",
+    "scryfall_uri": "https://scryfall.com/card/akh/217/destined-lead?utm_source=api",
+    "set": "akh",
+    "set_id": "02d1c536-68bc-4208-9b65-7741ef1f9da8",
+    "set_name": "Amonkhet",
+    "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Aakh&unique=prints",
+    "set_type": "expansion",
+    "set_uri": "https://api.scryfall.com/sets/02d1c536-68bc-4208-9b65-7741ef1f9da8",
+    "story_spotlight": false,
+    "textless": false,
+    "type_line": "Instant // Sorcery",
+    "uri": "https://api.scryfall.com/cards/5cf5c549-1e2a-4c47-baf7-e608661b3088",
+    "variation": false
+  },
+  "mode": "exact",
+  "q": "Destined // Lead",
+  "status": 200
+}
