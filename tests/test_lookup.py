@@ -17,6 +17,7 @@ from conftest import (
     EXIT_NOT_RECORDED,
     EXIT_UNREACHABLE,
     RECORDED,
+    S4_FIELDS,
     category,
     scryfall_card,
 )
@@ -30,7 +31,7 @@ def lookup(deck, *names, **kw) -> list[dict]:
 
 
 def assert_single_face(card: dict, sc: dict):
-    assert set(card) == CARD_FIELDS, f"fields must be exactly {sorted(CARD_FIELDS)}, got {sorted(card)}"
+    assert set(card) - S4_FIELDS == CARD_FIELDS, f"fields must be exactly {sorted(CARD_FIELDS)}, got {sorted(card)}"
     assert card["name"] == sc["name"]
     assert card["mana_cost"] == sc["mana_cost"]
     assert card["type_line"] == sc["type_line"]
@@ -58,7 +59,7 @@ def test_lookup_fields(deck):
 
     # E12: a double-faced card keeps every face's text, as one card.
     sc = scryfall_card("Bloodline Keeper")
-    assert set(keeper) == CARD_FIELDS
+    assert set(keeper) - S4_FIELDS == CARD_FIELDS
     assert keeper["name"] == "Bloodline Keeper // Lord of Lineage"
     assert keeper["type_line"] == sc["type_line"]
     front, back = sc["card_faces"]
@@ -144,7 +145,7 @@ def test_lookup_not_found(deck):
     assert "card" not in missing
     assert misspelt["result"] == "closest_match"
     assert misspelt["card"]["name"] == "Vampiric Tutor"
-    assert set(misspelt["card"]) == CARD_FIELDS
+    assert set(misspelt["card"]) - S4_FIELDS == CARD_FIELDS
     assert deck.deck_file.read_bytes() == before, "a lookup writes nothing to the deck"
 
     # Nothing is recorded until the player confirms a real card by its exact name.

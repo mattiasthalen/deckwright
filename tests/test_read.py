@@ -13,6 +13,7 @@ from conftest import (
     COMMANDER,
     EXIT_USAGE,
     MANABOX,
+    S4_FIELDS,
     Deckwright,
     category,
     escaped,
@@ -87,7 +88,7 @@ def test_read_narrows_to_deck(deck, player):
     assert "Sol Ring" not in cards, "no copy of it is available"
 
     for name, entry in cards.items():
-        assert set(entry["card"]) == CARD_FIELDS, f"{name}: the fixed fields, exactly"
+        assert set(entry["card"]) - S4_FIELDS == CARD_FIELDS, f"{name}: the fixed fields, exactly"
         assert entry["card"]["name"] == name
         assert entry["available"] >= 1
         assert judged(entry) == (None, None), f"{name} has a judgement before any was recorded"

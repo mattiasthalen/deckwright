@@ -1,4 +1,4 @@
-"""The deck page and its decklist: AC8, AC9, AC10, E2, E8, E11."""
+"""The deck page and its decklist: AC8, AC9, AC10, E2, E8, E11; S4's AC15–AC18, E13, E15."""
 
 from __future__ import annotations
 
@@ -6,7 +6,16 @@ import re
 import shutil
 import time
 
-from conftest import CATEGORIES, COMMANDER, EXIT_UNREACHABLE, Deckwright, count_of, escaped, read_page
+from conftest import (
+    CATEGORIES,
+    COMMANDER,
+    EXIT_UNREACHABLE,
+    Deckwright,
+    count_of,
+    escaped,
+    read_page,
+    unfinished_mark,
+)
 
 PLAYER_TEXT = "Flying. When this creature enters, draw a card."
 
@@ -181,3 +190,136 @@ def test_page_bracket_over(deck):
     deck.run("bracket", "3")
     bracket = read_page(deck.page()).section("bracket")
     assert not over.search(bracket), f"target 3 with one Game Changer is not over: {bracket!r}"
+
+
+# S4: the finished page -----------------------------------------------------------------
+
+
+def reviewable(deck: Deckwright) -> Deckwright:
+    """A deck at its deck size, holding a land that makes no mana."""
+    deck.new()
+    deck.add("Sol Ring", "Ramp")
+    deck.add("Sign in Blood", "Card advantage")
+    deck.add("Ravenous Chupacabra", "Targeted disruption", "Plan")
+    deck.add("Pernicious Deed", "Mass disruption")
+    deck.add("Evolving Wilds")
+    deck.fill()
+    return deck
+
+
+def raw_section(raw: str, name: str) -> str:
+    """The source of one marked section, from its mark to the next section's (or the end)."""
+    start = raw.index(f'data-section="{name}"')
+    end = raw.find("data-section=", start + 1)
+    return raw[start : end if end != -1 else len(raw)]
+
+
+# AC15 --------------------------------------------------------------------------------
+
+
+def test_decklist_maybeboard_section(deck):
+    reviewable(deck)
+    plain = read_page(deck.page()).section("decklist").strip("\n").splitlines()
+    assert "// MAYBEBOARD" not in plain, "with no maybeboard, the decklist is S1's"
+    assert plain[:4] == ["// COMMANDER", "1 Meren of Clan Nel Toth", "", "// MAINBOARD"]
+    assert plain[-1] != ""
+
+    deck.maybeboard_add("Vampiric Tutor", "Sign in Blood", "Finds the answer")
+    deck.maybeboard_add("demonic tutor", "Sol Ring", "Finds anything")
+    deck.maybeboard_add("Feed the Cycle", "Ravenous Chupacabra", "Cheaper")
+    page = read_page(deck.page())
+    lines = page.section("decklist").strip("\n").splitlines()
+    assert lines[: len(plain)] == plain, "the commander and the mainboard are unchanged"
+    assert lines[len(plain) :] == ["", "// MAYBEBOARD", "1 Demonic Tutor", "1 Feed the Cycle", "1 Vampiric Tutor"], (
+        "a blank line, // MAYBEBOARD, then one `1 Name` row per card, names only, sorted as the mainboard is"
+    )
+    assert page.decklist_children == 0
+
+
+# AC16 --------------------------------------------------------------------------------
+
+
+def test_finished_page_sections(deck):
+    reviewable(deck)
+    deck.maybeboard_add("Demonic Tutor", "Sol Ring", "Finds the missing piece")
+    deck.swap("Sign in Blood", "Feed the Cycle", "Removal was short", "--category", "Targeted disruption")
+    measured = deck.measure()
+    deck.review("The deck wins late, through Meren's recursion.")
+    page = read_page(deck.page())
+
+    assert "section:unfinished" not in page.texts, "a finished deck carries no unfinished mark"
+
+    measures = page.section("measures")
+    assert "Evolving Wilds" in measures, "the lands that make no mana"
+    average = measured["average_mana_value"]
+    assert re.search(rf"(?<![\d.]){average:.2f}(?!\d)|(?<![\d.]){average}(?![\d])", measures), (
+        f"the average mana value as measure printed it, {average}: {measures!r}"
+    )
+    assert "The deck wins late, through Meren's recursion." in page.section("review")
+
+    swaps = page.section("swaps")
+    for part in ("Sign in Blood", "Feed the Cycle", "Removal was short"):
+        assert part in swaps, f"the swap's {part!r}: {swaps!r}"
+    maybeboard = page.section("maybeboard")
+    for part in ("Demonic Tutor", "Sol Ring", "Finds the missing piece"):
+        assert part in maybeboard, f"the maybeboard's {part!r}: {maybeboard!r}"
+    assert "Demonic Tutor" not in page.category("Plan"), "a maybeboard card counts nowhere"
+
+
+# AC17, E13 ---------------------------------------------------------------------------
+
+
+def test_unfinished_mark(deck):
+    deck.new()
+    deck.add("Sol Ring", "Ramp")
+    deck.add("Swamp", count=32)
+    page = read_page(deck.page())
+    assert unfinished_mark(34).search(page.section("unfinished")), page.section("unfinished")
+    for section in ("measures", "review"):
+        assert f"section:{section}" not in page.texts, f"an unreviewed deck has no {section} section"
+
+    # E13: at the deck size, stopped before the review.
+    deck.fill()
+    assert unfinished_mark(100).search(read_page(deck.page()).section("unfinished"))
+    # Measured, with no written review yet: still not reviewed.
+    deck.measure()
+    assert unfinished_mark(100).search(read_page(deck.page()).section("unfinished"))
+    deck.review("Done.")
+    assert "section:unfinished" not in read_page(deck.page()).texts
+
+    # Over the deck size is unfinished too.
+    deck.add("Forest", count=2)
+    assert unfinished_mark(102).search(read_page(deck.page()).section("unfinished"))
+
+
+# AC18, E15 ---------------------------------------------------------------------------
+
+NASTY = "Wins with <script>alert(1)</script> & &amp; {T}: **bold**, _not em_, # no heading, [no](link)."
+SECOND = "Second paragraph\nwith a line break inside it."
+
+
+def test_review_text_is_plain(deck):
+    reviewable(deck)
+    deck.maybeboard_add("Demonic Tutor", "Sol Ring", NASTY)
+    deck.swap("Sign in Blood", "Feed the Cycle", NASTY)
+    deck.measure()
+    deck.review(f"{NASTY}\n\n{SECOND}")
+    raw = deck.page()
+    page = read_page(raw)
+
+    for section in ("review", "swaps", "maybeboard"):
+        text = page.section(section)
+        assert NASTY in text, f"{section} shows the text as written: {text!r}"
+        assert escaped(NASTY) in raw_section(raw, section), f"{section} escapes it, nothing more"
+    assert "Second paragraph" in page.section("review")
+
+    # Nothing in the text is read as HTML or Markdown.
+    assert len(page.scripts) <= 1 and "alert(1)</script>" not in raw.replace(escaped("alert(1)</script>"), "")
+    for tag in ("<strong", "<b>", "<em", "<i>", "<h1", "<a ", "<a>"):
+        assert tag not in raw_section(raw, "review").lower(), f"no {tag} from the text"
+    assert "&amp;amp;" in raw_section(raw, "review"), "a written &amp; is shown as those five characters"
+
+    # Blank lines make paragraphs: the two are in separate elements.
+    review = raw_section(raw, "review")
+    between = review[review.index("no](link).") : review.index("Second paragraph")]
+    assert re.search(r"<\w", between), f"the paragraphs are separate elements: {between!r}"

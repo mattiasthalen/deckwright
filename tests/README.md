@@ -27,7 +27,7 @@ Until the repo has its dev `pyproject.toml`, `uv run --no-project --with pytest 
 
 ## Recorded responses
 
-`fixtures/scryfall/named-<mode>-<query>.json` is one real `cards/named` request, fetched on 2026-11-07 with `User-Agent: deckwright-tests/0.1` and `Accept: application/json`: `{"mode", "q", "status", "body"}`. Every key matching `price`, `purchase`, `image`, `tcgplayer` or `cardmarket` was removed from the body, at every depth; `test_no_prices_in_fixtures` keeps it that way. Card facts in the tests come from these files.
+`fixtures/scryfall/named-<mode>-<query>.json` is one real `cards/named` request, fetched on 2026-11-07 (S4's five on 2026-11-09) with `User-Agent: deckwright-tests/0.1` and `Accept: application/json`: `{"mode", "q", "status", "body"}`. Every key matching `price`, `purchase`, `image`, `tcgplayer` or `cardmarket` was removed from the body, at every depth; `test_no_prices_in_fixtures` keeps it that way. Card facts in the tests come from these files.
 
 | Card | Why it is here |
 |---|---|
@@ -51,6 +51,11 @@ Until the repo has its dev `pyproject.toml`, `uv run --no-project --with pytest 
 | Journey to Eternity // Atzal, Cave of Eternity | a double-faced card whose back face, not its front, is a Land |
 | Elbrus, the Binding Blade // Withengar Unbound | a double-faced card whose front is a Legendary Artifact and whose back, a Legendary Creature, has no mana cost |
 | `稲妻` (exact 404, fuzzy → Lightning Bolt), `Молния` (exact 404, fuzzy 404) | queries with no ASCII key, for the cache's hashed key |
+| Evolving Wilds | S4: a land that makes no mana itself (no `produced_mana`) |
+| Exsanguinate | S4: an X spell: `{X}{B}{B}`, mana value 2 |
+| Egon, God of Death // Throne of Death | S4: a modal double-faced card whose back face has a cost of its own (`{2}{B}` // `{B}`): mana value 3, its front face's |
+| Vraska, Golgari Queen | S4: a planeswalker, black-green |
+| Burnished Hart | S4: an Artifact Creature, counted as both |
 
 `fixtures/scryfall/printing-<set>-<collector number>.json` is one card object as `cards/<id>` returned it on 2026-11-08, for each printing in `fixtures/collection/manabox.csv` and for Cultivate (`trc-460`), stripped the same way. The bulk file holds them beside the recorded cards, so it has what the real one has: several printings of one card (Vampiric Tutor, Uncharted Haven), and token printings that share a card's name (`tblb-15` Starscape Cleric, `tblb-8` Splash Lasher). Nine more, fetched the same way on 2026-11-08, are printings that share a card's name, or a face's name, and are not that card, or are it in another shape:
 
@@ -77,7 +82,7 @@ The plan's checks leave these details open; the tests and the eval scaffolds fix
 ### Running and locating files
 
 - `deck.py` finds `templates/<name>.toml`, `brackets.toml` and `page.html` beside itself, so a copy of the skill folder works on its own (`commander_template` copies it).
-- Every deck command (`add`, `remove`, `target`, `bracket`, `tally`, `page`, `read`, `judge`, `theme`, `plan`) reads and writes `./deck.json` in the working folder unless `--deck PATH` is given after the command. A named deck is `decks/<file name>.json` (below), given as `--deck decks/<file name>.json`.
+- Every deck command (`add`, `remove`, `target`, `bracket`, `tally`, `page`, `read`, `judge`, `theme`, `plan`, and S4's `measure`, `review`, `swap`, `maybeboard add`, `maybeboard remove`) reads and writes `./deck.json` in the working folder unless `--deck PATH` is given after the command (after the subcommand for `maybeboard`: `maybeboard add --deck PATH 'IN' …`). A named deck is `decks/<file name>.json` (below), given as `--deck decks/<file name>.json`.
 - The Scryfall base URL is `https://api.scryfall.com`, overridden by the environment variable `DECKWRIGHT_SCRYFALL_API` (the tests set it to `http://127.0.0.1:<port>`). The script asks it for `<base>/bulk-data` and nothing else: never `<base>/cards/…`. The Default Cards file is fetched from the `jsonl_download_uri` that listing gives for `default_cards`, wherever it points.
 
 ### Exit codes
@@ -85,9 +90,9 @@ The plan's checks leave these details open; the tests and the eval scaffolds fix
 | Code | When |
 |---|---|
 | 0 | the command did its work. A `lookup` is 0 even when a name was not found or only nearly matched: the entry says which. |
-| 2 | usage error (argparse's default), and: no deck file; an unreadable deck file (not JSON, or JSON that is not a deck: a commander or card missing a field, a target that is not a number); an unknown template, or a template file missing a required key; an unknown category (in `add`, `target` or `judge`); `remove` of a card not in the deck; `add` with no `--category`, on a deck with a read, of a card the read has not judged (below); an out-of-range number (`bracket N` outside 1–5, `target C N` below 0, `remove --count` below 1); `page --out` into a folder that does not exist; `new --name` of a name whose file exists; a collection file that cannot be read (below); `available`, `read` or `judge` with no collection kept; `available --include` or `--exclude` of a binder the collection does not have, with a message that lists the collection's binders; `available --default` beside `--include` or `--exclude`; `not-owned` with an answer other than `yes` or `no`. A plain message says why, with no `Traceback` on stderr, and the deck file is unchanged. |
-| 3 | Scryfall could not be reached for a card in neither cache: no per-card file, no readable bulk file, and the bulk file could not be fetched: connection refused, timeout, a download cut off, or any answer that is not a 200 (a proxy's 403, a 429, a 5xx), a proxy that refuses `CONNECT`, a listing with no `default_cards`, a `jsonl_download_uri` the script refuses (below), a redirect from it to a host the script would refuse, or a download over the cap. A plain message on stdout or stderr names the card, says Scryfall could not be reached and says nothing was recorded. After a 429 it says the script was rate-limited and to wait; after a download cut short of its `Content-Length` it says the download was cut off (not that the file is not a bulk file). Nothing is written to the deck, and nothing is kept as the bulk file. From `new --commander` the message does not offer `--from-player`, which cannot record a commander. |
-| 4 | `add` (or `new --commander`) was given a name that is not found, or that only nearly matches another card. Nothing is written to the deck: a misspelling is recorded only once the player confirms the real name and it is added by that name. |
+| 2 | usage error (argparse's default), and: no deck file; an unreadable deck file (not JSON, or JSON that is not a deck: a commander or card missing a field, a target that is not a number); an unknown template, or a template file missing a required key; an unknown category (in `add`, `target` or `judge`); `remove` of a card not in the deck; `add` with no `--category`, on a deck with a read, of a card the read has not judged (below); an out-of-range number (`bracket N` outside 1–5, `target C N` below 0, `remove --count` below 1); `page --out` into a folder that does not exist; `new --name` of a name whose file exists; a collection file that cannot be read (below); `available` or `read` with no collection kept; `judge` with no collection kept of a card not in the deck (S4, P2: of a card in the deck it records); `available --include` or `--exclude` of a binder the collection does not have, with a message that lists the collection's binders; `available --default` beside `--include` or `--exclude`; `not-owned` with an answer other than `yes` or `no`. A plain message says why, with no `Traceback` on stderr, and the deck file is unchanged. |
+| 3 | Scryfall could not be reached for a card in neither cache: no per-card file, no readable bulk file, and the bulk file could not be fetched: connection refused, timeout, a download cut off, or any answer that is not a 200 (a proxy's 403, a 429, a 5xx), a proxy that refuses `CONNECT`, a listing with no `default_cards`, a `jsonl_download_uri` the script refuses (below), a redirect from it to a host the script would refuse, or a download over the cap. A plain message on stdout or stderr names the card, says Scryfall could not be reached and says nothing was recorded. After a 429 it says the script was rate-limited and to wait; after a download cut short of its `Content-Length` it says the download was cut off (not that the file is not a bulk file). Nothing is written to the deck, and nothing is kept as the bulk file. From `new --commander` the message does not offer `--from-player`, which cannot record a commander; nor from `swap` or `maybeboard add`, which have no `--from-player`. |
+| 4 | `add` (or `new --commander`, or S4's `swap` IN and `maybeboard add`) was given a name that is not found, or that only nearly matches another card. Nothing is written to the deck: a misspelling is recorded only once the player confirms the real name and it is added by that name. |
 
 ### The cache
 
@@ -135,6 +140,10 @@ Stdout is a JSON array with one entry per `NAME`, in argument order:
 | `color_identity` | `color_identity`, a list of the letters `W U B R G` |
 | `commander_legality` | `legalities.commander`, as Scryfall spells it (`legal`, `not_legal`, `banned`, `restricted`) |
 | `game_changer` | `game_changer`, a boolean |
+| `cmc` | S4: `cmc`, the mana value, X counted as 0; for a card with faces, Scryfall's `cmc`, which is its front face's (Egon, God of Death is 3, not the 4 its two costs add up to); where the object has none of its own (a `reversible_card`), its front face's |
+| `produced_mana` | S4: `produced_mana`, the colours of mana the card makes itself, as Scryfall lists them (`W U B R G C`); for a card with faces and none of its own, every face's, once each; `[]` where Scryfall gives none, so a land with `[]` makes no mana (Evolving Wilds) |
+
+The S1 and S3 tests check the seven fields they knew and leave the two S4 adds to its tests (`S4_FIELDS`); the S4 tests check all nine. A per-card cache file is a whole card object, so it gives both. An index kept beside the bulk file by an earlier script (S3's, format 2) is rebuilt, not read (AC7); the S4 test runs S3's own script from the repository's history to make one, and skips when that history is not there.
 
 ### `new`, `add`, `remove`, `target`, `bracket`
 
@@ -148,7 +157,16 @@ Stdout is a JSON array with one entry per `NAME`, in argument order:
 
 ### Deck files
 
-The tests read only this of them: they are JSON; one changes on a recorded change (a card, a target, a judgement, a theme, a plan, a binder filter) and not on a lookup, a refused command or a read; and no key in one matches `price`, `purchase`, `image`, `tcgplayer` or `cardmarket`, at any depth. Their layout is otherwise the builder's. A deck file written at 017a7a0 (`fixtures/s1/deck.json`: no name, theme, plan, judgements or filter) opens: `tally` gives the same stdout, and `page` the same bytes, as at 017a7a0.
+The tests read only this of them: they are JSON; one changes on a recorded change (a card, a target, a judgement, a theme, a plan, a binder filter) and not on a lookup, a refused command or a read; and no key in one matches `price`, `purchase`, `image`, `tcgplayer` or `cardmarket`, at any depth. From S4 they also read the fields the plan fixes (P2–P4):
+
+| Key | Holds |
+|---|---|
+| `judgements` | an object keyed by card name (Scryfall's), each `{"categories", "serves_theme"}`, either absent until given: the theme fit of every card, from `judge`, `add --serves-theme` and `swap --serves-theme` alike (P2) |
+| `review` | `{"measures", "text"}`: `measures` is what `measure` printed, `text` the written review as `review` was given it. Reviewed is both present. A change that clears the reviewed state removes `review` whole; `measure` replaces `measures` and removes `text` |
+| `swaps` | a list of `{"out", "in", "why"}` in the order made: `out` as the deck spelled it, `in` as the lookup spells it |
+| `maybeboard` | a list of `{"name", "replaces", "why"}` in the order added: `name` as the lookup spells it, `replaces` as the deck spells it |
+
+Their layout is otherwise the builder's. A deck file written at 017a7a0 (`fixtures/s1/deck.json`: no name, theme, plan, judgements or filter) opens: `tally` gives the same stdout, and `page` the same bytes, as at 017a7a0.
 
 ### `tally`
 
@@ -207,12 +225,17 @@ The page is HTML. The tests and the eval graders find its parts by these attribu
 | `data-section="name"` | a named deck's name, exactly as given; absent for a deck without one |
 | `data-section="theme"` | the theme, when one is set |
 | `data-section="plan"` | the plan sentence, when one is set |
+| `data-section="unfinished"` | S4: on every page but a finished deck's (its deck size held and reviewed): `N of D, not reviewed`, N the total and D the deck size (`34 of 100, not reviewed`, `100 of 100, not reviewed`, `102 of 100, not reviewed`). Its own element, inside no other marked one, so every S1 section reads as it did |
+| `data-section="measures"` | S4, once measured: what `measure` printed, among it the name of every land that makes no mana and the average mana value as printed (or to two places) |
+| `data-section="review"` | S4, once reviewed: the written review, as plain text: each run of text between blank lines its own element, the text escaped and nothing else done to it (no Markdown, no HTML: `<script>`, `&amp;`, `{T}` and `**bold**` show as written) |
+| `data-section="swaps"` | S4, when a swap was made: each swap's out, in and why, in the order made, the why as plain text |
+| `data-section="maybeboard"` | S4, when the maybeboard holds a card: each card, the card it replaces, and why, the why as plain text |
 | `data-section="ownership"` | only with a collection kept: for each card with copies not owned, its name and then `N owned` and `M not owned` (within 40 characters of each other), and `Total` with the deck's `X owned` and `Y not owned` |
 
 - A named deck's page is titled by its name: `<title>` holds it, as given, escaped.
 - With no `--out`, `page` writes `<the deck file's name without .json>.html` beside the deck file: `decks/rat-pack.html` for `decks/rat-pack.json`, `deck.html` for `./deck.json`.
 
-- The decklist is `// COMMANDER`, `1 <commander>`, a blank line, `// MAINBOARD`, then `count Name` rows sorted by name ignoring case, one row per name with its copies summed (basics included), no set codes, no other lines.
+- The decklist is `// COMMANDER`, `1 <commander>`, a blank line, `// MAINBOARD`, then `count Name` rows sorted by name ignoring case, one row per name with its copies summed (basics included), no set codes, no other lines. S4: when the maybeboard holds a card, then a blank line, `// MAYBEBOARD` and one `1 Name` row per maybeboard card, names only, sorted as the mainboard is; with none, nothing more.
 - The page has a copy button, at most one `<script>` element, none with `src`, and uses the clipboard.
 - The same deck file gives the same bytes, from any folder, at any time: no timestamps and no paths. `page` never touches the network.
 
@@ -252,6 +275,51 @@ The page is HTML. The tests and the eval graders find its parts by these attribu
 - `judge JSON` records judgements in the deck's file: JSON is an array of `{"name", "categories": [...], "serves_theme": true|false}`, `categories` the template's names (none to several), `categories` and `serves_theme` each optional. A judgement's `name` is matched against the read's cards by whole name first, normalised as `found` is, and by a face's name only where no card has the whole name: with Demonic Tutor and Emeritus of Woe // Demonic Tutor both in the read, `"Demonic Tutor"` is Demonic Tutor. A card judged again has each field it is given replaced, and keeps each it is not: `{"name": "Starscape Cleric", "serves_theme": false}` after a new theme keeps the categories recorded before (B-18), and one with only `categories` keeps the theme fit. An unknown category is exit 2, and nothing of that call is recorded. A judgement records no card. It prints `{"unjudged": N, …}`, `unjudged` first.
 - `theme TEXT` and `plan TEXT` set the deck's theme and its plan sentence; the page shows them. Neither changes a category, a target, the deck size or the bracket target, whatever the text says.
 
+### S4: `measure`
+
+- `measure` (a deck command) refuses, exit 2, a deck whose total is not its deck size: the message says how many cards are missing (`66`) or how many over (`3`), and nothing is stored. Otherwise it prints one JSON object and stores it as `review.measures`, dropping any written review.
+- It counts every card of the deck but the commander, by copies. A card is a land when its front face's type line holds `Land` (the Lands rule); every type is read from the front face's type line, so Journey to Eternity is an Enchantment, Egon, God of Death a Creature, Elbrus an Artifact.
+
+```json
+{
+  "curve": [{"mana_value": 1, "count": 3}, {"mana_value": 2, "count": 2}, …],
+  "average_mana_value": 2.94,
+  "colours": [{"colour": "B", "pips": 9, "sources": 48}, {"colour": "G", "pips": 3, "sources": 42}],
+  "lands_without_mana": ["Evolving Wilds"],
+  "types": {"creature": 8, "instant": 1, "sorcery": 3, "artifact": 3, "enchantment": 2, "planeswalker": 1, "land": 82},
+  "theme_density": {"serving": 20, "of": 99},
+  "not_counted": ["Homebrew Owl"]
+}
+```
+
+- `curve`: the nonland cards' copies per mana value (`cmc`), lowest first; a mana value with no card may be listed with `count` 0 or left out. `average_mana_value`: their mean, rounded to two places.
+- `colours`: one entry per colour of the commander's identity, in `W U B R G` order, and no other (never `C`). `pips`: that colour's symbols in the nonland cards' mana costs, per copy (hybrid and Phyrexian symbols are the builder's; the tests use none). `sources`: the copies of lands whose `produced_mana` holds that colour: a land listing all five counts once for each identity colour; a nonland card that makes mana (Llanowar Elves, Sol Ring) is no source.
+- `lands_without_mana`: each land whose `produced_mana` is empty, once, sorted as the tally sorts.
+- `types`: copies per type, the seven keys always present; a card of two types (Artifact Creature) counts in both.
+- `theme_density`: present only when the deck has a theme: `serving` the copies of cards whose fit in `judgements` is `true`, `of` the total less the commander. Absent, never 0 of 99, on a deck with no theme.
+- `not_counted`: the cards recorded from the player's text that have no mana value, sorted: they are in no other count but `types`, which the builder may count from the type line given. Before counting, `measure` looks each player's-text card up again, with downloads allowed: one the bulk file answers for is replaced by its looked-up facts, as a looked-up `add` replaces it, and counted (the page no longer marks it). With no bulk file and Scryfall out of reach, the cards stay as they are and are listed, and `measure` still exits 0.
+
+### S4: `review`, and what clears it
+
+- `review 'TEXT'` refuses, exit 2, unless `measure` has run on the deck as it is (`review.measures` is there); otherwise it stores TEXT as `review.text`. Reviewed is both stored.
+- `add`, `remove`, `swap`, `target`, `bracket`, `theme` and `plan` clear it (remove `review`); `maybeboard add`, `maybeboard remove`, `judge` and `not-owned` do not.
+
+### S4: `swap 'OUT' 'IN' --why 'TEXT' [--category C …] [--serves-theme yes|no]`
+
+- Takes one copy of OUT out and one of IN in, in one step, and appends `{out, in, why}` to `swaps`. IN is looked up as `add` looks it up; `--category` and `--serves-theme` are `add`'s (P1): with no `--category`, the read's categories on a deck with a read (refused, exit 2, naming `judge` and `--category`, for a nonland card the read has not judged), and none on a deck without one, never the outgoing card's.
+- Refused, exit 2, nothing changed: OUT not in the deck; IN already in it, unless IN is a basic land (then its count goes up by one). IN not found or only a closest match: exit 4. Scryfall out of reach for IN: exit 3. There is no `--from-player`.
+- Stdout is the tally's JSON object, with two keys more when they apply: `left_maybeboard`, the names IN took off the maybeboard (`["Feed the Cycle"]`), and `orphaned_maybeboard`, every maybeboard entry whose `replaces` is the OUT that went, `{name, replaces, why}` in maybeboard order, left unchanged. Each is absent when empty. `add`'s stdout carries `left_maybeboard` the same way.
+
+### S4: `maybeboard add 'IN' --replaces 'OUT' --why 'TEXT'` and `maybeboard remove 'NAME'`
+
+- `add` looks IN up as `add` does and appends `{name, replaces, why}` to `maybeboard`. Refused, exit 2: IN in the deck, IN already on the maybeboard, OUT not in the deck. Exit 4 for a name not found or only a closest match, exit 3 for Scryfall out of reach; no `--from-player`.
+- `remove` takes the card's entry off; a card not on it is exit 2. Re-pairing is a `remove`, then an `add`.
+- Neither changes a count, the tally or the reviewed state.
+
+### S4: `add --serves-theme yes|no`
+
+- Records the card's theme fit in `judgements`, with or without a collection, beside the categories recorded as before. With no flag, the fit the read judged stays, and none is made up where there is none. Any other answer is exit 2. A fit recorded this way is not a read: on a deck with no collection, `add` with no `--category` still records.
+
 ### What the skill must do that the eval graders read
 
 - The cache folder is `deckwright-cache/` in the working folder, and the graders read it there.
@@ -263,3 +331,5 @@ The page is HTML. The tests and the eval graders find its parts by these attribu
 - The theme is set with `theme` and the plan sentence with `plan`; a change of theme is a new `theme`, then `judge` again, giving `serves_theme` alone so the categories recorded are kept.
 - Every deck command is given `--deck` with the `file` that `new` (or `decks`) printed.
 - The player's answer to building with cards they do not own is recorded with `not-owned yes` or `not-owned no`, and asked only while the tally has no `not_owned`.
+- S4: the review is `measure`, then `review` with the written review; an improvement is a `swap` or a `maybeboard add`; a dropped or re-paired maybeboard entry is a `maybeboard remove` (then a `maybeboard add`). Each command names its cards in single quotes, as every command does, and `swap` gives OUT before IN.
+- S4: the eval cases that open on a finished deck name it `Meren Recursion`, so its file is `decks/meren-recursion.json` and its page `decks/meren-recursion.html`; the graders read both there.

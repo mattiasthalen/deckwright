@@ -1,5 +1,5 @@
 ---
-description: "Commander first, then Lands and Ramp in template order, with suggestions, critique, a declined suggestion, a card filed under the wrong category and a collection mention, then an early stop and the page."
+description: "Commander first, then Lands and Ramp in template order, with suggestions, critique, a declined suggestion, a card filed under the wrong category and a collection mention, then an early stop, and the page asked for after it."
 tags: [build, network]
 plugins: ["../../plugins/deckwright"]
 max_turns: 120
@@ -17,5 +17,6 @@ help me build a commander deck
 4. If you tell me Sign in Blood isn't ramp: "Fair enough, put it under card advantage then."
 5. When ramp is done: "By the way, I've got a big collection. Can you build from the cards I own?"
    Whenever you ask me for my collection: "No collection."
-6. Then: "Let's stop there for today. Show me the deck page."
-7. To any other question: "Nothing more from me on that. Carry on."
+6. Then: "Let's stop there for today."
+7. Once you have answered that: "Actually, show me the deck page."
+8. To any other question: "Nothing more from me on that. Carry on."
