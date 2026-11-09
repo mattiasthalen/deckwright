@@ -25,6 +25,32 @@ Until the repo has its dev `pyproject.toml`, `uv run --no-project --with pytest 
 
 `DECKWRIGHT_SKILL_DIR` points the suite at another copy of the skill folder, such as a candidate build outside the repo. By default it is the skill in this repo.
 
+## The test files
+
+Each file's docstring names the spec ids it holds; S4's are marked.
+
+| File | What it holds |
+|---|---|
+| `conftest.py` | The Scryfall stand-in, the deck runner and the fixtures every file shares (above). |
+| `test_lookup.py` | Lookups and the per-card cache: AC4, E1, E12; the fixed fields with S4's `cmc` and `produced_mana` beside them. |
+| `test_bulk.py` | Lookups from the Default Cards bulk file: C1–C5, C38, E10, E11; S4's `cmc` and `produced_mana` in the bulk file's index, and an S3 index refreshed for them (AC7). |
+| `test_bulk_hosts.py` | Where the bulk file may come from, through a proxy: S1 (security), P4. |
+| `test_template.py` | The Commander template: AC2, AC3. |
+| `test_counting.py` | The tally, the checks and the bracket: AC5–AC7, AC9a, E3, E5, E6, E9, E10. |
+| `test_errors.py` | Refusals, and a corrupt cache file fetched again. |
+| `test_no_prices.py` | No price anywhere the script writes, nor in the fixtures: AC11, C35. |
+| `test_collection.py` | The collection and what of it is available: C6–C13, E1–E8, E16. |
+| `test_not_owned.py` | Cards recorded beyond what the collection has available: C27, E12, E13. |
+| `test_read.py` | The read, its judgements and the theme: C15, C16, C21, E9. |
+| `test_decks.py` | Named decks, and an S1 deck file still opening: C29, C30, C32, E14, E15; S1's page as 017a7a0 rendered it, with S4's unfinished mark beside it (AC17). |
+| `test_page.py` | The page and its decklist: AC8–AC10, E2, E8, E11; S4's finished and unfinished page: AC15–AC18, E13, E15. |
+| `test_measure.py` | S4. `measure`, the numbers a written review is drawn from: AC1–AC6, E1, E2, E12. |
+| `test_theme_fit.py` | S4. Theme fit on every card, `add --serves-theme`: AC8, P2. |
+| `test_review.py` | S4. The reviewed state, what stores it and what clears it: AC9, AC10, E14, P3. |
+| `test_swap.py` | S4. `swap`: AC11–AC13, E3–E7, E16, P1, P4. |
+| `test_maybeboard.py` | S4. `maybeboard add` and `maybeboard remove`: AC14, E8–E11, P4. |
+| `test_evals_tools.py` | The eval tools: `bulk-cache.sh` (M2, S1); S4's number check, `review-numbers.mjs` (AC22), and the review cases' fixture deck files, read by the code. |
+
 ## Recorded responses
 
 `fixtures/scryfall/named-<mode>-<query>.json` is one real `cards/named` request, fetched on 2026-11-07 (S4's five on 2026-11-09) with `User-Agent: deckwright-tests/0.1` and `Accept: application/json`: `{"mode", "q", "status", "body"}`. Every key matching `price`, `purchase`, `image`, `tcgplayer` or `cardmarket` was removed from the body, at every depth; `test_no_prices_in_fixtures` keeps it that way. Card facts in the tests come from these files.
@@ -189,6 +215,7 @@ Stdout is one JSON object with at least:
 - `checks` lists, sorted, the names of the cards failing each check: more than one copy (except basic lands, cards whose text allows any number, and cards whose text says "A deck can have up to N cards named …", N in digits or a word from one to ten, which are flagged only above N), colour identity outside the commander's, `commander_legality` other than `legal`. A card from the player's text is held to the copies check, by the count and type line given, but never to colour identity or legality, which its text cannot settle.
 - `checks.commander` is `[<commander>]` when the front face's type line (the whole type line, for a card with one face) lacks "Legendary" or "Creature" and its oracle text lacks "can be your commander"; otherwise `[]`. So Elbrus, the Binding Blade, a Legendary Artifact whose back is a Legendary Creature, is flagged.
 - `bracket.lowest` is 2 with no Game Changers, 3 with one to three, 4 with four or more, counted once per name with the commander included; `game_changers` is sorted. `bracket.over` is true when `lowest > max(target, 2)`. `bracket.game_changers_allowed` is how many Game Changers `brackets.toml` allows at the target, a target of 1 read as 2 (1 or 2 → 0, 3 → 3), and is absent when the target has no limit (4, 5).
+- `reviewed` (S4, P3) is present once `measure` has run on the deck: `true` when a written review is stored with the measures, `false` when only the measures are. A deck never measured has no `reviewed`, so its tally reads as before S4. It is how a picked-up deck is told finished without running `measure`, which would drop the review.
 - The same deck file gives the same stdout, byte for byte, and `tally` never touches the network.
 
 ### `templates/commander.toml` and `brackets.toml`

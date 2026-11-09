@@ -1,0 +1,1880 @@
+{
+  "name": "Meren Recursion",
+  "template": {
+    "name": "Commander",
+    "deck_size": 100,
+    "bracket_target": 2,
+    "categories": [
+      {
+        "name": "Lands",
+        "target": 38,
+        "counts_when": "the card's type line includes Land",
+        "from_type_line": "Land"
+      },
+      {
+        "name": "Ramp",
+        "target": 10,
+        "counts_when": "it puts extra mana or lands into play beyond the land drop"
+      },
+      {
+        "name": "Card advantage",
+        "target": 12,
+        "counts_when": "it starts as one card and gives you more than one card"
+      },
+      {
+        "name": "Targeted disruption",
+        "target": 12,
+        "counts_when": "one card deals with one opponent's thing: removal, bounce, counter, phasing"
+      },
+      {
+        "name": "Mass disruption",
+        "target": 6,
+        "counts_when": "one card deals with many things: board wipes, mass artifact or enchantment removal, wide taxes, graveyard hate"
+      },
+      {
+        "name": "Plan",
+        "target": 30,
+        "counts_when": "it does what this deck is trying to do"
+      }
+    ]
+  },
+  "commander": {
+    "name": "Meren of Clan Nel Toth",
+    "mana_cost": "{2}{B}{G}",
+    "type_line": "Legendary Creature — Human Shaman",
+    "oracle_text": "Whenever another creature you control dies, you get an experience counter.\nAt the beginning of your end step, choose target creature card in your graveyard. If that card's mana value is less than or equal to the number of experience counters you have, return it to the battlefield. Otherwise, put it into your hand.",
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "commander_legality": "legal",
+    "game_changer": false,
+    "cmc": 4.0,
+    "produced_mana": []
+  },
+  "cards": [
+    {
+      "card": {
+        "name": "Acidic Slime",
+        "mana_cost": "{3}{G}{G}",
+        "type_line": "Creature — Ooze",
+        "oracle_text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nWhen this creature enters, destroy target artifact, enchantment, or land.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 5.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Animate Dead",
+        "mana_cost": "{1}{B}",
+        "type_line": "Enchantment — Aura",
+        "oracle_text": "Enchant creature card in a graveyard\nWhen this Aura enters, if it's on the battlefield, it loses \"enchant creature card in a graveyard\" and gains \"enchant creature put onto the battlefield with this Aura.\" Return enchanted creature card to the battlefield under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature's controller sacrifices it.\nEnchanted creature gets -1/-0.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Arcane Signet",
+        "mana_cost": "{2}",
+        "type_line": "Artifact",
+        "oracle_text": "{T}: Add one mana of any color in your commander's color identity.",
+        "color_identity": [],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": [
+          "B",
+          "G",
+          "R",
+          "U",
+          "W"
+        ]
+      },
+      "count": 1,
+      "categories": [
+        "Ramp"
+      ]
+    },
+    {
+      "card": {
+        "name": "Assassin's Trophy",
+        "mana_cost": "{B}{G}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target permanent an opponent controls. Its controller may search their library for a basic land card, put it onto the battlefield, then shuffle.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Beast Within",
+        "mana_cost": "{2}{G}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target permanent. Its controller creates a 3/3 green Beast creature token.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Blood Artist",
+        "mana_cost": "{1}{B}",
+        "type_line": "Creature — Vampire",
+        "oracle_text": "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Bloodghast",
+        "mana_cost": "{B}{B}",
+        "type_line": "Creature — Vampire Spirit",
+        "oracle_text": "This creature can't block.\nThis creature has haste as long as an opponent has 10 or less life.\nLandfall — Whenever a land you control enters, you may return this card from your graveyard to the battlefield.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Bojuka Bog",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\nWhen this land enters, exile target player's graveyard.\n{T}: Add {B}.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Butcher of Malakir",
+        "mana_cost": "{5}{B}{B}",
+        "type_line": "Creature — Vampire Warrior",
+        "oracle_text": "Flying\nWhenever this creature or another creature you control dies, each opponent sacrifices a creature of their choice.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 7.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Carrion Feeder",
+        "mana_cost": "{B}",
+        "type_line": "Creature — Zombie",
+        "oracle_text": "This creature can't block.\nSacrifice a creature: Put a +1/+1 counter on this creature.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 1.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Command Tower",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "{T}: Add one mana of any color in your commander's color identity.",
+        "color_identity": [],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B",
+          "G",
+          "R",
+          "U",
+          "W"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Cultivate",
+        "mana_cost": "{2}{G}",
+        "type_line": "Sorcery",
+        "oracle_text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Ramp"
+      ]
+    },
+    {
+      "card": {
+        "name": "Deathreap Ritual",
+        "mana_cost": "{2}{B}{G}",
+        "type_line": "Enchantment",
+        "oracle_text": "Morbid — At the beginning of each end step, if a creature died this turn, you may draw a card.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 4.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage"
+      ]
+    },
+    {
+      "card": {
+        "name": "Dictate of Erebos",
+        "mana_cost": "{3}{B}{B}",
+        "type_line": "Enchantment",
+        "oracle_text": "Flash\nWhenever a creature you control dies, each opponent sacrifices a creature of their choice.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 5.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Doom Blade",
+        "mana_cost": "{1}{B}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target nonblack creature.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Dread Return",
+        "mana_cost": "{2}{B}{B}",
+        "type_line": "Sorcery",
+        "oracle_text": "Return target creature card from your graveyard to the battlefield.\nFlashback—Sacrifice three creatures. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 4.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Eternal Witness",
+        "mana_cost": "{1}{G}{G}",
+        "type_line": "Creature — Human Shaman",
+        "oracle_text": "When this creature enters, you may return target card from your graveyard to your hand.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Evolving Wilds",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+        "color_identity": [],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Fecundity",
+        "mana_cost": "{2}{G}",
+        "type_line": "Enchantment",
+        "oracle_text": "Whenever a creature dies, that creature's controller may draw a card.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage"
+      ]
+    },
+    {
+      "card": {
+        "name": "Fleshbag Marauder",
+        "mana_cost": "{2}{B}",
+        "type_line": "Creature — Zombie Warrior",
+        "oracle_text": "When this creature enters, each player sacrifices a creature of their choice.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Forest",
+        "mana_cost": "",
+        "type_line": "Basic Land — Forest",
+        "oracle_text": "({T}: Add {G}.)",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "G"
+        ]
+      },
+      "count": 12,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Ghoulcaller Gisa",
+        "mana_cost": "{3}{B}{B}",
+        "type_line": "Legendary Creature — Human Wizard",
+        "oracle_text": "{B}, {T}, Sacrifice another creature: Create X 2/2 black Zombie creature tokens, where X is the sacrificed creature's power.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 5.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Go for the Throat",
+        "mana_cost": "{1}{B}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target nonartifact creature.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Golgari Grave-Troll",
+        "mana_cost": "{4}{G}",
+        "type_line": "Creature — Troll Skeleton",
+        "oracle_text": "This creature enters with a +1/+1 counter on it for each creature card in your graveyard.\n{1}, Remove a +1/+1 counter from this creature: Regenerate this creature.\nDredge 6 (If you would draw a card, you may mill six cards instead. If you do, return this card from your graveyard to your hand.)",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 5.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Golgari Guildgate",
+        "mana_cost": "",
+        "type_line": "Land — Gate",
+        "oracle_text": "This land enters tapped.\n{T}: Add {B} or {G}.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B",
+          "G"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Golgari Rot Farm",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {B}{G}.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B",
+          "G"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Golgari Signet",
+        "mana_cost": "{2}",
+        "type_line": "Artifact",
+        "oracle_text": "{1}, {T}: Add {B}{G}.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": [
+          "B",
+          "G"
+        ]
+      },
+      "count": 1,
+      "categories": [
+        "Ramp"
+      ]
+    },
+    {
+      "card": {
+        "name": "Grave Pact",
+        "mana_cost": "{1}{B}{B}{B}",
+        "type_line": "Enchantment",
+        "oracle_text": "Whenever a creature you control dies, each other player sacrifices a creature of their choice.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 4.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Gravecrawler",
+        "mana_cost": "{B}",
+        "type_line": "Creature — Zombie",
+        "oracle_text": "This creature can't block.\nYou may cast this card from your graveyard as long as you control a Zombie.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 1.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Grim Haruspex",
+        "mana_cost": "{2}{B}",
+        "type_line": "Creature — Human Wizard",
+        "oracle_text": "Morph {B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhenever another nontoken creature you control dies, draw a card.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Grisly Salvage",
+        "mana_cost": "{B}{G}",
+        "type_line": "Instant",
+        "oracle_text": "Reveal the top five cards of your library. You may put a creature or land card from among them into your hand. Put the rest into your graveyard.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Harvester of Souls",
+        "mana_cost": "{4}{B}{B}",
+        "type_line": "Creature — Demon",
+        "oracle_text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nWhenever another nontoken creature dies, you may draw a card.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 6.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Hero's Downfall",
+        "mana_cost": "{1}{B}{B}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target creature or planeswalker.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Infernal Grasp",
+        "mana_cost": "{1}{B}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target creature. You lose 2 life.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Jungle Hollow",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {B} or {G}.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B",
+          "G"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Krosan Grip",
+        "mana_cost": "{2}{G}",
+        "type_line": "Instant",
+        "oracle_text": "Split second (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nDestroy target artifact or enchantment.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Life from the Loam",
+        "mana_cost": "{1}{G}",
+        "type_line": "Sorcery",
+        "oracle_text": "Return up to three target land cards from your graveyard to your hand.\nDredge 3 (If you would draw a card, you may mill three cards instead. If you do, return this card from your graveyard to your hand.)",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Living Death",
+        "mana_cost": "{3}{B}{B}",
+        "type_line": "Sorcery",
+        "oracle_text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 5.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Mass disruption",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Llanowar Wastes",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {G}. This land deals 1 damage to you.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B",
+          "C",
+          "G"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Massacre Wurm",
+        "mana_cost": "{3}{B}{B}{B}",
+        "type_line": "Creature — Phyrexian Wurm",
+        "oracle_text": "When this creature enters, creatures your opponents control get -2/-2 until end of turn.\nWhenever a creature an opponent controls dies, that player loses 2 life.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 6.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Mass disruption",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Mesmeric Fiend",
+        "mana_cost": "{1}{B}",
+        "type_line": "Creature — Nightmare Horror",
+        "oracle_text": "When this creature enters, target opponent reveals their hand and you choose a nonland card from it. Exile that card.\nWhen this creature leaves the battlefield, return the exiled card to its owner's hand.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Midnight Reaper",
+        "mana_cost": "{2}{B}",
+        "type_line": "Creature — Zombie Knight",
+        "oracle_text": "Whenever a nontoken creature you control dies, this creature deals 1 damage to you and you draw a card.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Moldgraf Monstrosity",
+        "mana_cost": "{4}{G}{G}{G}",
+        "type_line": "Creature — Insect",
+        "oracle_text": "Trample\nWhen this creature dies, exile it, then return two creature cards at random from your graveyard to the battlefield.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 7.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Mulch",
+        "mana_cost": "{1}{G}",
+        "type_line": "Sorcery",
+        "oracle_text": "Reveal the top four cards of your library. Put all land cards revealed this way into your hand and the rest into your graveyard.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Murder",
+        "mana_cost": "{1}{B}{B}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target creature.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Nantuko Husk",
+        "mana_cost": "{2}{B}",
+        "type_line": "Creature — Zombie Insect",
+        "oracle_text": "Sacrifice a creature: This creature gets +2/+2 until end of turn.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Naturalize",
+        "mana_cost": "{1}{G}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target artifact or enchantment.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Necromancy",
+        "mana_cost": "{2}{B}",
+        "type_line": "Enchantment",
+        "oracle_text": "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it's on the battlefield, it becomes an Aura with \"enchant creature put onto the battlefield with Necromancy.\" Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature's controller sacrifices it.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Night's Whisper",
+        "mana_cost": "{1}{B}",
+        "type_line": "Sorcery",
+        "oracle_text": "You draw two cards and lose 2 life.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage"
+      ]
+    },
+    {
+      "card": {
+        "name": "Overgrown Tomb",
+        "mana_cost": "",
+        "type_line": "Land — Swamp Forest",
+        "oracle_text": "({T}: Add {B} or {G}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B",
+          "G"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Pernicious Deed",
+        "mana_cost": "{1}{B}{G}",
+        "type_line": "Enchantment",
+        "oracle_text": "{X}, Sacrifice this enchantment: Destroy each artifact, creature, and enchantment with mana value X or less.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Mass disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Phyrexian Arena",
+        "mana_cost": "{1}{B}{B}",
+        "type_line": "Enchantment",
+        "oracle_text": "At the beginning of your upkeep, you draw a card and lose 1 life.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage"
+      ]
+    },
+    {
+      "card": {
+        "name": "Phyrexian Tower",
+        "mana_cost": "",
+        "type_line": "Legendary Land",
+        "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice a creature: Add {B}{B}.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B",
+          "C"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Plaguecrafter",
+        "mana_cost": "{2}{B}",
+        "type_line": "Creature — Human Shaman",
+        "oracle_text": "When this creature enters, each player sacrifices a creature or planeswalker of their choice. Each player who can't discards a card.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Putrefy",
+        "mana_cost": "{1}{B}{G}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target artifact or creature. It can't be regenerated.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Ravenous Chupacabra",
+        "mana_cost": "{2}{B}{B}",
+        "type_line": "Creature — Beast Horror",
+        "oracle_text": "When this creature enters, destroy target creature an opponent controls.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 4.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Read the Bones",
+        "mana_cost": "{2}{B}",
+        "type_line": "Sorcery",
+        "oracle_text": "Scry 2, then draw two cards. You lose 2 life. (To scry 2, look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage"
+      ]
+    },
+    {
+      "card": {
+        "name": "Reclamation Sage",
+        "mana_cost": "{2}{G}",
+        "type_line": "Creature — Elf Shaman",
+        "oracle_text": "When this creature enters, you may destroy target artifact or enchantment.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Rotlung Reanimator",
+        "mana_cost": "{2}{B}",
+        "type_line": "Creature — Zombie Cleric",
+        "oracle_text": "Whenever this creature or another Cleric dies, create a 2/2 black Zombie creature token.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Sakura-Tribe Elder",
+        "mana_cost": "{1}{G}",
+        "type_line": "Creature — Snake Shaman",
+        "oracle_text": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Ramp",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Shriekmaw",
+        "mana_cost": "{4}{B}",
+        "type_line": "Creature — Elemental",
+        "oracle_text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nWhen this creature enters, destroy target nonartifact, nonblack creature.\nEvoke {1}{B} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 5.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Targeted disruption",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Sign in Blood",
+        "mana_cost": "{B}{B}",
+        "type_line": "Sorcery",
+        "oracle_text": "Target player draws two cards and loses 2 life.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage"
+      ]
+    },
+    {
+      "card": {
+        "name": "Sol Ring",
+        "mana_cost": "{1}",
+        "type_line": "Artifact",
+        "oracle_text": "{T}: Add {C}{C}.",
+        "color_identity": [],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 1.0,
+        "produced_mana": [
+          "C"
+        ]
+      },
+      "count": 1,
+      "categories": [
+        "Ramp"
+      ]
+    },
+    {
+      "card": {
+        "name": "Splinterfright",
+        "mana_cost": "{2}{G}",
+        "type_line": "Creature — Elemental",
+        "oracle_text": "Trample\nSplinterfright's power and toughness are each equal to the number of creature cards in your graveyard.\nAt the beginning of your upkeep, mill two cards. (Put the top two cards of your library into your graveyard.)",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Spore Frog",
+        "mana_cost": "{G}",
+        "type_line": "Creature — Frog",
+        "oracle_text": "Sacrifice this creature: Prevent all combat damage that would be dealt this turn.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 1.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Mass disruption",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Stinkweed Imp",
+        "mana_cost": "{2}{B}",
+        "type_line": "Creature — Imp",
+        "oracle_text": "Flying\nWhenever this creature deals combat damage to a creature, destroy that creature.\nDredge 5 (If you would draw a card, you may mill five cards instead. If you do, return this card from your graveyard to your hand.)",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Stitcher's Supplier",
+        "mana_cost": "{B}",
+        "type_line": "Creature — Zombie",
+        "oracle_text": "When this creature enters or dies, mill three cards. (Put the top three cards of your library into your graveyard.)",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 1.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Swamp",
+        "mana_cost": "",
+        "type_line": "Basic Land — Swamp",
+        "oracle_text": "({T}: Add {B}.)",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B"
+        ]
+      },
+      "count": 13,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Temple of Malady",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\nWhen this land enters, scry 1. (Look at the top card of your library. You may put that card on the bottom.)\n{T}: Add {B} or {G}.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B",
+          "G"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Tormod's Crypt",
+        "mana_cost": "{0}",
+        "type_line": "Artifact",
+        "oracle_text": "{T}, Sacrifice this artifact: Exile target player's graveyard.",
+        "color_identity": [],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Mass disruption"
+      ]
+    },
+    {
+      "card": {
+        "name": "Twilight Mire",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "{T}: Add {C}.\n{B/G}, {T}: Add {B}{B}, {B}{G}, or {G}{G}.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B",
+          "C",
+          "G"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Victimize",
+        "mana_cost": "{2}{B}",
+        "type_line": "Sorcery",
+        "oracle_text": "Choose two target creature cards in your graveyard. Sacrifice a creature. If you do, return the chosen cards to the battlefield tapped.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 3.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Viscera Seer",
+        "mana_cost": "{B}",
+        "type_line": "Creature — Vampire Wizard",
+        "oracle_text": "Sacrifice a creature: Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 1.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Card advantage",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Woodfall Primus",
+        "mana_cost": "{5}{G}{G}{G}",
+        "type_line": "Creature — Treefolk Shaman",
+        "oracle_text": "Trample\nWhen this creature enters, destroy target noncreature permanent.\nPersist (When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 8.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Woodland Cemetery",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped unless you control a Swamp or a Forest.\n{T}: Add {B} or {G}.",
+        "color_identity": [
+          "B",
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 0.0,
+        "produced_mana": [
+          "B",
+          "G"
+        ]
+      },
+      "count": 1,
+      "categories": []
+    },
+    {
+      "card": {
+        "name": "Zulaport Cutthroat",
+        "mana_cost": "{1}{B}",
+        "type_line": "Creature — Human Rogue Ally",
+        "oracle_text": "Whenever this creature or another creature you control dies, each opponent loses 1 life and you gain 1 life.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    }
+  ],
+  "theme": "graveyard recursion",
+  "plan": "Fill the graveyard, sacrifice creatures for value, and bring the best of them back with Meren every end step.",
+  "judgements": {
+    "Sol Ring": {
+      "serves_theme": false
+    },
+    "Arcane Signet": {
+      "serves_theme": false
+    },
+    "Golgari Signet": {
+      "serves_theme": false
+    },
+    "Cultivate": {
+      "serves_theme": false
+    },
+    "Sakura-Tribe Elder": {
+      "serves_theme": true
+    },
+    "Phyrexian Arena": {
+      "serves_theme": false
+    },
+    "Midnight Reaper": {
+      "serves_theme": true
+    },
+    "Harvester of Souls": {
+      "serves_theme": true
+    },
+    "Grim Haruspex": {
+      "serves_theme": true
+    },
+    "Night's Whisper": {
+      "serves_theme": false
+    },
+    "Read the Bones": {
+      "serves_theme": false
+    },
+    "Sign in Blood": {
+      "serves_theme": false
+    },
+    "Eternal Witness": {
+      "serves_theme": true
+    },
+    "Viscera Seer": {
+      "serves_theme": true
+    },
+    "Fecundity": {
+      "serves_theme": false
+    },
+    "Deathreap Ritual": {
+      "serves_theme": false
+    },
+    "Ravenous Chupacabra": {
+      "serves_theme": true
+    },
+    "Assassin's Trophy": {
+      "serves_theme": false
+    },
+    "Beast Within": {
+      "serves_theme": false
+    },
+    "Putrefy": {
+      "serves_theme": false
+    },
+    "Murder": {
+      "serves_theme": false
+    },
+    "Go for the Throat": {
+      "serves_theme": false
+    },
+    "Doom Blade": {
+      "serves_theme": false
+    },
+    "Infernal Grasp": {
+      "serves_theme": false
+    },
+    "Hero's Downfall": {
+      "serves_theme": false
+    },
+    "Krosan Grip": {
+      "serves_theme": false
+    },
+    "Naturalize": {
+      "serves_theme": false
+    },
+    "Reclamation Sage": {
+      "serves_theme": true
+    },
+    "Acidic Slime": {
+      "serves_theme": true
+    },
+    "Shriekmaw": {
+      "serves_theme": true
+    },
+    "Fleshbag Marauder": {
+      "serves_theme": true
+    },
+    "Plaguecrafter": {
+      "serves_theme": true
+    },
+    "Pernicious Deed": {
+      "serves_theme": false
+    },
+    "Massacre Wurm": {
+      "serves_theme": true
+    },
+    "Living Death": {
+      "serves_theme": true
+    },
+    "Spore Frog": {
+      "serves_theme": true
+    },
+    "Tormod's Crypt": {
+      "serves_theme": false
+    },
+    "Carrion Feeder": {
+      "serves_theme": true
+    },
+    "Bloodghast": {
+      "serves_theme": true
+    },
+    "Gravecrawler": {
+      "serves_theme": true
+    },
+    "Stitcher's Supplier": {
+      "serves_theme": true
+    },
+    "Mesmeric Fiend": {
+      "serves_theme": true
+    },
+    "Woodfall Primus": {
+      "serves_theme": true
+    },
+    "Blood Artist": {
+      "serves_theme": true
+    },
+    "Zulaport Cutthroat": {
+      "serves_theme": true
+    },
+    "Grisly Salvage": {
+      "serves_theme": true
+    },
+    "Mulch": {
+      "serves_theme": true
+    },
+    "Golgari Grave-Troll": {
+      "serves_theme": true
+    },
+    "Stinkweed Imp": {
+      "serves_theme": true
+    },
+    "Life from the Loam": {
+      "serves_theme": true
+    },
+    "Victimize": {
+      "serves_theme": true
+    },
+    "Animate Dead": {
+      "serves_theme": true
+    },
+    "Necromancy": {
+      "serves_theme": true
+    },
+    "Rotlung Reanimator": {
+      "serves_theme": true
+    },
+    "Nantuko Husk": {
+      "serves_theme": true
+    },
+    "Ghoulcaller Gisa": {
+      "serves_theme": true
+    },
+    "Butcher of Malakir": {
+      "serves_theme": true
+    },
+    "Grave Pact": {
+      "serves_theme": true
+    },
+    "Dictate of Erebos": {
+      "serves_theme": true
+    },
+    "Moldgraf Monstrosity": {
+      "serves_theme": true
+    },
+    "Splinterfright": {
+      "serves_theme": true
+    },
+    "Dread Return": {
+      "serves_theme": true
+    },
+    "Phyrexian Tower": {
+      "categories": [],
+      "serves_theme": true
+    },
+    "Bojuka Bog": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Command Tower": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Evolving Wilds": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Forest": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Golgari Guildgate": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Golgari Rot Farm": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Jungle Hollow": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Llanowar Wastes": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Overgrown Tomb": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Swamp": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Temple of Malady": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Twilight Mire": {
+      "categories": [],
+      "serves_theme": false
+    },
+    "Woodland Cemetery": {
+      "categories": [],
+      "serves_theme": false
+    }
+  },
+  "review": {
+    "measures": {
+      "curve": [
+        {
+          "mana_value": 0,
+          "count": 1
+        },
+        {
+          "mana_value": 1,
+          "count": 6
+        },
+        {
+          "mana_value": 2,
+          "count": 18
+        },
+        {
+          "mana_value": 3,
+          "count": 22
+        },
+        {
+          "mana_value": 4,
+          "count": 4
+        },
+        {
+          "mana_value": 5,
+          "count": 6
+        },
+        {
+          "mana_value": 6,
+          "count": 2
+        },
+        {
+          "mana_value": 7,
+          "count": 2
+        },
+        {
+          "mana_value": 8,
+          "count": 1
+        }
+      ],
+      "average_mana_value": 3.03,
+      "colours": [
+        {
+          "colour": "B",
+          "pips": 58,
+          "sources": 24
+        },
+        {
+          "colour": "G",
+          "pips": 27,
+          "sources": 21
+        }
+      ],
+      "lands_without_mana": [
+        "Evolving Wilds"
+      ],
+      "types": {
+        "creature": 30,
+        "instant": 11,
+        "sorcery": 9,
+        "artifact": 4,
+        "enchantment": 8,
+        "planeswalker": 0,
+        "land": 37
+      },
+      "theme_density": {
+        "serving": 41,
+        "of": 99
+      },
+      "not_counted": []
+    },
+    "text": "HOW THE DECK WINS. It does not win by attacking; it wins by making every death profitable and then out-attriting the table.\n\nTurns 1-3: the cheap engine pieces. Viscera Seer and Carrion Feeder are one-mana sacrifice outlets that turn any creature into scry 1 or a +1/+1 counter. Stitcher's Supplier mills three when it enters and three more when it dies, Spore Frog and Sakura-Tribe Elder are bodies that want to die, and Gravecrawler recasts itself from the graveyard as long as you control a Zombie. Grisly Salvage, Mulch and Life from the Loam fill the yard early rather than develop the board. Then Meren at four mana.\n\nTurns 4-6: this is where setup meets cash-in. The setup half is the sacrifice outlets plus the cheap recurring bodies; the cash-in half is the death triggers - Grim Haruspex and Midnight Reaper draw on each nontoken creature you lose, Blood Artist and Zulaport Cutthroat drain, Grave Pact and Dictate of Erebos make each of your deaths strip a creature from every opponent. Meren's end-step trigger returns a creature card from your graveyard to the battlefield if its mana value is at most your experience counters, and otherwise to your hand - so each early death both pays for the next return and raises the ceiling of what you can return. Fleshbag Marauder, Plaguecrafter and Ravenous Chupacabra are the engine's favourite reanimation targets: removal that comes back.\n\nTurns 7 and on: the top end. Butcher of Malakir, Massacre Wurm, Moldgraf Monstrosity and Woodfall Primus - with Victimize, Dread Return, Animate Dead, Necromancy and Living Death to cheat them in ahead of their cost. Living Death is the haymaker: after a game of self-mill and sacrifice it sweeps the opponents' boards and rebuilds yours. What actually ends the game is usually Blood Artist and Zulaport Cutthroat draining out while Grave Pact or Butcher of Malakir empties the table, or a reanimated top-end beater once nobody can block.\n\nCURVE AGAINST LANDS AND RAMP. Average mana value is 3.03, and the curve clusters hard in the middle: 18 cards at 2 and 22 at 3, against 4 at 4, 6 at 5, 2 at 6, 2 at 7 and 1 at 8. That is a cheap deck, and Lands is at 37 against a target of 38 - appropriate. The problem is Ramp at 5 against a target of 10. With only Sol Ring, Arcane Signet, Golgari Signet, Cultivate and Sakura-Tribe Elder, turn-four Meren depends on hitting land drops, and the 5-to-8 slots arrive on schedule rather than early. Meren herself does the cheating later, but the first Meren cast is the deck's most important turn and nothing accelerates toward it.\n\nCOLOUR. Black is at 58 pips with 24 sources; green at 27 pips with 21 sources. Black is clearly the primary colour, and cards like Grave Pact at {1}{B}{B}{B} and Massacre Wurm at {3}{B}{B}{B} want more than one black source. 24 sources for 58 pips is a little thin for triple-black.\n\nWHEN THE COMMANDER IS ANSWERED. Better than most commander-centric decks. Meren is the engine, but Animate Dead, Necromancy, Victimize, Dread Return and Living Death all reanimate without her, and Bloodghast, Gravecrawler, Golgari Grave-Troll and Stinkweed Imp return themselves. Card advantage is at 11 against 12 and most of it - Grim Haruspex, Midnight Reaper, Harvester of Souls, Fecundity, Deathreap Ritual - keys off creatures dying, not off Meren. You lose tempo and the recursion engine, not the deck. Note Meren costs {2}{B}{G} and recasting her each time she is answered taxes a deck already short on ramp.\n\nCATEGORIES. Targeted disruption is at 16 against a target of 12 and Plan is at 40 against 30, while Ramp sits at 5 against 10. The heavy category is where the slack is: eight of those sixteen are one-for-one instants that do nothing with the graveyard - Doom Blade, Go for the Throat, Infernal Grasp, Murder, Hero's Downfall, Naturalize, Krosan Grip, Beast Within. Compare Shriekmaw, Acidic Slime, Reclamation Sage, Fleshbag Marauder, Plaguecrafter and Ravenous Chupacabra, which do the same job on a creature Meren can return. Mass disruption is at 5 against 6.\n\nTwo cards sit in their category only on a stretch: Viscera Seer counts in Card advantage, but scry 1 does not turn one card into more than one card - it is a sacrifice outlet that filters. And Spore Frog counts in Mass disruption as a fog; it blanks one combat step rather than dealing with many things, though with a sacrifice outlet and Meren it does that every turn.\n\nLANDS THAT MAKE NO MANA. One: Evolving Wilds, which sacrifices itself to fetch a basic land tapped - so a Forest or a Swamp, and a landfall trigger for Bloodghast."
+  },
+  "maybeboard": [
+    {
+      "name": "Wood Elves",
+      "replaces": "Doom Blade",
+      "why": "Wood Elves is ramp on a creature body that fetches an untapped Forest (including Overgrown Tomb), feeds the sacrifice outlets and gives Meren a land every end step, in place of the narrowest one-for-one removal spell."
+    },
+    {
+      "name": "Yavimaya Elder",
+      "replaces": "Murder",
+      "why": "Ramp is at 5 against a target of 10 and Card advantage at 11 against 12, while Targeted disruption is at 16 against 12: Yavimaya Elder is ramp and draw on a creature that pays you for dying (two basics to hand when it dies, {2} and sacrifice to draw), in place of the most expensive plain creature-kill spell."
+    },
+    {
+      "name": "Skullclamp",
+      "replaces": "Naturalize",
+      "why": "Card advantage is at 11 against a target of 12 and Viscera Seer only counts there on a stretch: Skullclamp turns every creature that dies into two cards for one mana, which is what this deck does anyway, in place of the most redundant artifact/enchantment removal in a Targeted disruption category sitting at 16 against 12."
+    }
+  ]
+}
