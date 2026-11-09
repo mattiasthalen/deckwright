@@ -417,8 +417,7 @@
       },
       "count": 1,
       "categories": [
-        "Ramp",
-        "Plan"
+        "Ramp"
       ]
     },
     {
@@ -496,25 +495,6 @@
       "count": 1,
       "categories": [
         "Plan"
-      ]
-    },
-    {
-      "card": {
-        "name": "Go for the Throat",
-        "mana_cost": "{1}{B}",
-        "type_line": "Instant",
-        "oracle_text": "Destroy target nonartifact creature.",
-        "color_identity": [
-          "B"
-        ],
-        "commander_legality": "legal",
-        "game_changer": false,
-        "cmc": 2.0,
-        "produced_mana": []
-      },
-      "count": 1,
-      "categories": [
-        "Targeted disruption"
       ]
     },
     {
@@ -681,25 +661,6 @@
     },
     {
       "card": {
-        "name": "Hero's Downfall",
-        "mana_cost": "{1}{B}{B}",
-        "type_line": "Instant",
-        "oracle_text": "Destroy target creature or planeswalker.",
-        "color_identity": [
-          "B"
-        ],
-        "commander_legality": "legal",
-        "game_changer": false,
-        "cmc": 3.0,
-        "produced_mana": []
-      },
-      "count": 1,
-      "categories": [
-        "Targeted disruption"
-      ]
-    },
-    {
-      "card": {
         "name": "Infernal Grasp",
         "mana_cost": "{1}{B}",
         "type_line": "Instant",
@@ -859,6 +820,25 @@
     },
     {
       "card": {
+        "name": "Mesmeric Fiend",
+        "mana_cost": "{1}{B}",
+        "type_line": "Creature — Nightmare Horror",
+        "oracle_text": "When this creature enters, target opponent reveals their hand and you choose a nonland card from it. Exile that card.\nWhen this creature leaves the battlefield, return the exiled card to its owner's hand.",
+        "color_identity": [
+          "B"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
         "name": "Midnight Reaper",
         "mana_cost": "{2}{B}",
         "type_line": "Creature — Zombie Knight",
@@ -874,6 +854,44 @@
       "count": 1,
       "categories": [
         "Card advantage",
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Moldgraf Monstrosity",
+        "mana_cost": "{4}{G}{G}{G}",
+        "type_line": "Creature — Insect",
+        "oracle_text": "Trample\nWhen this creature dies, exile it, then return two creature cards at random from your graveyard to the battlefield.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 7.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
+        "Plan"
+      ]
+    },
+    {
+      "card": {
+        "name": "Mulch",
+        "mana_cost": "{1}{G}",
+        "type_line": "Sorcery",
+        "oracle_text": "Reveal the top four cards of your library. Put all land cards revealed this way into your hand and the rest into your graveyard.",
+        "color_identity": [
+          "G"
+        ],
+        "commander_legality": "legal",
+        "game_changer": false,
+        "cmc": 2.0,
+        "produced_mana": []
+      },
+      "count": 1,
+      "categories": [
         "Plan"
       ]
     },
@@ -913,25 +931,6 @@
       "count": 1,
       "categories": [
         "Plan"
-      ]
-    },
-    {
-      "card": {
-        "name": "Naturalize",
-        "mana_cost": "{1}{G}",
-        "type_line": "Instant",
-        "oracle_text": "Destroy target artifact or enchantment.",
-        "color_identity": [
-          "G"
-        ],
-        "commander_legality": "legal",
-        "game_changer": false,
-        "cmc": 2.0,
-        "produced_mana": []
-      },
-      "count": 1,
-      "categories": [
-        "Targeted disruption"
       ]
     },
     {
@@ -1074,22 +1073,21 @@
     },
     {
       "card": {
-        "name": "Putrefy",
-        "mana_cost": "{1}{B}{G}",
-        "type_line": "Instant",
-        "oracle_text": "Destroy target artifact or creature. It can't be regenerated.",
+        "name": "Rampant Growth",
+        "mana_cost": "{1}{G}",
+        "type_line": "Sorcery",
+        "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
         "color_identity": [
-          "B",
           "G"
         ],
         "commander_legality": "legal",
         "game_changer": false,
-        "cmc": 3.0,
+        "cmc": 2.0,
         "produced_mana": []
       },
       "count": 1,
       "categories": [
-        "Targeted disruption"
+        "Ramp"
       ]
     },
     {
@@ -1930,7 +1928,7 @@
       "categories": [
         "Ramp"
       ],
-      "serves_theme": true
+      "serves_theme": false
     },
     "Rampant Growth": {
       "categories": [
@@ -2040,35 +2038,35 @@
   "maybeboard": [
     {
       "name": "Sheoldred, Whispering One",
-      "replaces": "Woodfall Primus",
-      "why": "A second Meren on a body: it reanimates every upkeep and makes each opponent sacrifice a creature, which the review found the deck had no way to do. Woodfall Primus is the deck's only card at mana value 8 and its entry trigger is covered by Krosan Grip, Assassin's Trophy, Pernicious Deed and Acidic Slime."
-    },
-    {
-      "name": "Toxic Deluge",
-      "replaces": "Splinterfright",
-      "why": "Mass disruption is at 5 against a target of 6. A scalable sweeper that kills through toughness, and Meren is the one player who profits from it: experience counters from her own creatures dying and a full graveyard for the end step. Splinterfright has no entry or death trigger worth rebuying."
+      "replaces": "Moldgraf Monstrosity",
+      "why": "Same cost as Moldgraf Monstrosity, but a chosen creature back every upkeep plus a sacrifice from each opponent, instead of one random burst that exiles itself."
     }
   ],
   "swaps": [
     {
-      "out": "Mesmeric Fiend",
+      "out": "Go for the Throat",
       "in": "Farhaven Elf",
-      "why": "Ramp was at 5 against a target of 10; Mesmeric Fiend gives the exiled card back when it is sacrificed, and Plan was at 40 against 30."
+      "why": "Ramp was at 5 of 10 and Targeted disruption at 16 of 12; Go for the Throat was redundant single-target creature kill, and Farhaven Elf is ramp on a body Meren can rebuy."
     },
     {
       "out": "Grisly Salvage",
       "in": "Satyr Wayfinder",
-      "why": "A recurring body beats a one-shot dig: Meren returns it every end step, and it is fodder for the sacrifice outlets, Victimize and Dread Return."
+      "why": "A body that mills four does it every turn Meren brings it back, and it feeds the sacrifice outlets; the instant did it once."
     },
     {
-      "out": "Mulch",
+      "out": "Hero's Downfall",
+      "in": "Rampant Growth",
+      "why": "Ramp was at 6 of 10 and Targeted disruption at 15 of 12; Infernal Grasp, Doom Blade and Murder already cover the creature half, and two-mana ramp puts Meren down a turn early."
+    },
+    {
+      "out": "Naturalize",
       "in": "Swamp",
-      "why": "Lands was at 37 against a target of 38 and black at 58 pips against 24 sources; Mulch was the most redundant self-mill now that Satyr Wayfinder is in."
+      "why": "Lands was at 37 of 38 and black at 58 pips against 24 sources; Naturalize was redundant with Krosan Grip, Reclamation Sage, Acidic Slime and Pernicious Deed."
     },
     {
-      "out": "Moldgraf Monstrosity",
+      "out": "Putrefy",
       "in": "Kodama's Reach",
-      "why": "Lands was at 37 against a target of 38. Moldgraf Monstrosity costs mana value 7, returns two random creatures, and exiles itself so Meren can never rebuy it."
+      "why": "Lands was at 37 of 38; Putrefy overlapped Assassin's Trophy, Beast Within and Infernal Grasp, and fetching two basics also helps the black source count."
     }
   ],
   "review": {
@@ -2084,11 +2082,11 @@
         },
         {
           "mana_value": 2,
-          "count": 16
+          "count": 17
         },
         {
           "mana_value": 3,
-          "count": 24
+          "count": 22
         },
         {
           "mana_value": 4,
@@ -2104,23 +2102,23 @@
         },
         {
           "mana_value": 7,
-          "count": 1
+          "count": 2
         },
         {
           "mana_value": 8,
           "count": 1
         }
       ],
-      "average_mana_value": 3.0,
+      "average_mana_value": 3.05,
       "colours": [
         {
           "colour": "B",
-          "pips": 56,
+          "pips": 53,
           "sources": 25
         },
         {
           "colour": "G",
-          "pips": 25,
+          "pips": 28,
           "sources": 21
         }
       ],
@@ -2128,20 +2126,20 @@
         "Evolving Wilds"
       ],
       "types": {
-        "creature": 30,
-        "instant": 10,
-        "sorcery": 9,
+        "creature": 32,
+        "instant": 6,
+        "sorcery": 11,
         "artifact": 4,
         "enchantment": 8,
         "planeswalker": 0,
         "land": 38
       },
       "theme_density": {
-        "serving": 38,
+        "serving": 40,
         "of": 99
       },
       "not_counted": []
     },
-    "text": "**How it wins.** Turns 1 to 3 are still setup, and the curve is still bottom-heavy: 1 card at mana value 0, 6 at 1, 16 at 2 and 24 at 3, with an average mana value of 3.0. Sol Ring, Arcane Signet and Golgari Signet for the early mana; Stitcher's Supplier, Satyr Wayfinder, Stinkweed Imp, Golgari Grave-Troll and Life from the Loam to fill the graveyard; Carrion Feeder and Viscera Seer as free repeatable sacrifice outlets. Gravecrawler and Bloodghast are the bodies that do not mind dying.\n\nTurns 4 to 6 are the deck. Meren of Clan Nel Toth costs 4; every other creature of yours that dies gives an experience counter, and each end step she returns a creature card from your graveyard to the battlefield if its mana value is no more than your experience counters, and otherwise puts it into your hand. The cards that cash that in are the entry and death triggers worth repeating — Fleshbag Marauder, Plaguecrafter, Ravenous Chupacabra, Shriekmaw, Acidic Slime, Reclamation Sage, and now Farhaven Elf and Satyr Wayfinder, which make Meren's end step a land or a self-mill every turn. Victimize, Dread Return, Animate Dead and Necromancy do the same work without her. Grave Pact, Dictate of Erebos and Butcher of Malakir turn each sacrifice into a table-wide edict.\n\nTurns 7 and on: Living Death as the mass reset, Massacre Wurm as a sweeper that drains, Harvester of Souls at 6, and a top end that is now 1 card at mana value 7 and 1 at 8 rather than two sevens and an eight.\n\n**What ends the game is still the weakest link.** Blood Artist and Zulaport Cutthroat are the cards that turn the dying into life loss, and 30 creatures with no evasion and no mass pump make for a slow attack. Nothing added in the improvements changed this: the deck strips a table of resources and then wins by attrition. Sheoldred, Whispering One sits on the maybeboard against Woodfall Primus precisely for this — an opponent sacrifice every upkeep is the closest thing to a clock the deck can reach from here.\n\n**Curve against lands and ramp.** Lands is at 38 against a target of 38 — the Swamp that came in for Mulch closed that — and an average mana value of 3.0 fits it. Ramp is at 7 against a target of 10 after Farhaven Elf and Kodama's Reach: Sol Ring, Arcane Signet, Golgari Signet, Sakura-Tribe Elder, Cultivate, Farhaven Elf, Kodama's Reach. That is the one structural gap left, and it still matters, because a 4-mana commander who is killed repeatedly has to be recast on time. Targeted disruption is at 16 against a target of 12, and the stack of near-interchangeable two- and three-mana creature removal (Doom Blade, Murder, Go for the Throat, Infernal Grasp, Hero's Downfall) is where the last three ramp slots live. Your collection still holds Rampant Growth, Mind Stone, Fellwar Stone, Commander's Sphere, Burnished Hart, Wood Elves and Explosive Vegetation for them.\n\n**Colours.** Black is at 56 pips against 25 sources, green at 25 pips against 21 sources. The extra Swamp helped, and black is still the deeper commitment — Grave Pact, Dictate of Erebos, Massacre Wurm and Butcher of Malakir all want more than one black. The nonbasic fixing is good: Command Tower, Overgrown Tomb, Woodland Cemetery, Twilight Mire, Llanowar Wastes, Golgari Rot Farm, Temple of Malady, Jungle Hollow, Golgari Guildgate.\n\n**When Meren is answered.** The deck keeps running: Phyrexian Arena, Deathreap Ritual, Fecundity, Grim Haruspex, Midnight Reaper and Harvester of Souls draw without her, and Victimize, Dread Return, Animate Dead, Necromancy and Living Death recur without her. There is still no way to protect her and no way to find her — Demonic Tutor was the obvious answer and was left out because it is a Game Changer the bracket target of 2 does not allow.\n\n**Categories.** Lands at 38 against a target of 38; Ramp at 7 against a target of 10; Card advantage at 11 against a target of 12; Targeted disruption at 16 against a target of 12; Mass disruption at 5 against a target of 6; Plan at 38 against a target of 30. Plan came down from 40 and the deck is better for it: the cards that left (Mesmeric Fiend, Grisly Salvage, Moldgraf Monstrosity, Mulch) were the ones serving the plan most thinly. Theme density is 38 of 99.\n\nTwo cards are still counted on a stretch. Viscera Seer counts in Card advantage, but scry 1 on a sacrifice filters the top of your library rather than turning one card into more than one — it is a sacrifice outlet first, and Card advantage at 11 against 12 is really at 10 in spirit. Spore Frog counts in Mass disruption, where preventing all combat damage answers a whole attack, but once; its real job is to be recurred by Meren as a fog every turn, which is Plan work. Mass disruption at 5 against 6 is therefore the softest count in the deck, and Toxic Deluge is on the maybeboard against Splinterfright to fix it.\n\n**The land that makes no mana.** Evolving Wilds, which taps and sacrifices itself to fetch a basic land onto the battlefield tapped — with basics of both types in the deck it always has a target, and the land entering triggers Bloodghast.\n\n**Bracket.** The target is 2 and the deck sits at 2, with no Game Changers."
+    "text": "How it wins\n\nTurns 1-3 are unchanged in shape: Stitcher's Supplier, Carrion Feeder, Viscera Seer, Gravecrawler and Spore Frog at one mana, then Satyr Wayfinder, Rampant Growth, Animate Dead, Bloodghast, Blood Artist, Zulaport Cutthroat and Life from the Loam at two. The curve reads 1 card at zero, 6 at one, 17 at two, 22 at three, with average mana value 3.05.\n\nTurns 4-6 Meren arrives and the deck converts. The setup cards are Stitcher's Supplier, Satyr Wayfinder, Mulch, Splinterfright, Stinkweed Imp, Golgari Grave-Troll and Life from the Loam. The cash-in cards are Meren, Victimize, Dread Return, Animate Dead, Necromancy and Moldgraf Monstrosity, plus the entry-effect bodies worth looping - Fleshbag Marauder, Plaguecrafter, Ravenous Chupacabra, Shriekmaw, Acidic Slime, Reclamation Sage, Eternal Witness and now Farhaven Elf.\n\nTurns 7 and on: 6 cards at five mana, 2 at six, 2 at seven, 1 at eight - Living Death, Massacre Wurm, Butcher of Malakir, Moldgraf Monstrosity, Woodfall Primus.\n\nIt ends the game on drain rather than damage: Blood Artist and Zulaport Cutthroat on every death, Grave Pact, Dictate of Erebos and Butcher of Malakir emptying opposing boards, Massacre Wurm as the one card that can close three players at once.\n\nCurve, lands and ramp\n\nLands is at 38 against its target of 38, and Ramp at 8 against a target of 10 - against the 5 the first review found. The three cards added (Farhaven Elf, Rampant Growth, Kodama's Reach) all cost two or three, so they come down before Meren rather than after. Ramp is still the short category that costs you something: a four-mana commander that will be killed more than once wants to be re-castable alongside a sacrifice outlet in the same turn.\n\nColours: black at 53 pips against 25 sources, green at 28 pips against 21. The extra Swamp and the cuts of Putrefy and Hero's Downfall moved those two toward each other from both ends. Grave Pact at {1}{B}{B}{B} and Massacre Wurm at {3}{B}{B}{B} are still the hardest casts in the deck.\n\nOne thing genuinely changed shape: instants are at 6 and creatures at 32, where the first measure read 11 instants and 30 creatures. That is a real trade. You can answer less at instant speed, but nearly all your removal now walks in on a body Meren rebuys - Ravenous Chupacabra, Shriekmaw, Fleshbag Marauder, Plaguecrafter, Acidic Slime and Reclamation Sage are each repeatable removal instead of one-shot. For this deck that is the right side of the trade; just expect to be doing your interacting on your own turn.\n\nWhen the commander is answered\n\nUnchanged, and still the strength of the deck: Animate Dead, Necromancy, Victimize, Dread Return, Living Death, Eternal Witness and Moldgraf Monstrosity all recur without Meren, and Bloodghast, Gravecrawler, Stinkweed Imp, Golgari Grave-Troll and Life from the Loam bring themselves back.\n\nCategories\n\nTargeted disruption is at 12 against 12 and Lands at 38 against 38 - both findings from the first review are closed.\n\nRamp at 8 of 10 and Card advantage at 11 of 12 are each a little short. Mass disruption at 5 of 6 is the one I would still fix: Pernicious Deed, Living Death, Massacre Wurm, Spore Frog and Tormod's Crypt is everything the deck has against a board it has fallen behind on, and nothing in the collection fills that slot - a second black sweeper would have to be a card you do not own.\n\nPlan at 40 of 30, with theme density at 40 of 99, is the deck being itself.\n\nThe two stretch placements stand: Viscera Seer in Card advantage earns its slot as a free sacrifice outlet rather than as draw, and Spore Frog in Mass disruption answers one combat but answers it every turn once Meren is recurring it.\n\nBracket target 2, lowest the deck qualifies for is 2, no Game Changers, not over - leaving Demonic Tutor out is what keeps that true.\n\nLands that make no mana\n\nStill one: Evolving Wilds, which sacrifices itself to fetch a basic Forest or Swamp."
   }
 }
