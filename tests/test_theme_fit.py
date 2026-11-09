@@ -112,3 +112,42 @@ def test_judge_with_an_empty_narrowing(deck, tmp_path):
     out = json.loads(deck.judge([{"name": "Sign in Blood", "serves_theme": True}]).stdout)
     assert out["unjudged"] == 0, f"the deck's own unjudged Sol Ring is not the narrowing: {out}"
     assert fit(deck, "Sign in Blood") is True
+
+
+def test_looked_up_add_moves_theme_fit(deck, unreachable_url):
+    """R42: a looked-up `add` over a card recorded from the player's text, spelt as the player typed it,
+    moves its theme fit to the looked-up name, and `measure` counts it as serving."""
+    deck.new()
+    deck.run("theme", "Artifacts")
+    deck.offline(unreachable_url).run(
+        "add", "sol ring", "--from-player", "{T}: Add {C}{C}.", "--type-line", "Artifact", "--serves-theme", "yes"
+    )
+    deck.add("Sol Ring")
+    judgements = deck.stored()["judgements"]
+    assert fit(deck, "Sol Ring") is True and "sol ring" not in judgements, judgements
+    deck.fill()
+    copies = next(e["count"] for e in deck.stored()["cards"] if e["card"]["name"] == "Sol Ring")
+    assert deck.measure()["theme_density"]["serving"] == copies
+
+
+def test_theme_fit_merges_with_judgement_under_looked_up_name(deck, unreachable_url, tmp_path):
+    """R43: a judgement already under the looked-up name keeps its fields when the player's-text card is
+    looked up, and gains the theme fit recorded under the player's spelling."""
+    player = tmp_path / "player"
+    player.mkdir()
+    deck.collection(write_file(player, "export.csv", manabox_csv(manabox_row(scryfall_card("Grim Monolith"), 1))))
+    deck.new()
+    deck.run("theme", "Big mana")
+    deck.judge([{"name": "Grim Monolith", "categories": ["Ramp"]}])
+    deck.offline(unreachable_url).run(
+        "add", "grim monolith", "--from-player", "{T}: Add {C}{C}{C}.", "--type-line", "Artifact",
+        "--category", "Ramp", "--serves-theme", "yes",
+    )
+    deck.fill()
+    measured = deck.measure()
+
+    judgements = deck.stored()["judgements"]
+    assert "grim monolith" not in judgements, judgements
+    assert judgements["Grim Monolith"].get("categories") == ["Ramp"], "the judged field stands"
+    assert judgements["Grim Monolith"].get("serves_theme") is True, "and the typed theme fit joins it"
+    assert measured["theme_density"]["serving"] == 1

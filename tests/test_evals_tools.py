@@ -248,12 +248,25 @@ def test_review_numbers_exempt(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
+UNREADABLE_DECKS = {
+    "cards": {"cards": {"Sol Ring": 1}},
+    "swaps": {"swaps": {"Sol Ring": 1}},
+    "maybeboard": {"maybeboard": {"Sol Ring": 1}},
+    "null": None,
+    "number": 5,
+}
+
+
 @needs_node
-@pytest.mark.parametrize("key", ["cards", "swaps", "maybeboard"])
-def test_review_numbers_unreadable_deck(tmp_path, key):
-    """R4: a deck file whose card lists are not lists cannot be read: exit 2, never a stray-number exit 1."""
-    deck = {"commander": {"name": "Meren of Clan Nel Toth"}, "cards": [], key: {"Sol Ring": 1},
-            "review": {"measures": MEASURES, "text": "Ramp is 5."}}
+@pytest.mark.parametrize("case", list(UNREADABLE_DECKS))
+def test_review_numbers_unreadable_deck(tmp_path, case):
+    """R4, R35: a deck file that is not a JSON object, or whose card lists are not lists, cannot be read:
+    exit 2, never a stray-number exit 1."""
+    shape = UNREADABLE_DECKS[case]
+    deck = shape if not isinstance(shape, dict) else {
+        "commander": {"name": "Meren of Clan Nel Toth"}, "cards": [],
+        "review": {"measures": MEASURES, "text": "Ramp is 5."}, **shape,
+    }
     deck_file, tally_file = tmp_path / "deck.json", tmp_path / "tally.json"
     deck_file.write_text(json.dumps(deck), encoding="utf-8")
     tally_file.write_text(json.dumps(TALLY), encoding="utf-8")

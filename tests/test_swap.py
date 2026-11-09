@@ -214,3 +214,13 @@ def test_refuses_a_basic_land_for_itself(deck):
     full_deck(deck)
     before = deck.deck_file.read_bytes()
     assert_refused(deck.run("swap", "Swamp", "Swamp", "--why", "x", expect=None), deck, before)
+
+
+def test_refuses_a_card_for_itself_by_any_spelling(deck, unreachable_url):
+    """R39: OUT and IN are the same card whatever the spelling: a player's-text `forest` swapped for the
+    looked-up Forest is refused, a basic land too."""
+    deck.new()
+    deck.add("Sol Ring", "Ramp")
+    deck.offline(unreachable_url).run("add", "forest", "--from-player", "", "--type-line", "Basic Land — Forest")
+    before = deck.deck_file.read_bytes()
+    assert_refused(deck.run("swap", "forest", "Forest", "--why", "x", expect=None), deck, before)

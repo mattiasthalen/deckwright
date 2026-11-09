@@ -67,8 +67,8 @@ def test_curve(deck):
 
 def test_colour_balance(deck):
     deck.new()  # Meren of Clan Nel Toth: black-green
-    # Pips, front faces, nonland only: B 2+2+1+2+2 = 9, G 1+1+1 = 3. Lightning Bolt's {R} is outside the
-    # identity and listed nowhere; Sol Ring's {1} is no colour.
+    # Pips, every face's cost, nonland only (Bloodline Keeper's back face has none): B 2+2+1+2+2 = 9,
+    # G 1+1+1 = 3. Lightning Bolt's {R} is outside the identity and listed nowhere; Sol Ring's {1} is no colour.
     for name in (
         "Sign in Blood", "Ravenous Chupacabra", "Pernicious Deed", "Exsanguinate", "Bloodline Keeper",
         "Llanowar Elves", "Cultivate", "Lightning Bolt", "Sol Ring",
@@ -247,3 +247,15 @@ def test_split_card(deck):
     measured = deck.measure()
     assert {c["colour"]: c["pips"] for c in measured["colours"]} == {"B": 1, "G": 1}, measured["colours"]
     assert curve_of(measured) == {6.0: 1}, measured["curve"]
+
+
+def test_modal_double_faced_card(deck):
+    """R37: a modal double-faced card is cast as either face, so both faces' pips count, as a split card's
+    halves do: Egon, God of Death // Throne of Death is {2}{B} // {B}, two B. Its mana value stays its front
+    face's, 3."""
+    deck.new()
+    deck.add("Egon, God of Death")
+    deck.fill()
+    measured = deck.measure()
+    assert {c["colour"]: c["pips"] for c in measured["colours"]} == {"B": 2, "G": 0}, measured["colours"]
+    assert curve_of(measured) == {3.0: 1}, measured["curve"]
