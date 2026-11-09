@@ -589,10 +589,9 @@ def narrowing(deck: dict, scryfall: Scryfall) -> dict:
         raise Failure("No collection is kept: hand one over with collection FILE.", 2)
     identity = set(deck["commander"]["color_identity"])
     judgements = deck.get("judgements", {})
-    commander = {matching_key(n) for n in names_of(deck["commander"])}
     cards = []
     for c in available["cards"]:
-        if c["available"] < 1 or matching_key(c["name"]) in commander:
+        if c["available"] < 1 or is_commander(deck, c["name"]):
             continue
         # A card that lost its name to another is never looked up by it: it would be the other card.
         card = c.get("card") or scryfall.by_name(c["name"], "the collection's cards")
@@ -686,8 +685,13 @@ def recorded(deck: dict, name: str) -> dict | None:
 # The tally -----------------------------------------------------------------------------
 
 
+def is_commander(deck: dict, name: str) -> bool:
+    """Whether the name is the commander's, by its full name or a face name."""
+    return matching_key(name) in map(matching_key, names_of(deck["commander"]))
+
+
 def has_type(card: dict, word: str) -> bool:
-    """Whether the card's front face's type line has the word: a card with faces is cast as its front."""
+    """Whether the word is in the card's front face's type line, the one the card is counted by."""
     front = card["type_line"].split(" // ")[0]
     return re.search(rf"\b{re.escape(word)}\b", front, re.I) is not None
 
@@ -799,12 +803,7 @@ def measure(deck: dict, scryfall: Scryfall) -> dict:
             except Unreachable:
                 continue
             if entry["result"] == "found":
-                typed, e["card"] = e["card"]["name"], entry["card"]
-                del e["from_player"]
-                judgements = deck.get("judgements", {})
-                if typed in judgements and typed != e["card"]["name"]:
-                    # The player's spelling gives way to the card's own, and its recorded theme fit with it.
-                    judgements.setdefault(e["card"]["name"], judgements.pop(typed))
+                looked_up_over(deck, e, entry["card"])
 
     counted = [e for e in deck["cards"] if not e.get("from_player")]
     nonland = [e for e in counted if not has_type(e["card"], "land")]
@@ -1279,11 +1278,24 @@ def record(deck: dict, card: dict, count: int, categories: list[str], from_playe
         deck["cards"].append(entry)
     if from_player:
         entry.setdefault("from_player", entry["count"] == 0)
-    elif entry.pop("from_player", False):
-        entry["card"] = card
+    elif entry.get("from_player"):
+        looked_up_over(deck, entry, card)
+    else:
+        entry.pop("from_player", None)
     entry["count"] += count
     entry["categories"] = category_names(deck, [*entry["categories"], *categories])
     deck["cards"].sort(key=lambda e: by_name(e["card"]["name"]))
+
+
+def looked_up_over(deck: dict, entry: dict, card: dict) -> None:
+    """Puts a looked-up card over a card recorded from the player's text, judgement and all."""
+    typed = entry["card"]["name"]
+    entry["card"] = card
+    del entry["from_player"]
+    judgements = deck.get("judgements", {})
+    if typed in judgements and typed != card["name"]:
+        # The player's spelling gives way to the card's own; a field judged under the card's own name stands.
+        judgements[card["name"]] = {**judgements.pop(typed), **judgements.get(card["name"], {})}
 
 
 def record_theme_fit(deck: dict, name: str, answer: str | None) -> None:
@@ -1315,10 +1327,8 @@ def orphaned(deck: dict, gone: str) -> dict:
 
 
 def in_deck(deck: dict, card: dict) -> bool:
-    """Whether the card is the commander or among the 99."""
-    return recorded(deck, card["name"]) is not None or matching_key(card["name"]) in map(
-        matching_key, names_of(deck["commander"])
-    )
+    """Whether the card is the commander or one of the deck's cards."""
+    return recorded(deck, card["name"]) is not None or is_commander(deck, card["name"])
 
 
 def looked_up_for(scryfall: Scryfall, name: str) -> dict:
@@ -1335,7 +1345,7 @@ def swap(deck: dict, scryfall: Scryfall, args) -> dict:
     if out is None:
         raise Failure(f"{args.out!r} is not in the deck. Nothing was changed.", 2)
     card = looked_up_for(scryfall, args.into)
-    if card["name"] == out["card"]["name"]:
+    if matching_key(card["name"]) in map(matching_key, names_of(out["card"])):
         raise Failure(f"{card['name']!r} would go out and come back in. Nothing was changed.", 2)
     if in_deck(deck, card) and "basic" not in card["type_line"].casefold():
         raise Failure(f"{card['name']!r} is already in the deck. Nothing was changed.", 2)
