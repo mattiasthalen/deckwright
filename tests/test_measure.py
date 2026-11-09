@@ -259,3 +259,25 @@ def test_modal_double_faced_card(deck):
     measured = deck.measure()
     assert {c["colour"]: c["pips"] for c in measured["colours"]} == {"B": 2, "G": 0}, measured["colours"]
     assert curve_of(measured) == {3.0: 1}, measured["curve"]
+
+
+# Bloodline Keeper recorded from the player's text, under its front face's name only (R46–R48).
+KEEPER_TYPED = ("Bloodline Keeper", "--from-player", "Flying.", "--type-line", "Legendary Creature — Vampire")
+
+
+def test_two_spellings_of_one_card_merge(deck, unreachable_url):
+    """R48: two player's-text entries that are one card's two faces, once `measure` finds them, are one
+    entry under the card's name, their copies added and their categories merged, so the copies check
+    sees two copies."""
+    deck.new()
+    offline = deck.offline(unreachable_url)
+    offline.run("add", *KEEPER_TYPED, "--category", "Plan")
+    offline.run("add", "Lord of Lineage", "--from-player", "Other Vampire creatures you control get +2/+2.",
+                "--type-line", "Legendary Creature — Vampire", "--category", "Card advantage")
+    deck.fill()
+    deck.measure()
+
+    entries = [e for e in deck.stored()["cards"] if "Lineage" in e["card"]["name"] or "Keeper" in e["card"]["name"]]
+    assert [(e["card"]["name"], e["count"]) for e in entries] == [("Bloodline Keeper // Lord of Lineage", 2)], entries
+    assert sorted(entries[0]["categories"]) == ["Card advantage", "Plan"], entries[0]["categories"]
+    assert "Bloodline Keeper // Lord of Lineage" in deck.tally()["checks"]["singleton"]

@@ -224,3 +224,30 @@ def test_refuses_a_card_for_itself_by_any_spelling(deck, unreachable_url):
     deck.offline(unreachable_url).run("add", "forest", "--from-player", "", "--type-line", "Basic Land — Forest")
     before = deck.deck_file.read_bytes()
     assert_refused(deck.run("swap", "forest", "Forest", "--why", "x", expect=None), deck, before)
+
+
+# Bloodline Keeper recorded from the player's text, under its front face's name only (R46–R48).
+KEEPER_TYPED = ("Bloodline Keeper", "--from-player", "Flying.", "--type-line", "Legendary Creature — Vampire")
+
+
+def keeper_by_face_name(deck: Deckwright, unreachable_url: str) -> None:
+    """A full deck holding Bloodline Keeper from the player's text, under its front face's name only."""
+    full_deck(deck)
+    deck.run("remove", "Swamp", "--count", "1")
+    deck.offline(unreachable_url).run("add", *KEEPER_TYPED)
+
+
+def test_refuses_a_card_for_itself_by_a_face_name(deck, unreachable_url):
+    """R46: OUT recorded under a face name and IN looked up to the whole card are one card: refused."""
+    keeper_by_face_name(deck, unreachable_url)
+    before = deck.deck_file.read_bytes()
+    assert_refused(deck.run("swap", "Bloodline Keeper", "Bloodline Keeper", "--why", "x", expect=None), deck, before)
+
+
+def test_refuses_in_already_in_deck_by_a_face_name(deck, unreachable_url):
+    """R47: a card in the deck under a face name the player typed is in the deck: it cannot come in."""
+    keeper_by_face_name(deck, unreachable_url)
+    before = deck.deck_file.read_bytes()
+    proc = deck.run("swap", "Sign in Blood", "Bloodline Keeper", "--why", "x", expect=None)
+    assert_refused(proc, deck, before)
+    assert "already in the deck" in said(proc), said(proc)

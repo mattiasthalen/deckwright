@@ -146,3 +146,16 @@ def test_remove_flags_orphaned_maybeboard_entries(deck):
         {"name": "Demonic Tutor", "replaces": "Sign in Blood", "why": "Finds the combo"}
     ], out.get("orphaned_maybeboard")
     assert board(deck) == entries, "the entries are left for the player to drop or pair anew"
+
+
+# Bloodline Keeper recorded from the player's text, under its front face's name only (R46–R48).
+KEEPER_TYPED = ("Bloodline Keeper", "--from-player", "Flying.", "--type-line", "Legendary Creature — Vampire")
+
+
+def test_refuses_card_in_deck_by_a_face_name(deck, unreachable_url):
+    """R47: a card in the deck under a face name the player typed is in the deck: never on the maybeboard."""
+    full_deck(deck)
+    deck.offline(unreachable_url).run("add", *KEEPER_TYPED)
+    before = deck.deck_file.read_bytes()
+    proc = deck.run("maybeboard", "add", "Bloodline Keeper", "--replaces", "Sol Ring", "--why", "x", expect=None)
+    assert_refused(proc, deck, before)
