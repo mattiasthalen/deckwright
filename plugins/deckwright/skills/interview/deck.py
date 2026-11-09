@@ -766,6 +766,9 @@ def tally(deck: dict, available: dict | None = None) -> dict:
         counted["name"] = deck["name"]
     if "not_owned" in deck:
         counted["not_owned"] = deck["not_owned"]
+    if "review" in deck:
+        # Present once measured, so a deck never measured reads as an S1 tally does.
+        counted["reviewed"] = "text" in deck["review"]
     if available is not None:
         counted["ownership"] = ownership(deck, available)
     return counted
