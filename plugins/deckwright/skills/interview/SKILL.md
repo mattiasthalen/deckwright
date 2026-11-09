@@ -130,7 +130,7 @@ Then ask, in so many words, "Do you want me to suggest deck improvements?", and 
 
 **Which cards.** With a collection, ask first: "From your cards, cards you don't own, or both?". This answer is apart from the build's not-owned answer, and you follow it. Without a collection there is nothing to ask.
 
-**One swap at a time.** Each swap names the card going out, the card coming in, and why. Offer first the swaps that answer something the review found, each naming that finding; then pure upgrades, each called a pure upgrade. Look every incoming card up before you name it, and flag it as the interview does: a Game Changer past the bracket target, outside the colour identity, or already in the deck.
+**One swap at a time.** Each swap names the card going out, the card coming in, and why. Offer first the swaps that answer something the review found, each naming that finding; then pure upgrades, each called a pure upgrade. Look every incoming card up before you name it, a basic land too, and flag it as the interview does, in plain words: "a Game Changer" past the bracket target, outside the colour identity, or already in the deck. Never quote the lookup's field names to the player.
 
 **What a yes does.** The card coming in decides it, in this order:
 - **No collection:** ask "Swap it in now, or on the maybeboard?", and do what the player answers: `swap` or `maybeboard add`.
