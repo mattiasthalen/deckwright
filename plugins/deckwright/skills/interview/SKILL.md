@@ -1,6 +1,6 @@
 ---
 name: interview
-description: Guides a player through building a deck from a format template, looking up every card; only the player chooses. Use when asked for help building a deck, e.g. "help me build a commander deck".
+description: Builds, reviews and improves a deck with the player from a template, looking up every card; only the player chooses. Use to build, review or look at a deck: "help me build a commander deck".
 ---
 
 # The deck interview
