@@ -34,7 +34,7 @@ import urllib.request
 import zlib
 from pathlib import Path
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 HERE = Path(__file__).resolve().parent
 SCRYFALL = "https://api.scryfall.com"
 ANY_NUMBER = "a deck can have any number of cards named"
