@@ -796,14 +796,23 @@ def measure(deck: dict, scryfall: Scryfall) -> dict:
     if total != size:
         short = f"{size - total} missing" if total < size else f"{total - size} over"
         raise Failure(f"The deck holds {total} of its {size} cards ({short}). Nothing was measured.", 2)
-    for e in deck["cards"]:
+    for e in list(deck["cards"]):
         if e.get("from_player"):
             try:
                 entry = scryfall.lookup(e["card"]["name"])
             except Unreachable:
                 continue
             if entry["result"] == "found":
+                held = next(
+                    (o for o in deck["cards"] if o is not e and o["card"]["name"] == entry["card"]["name"]), None
+                )
                 looked_up_over(deck, e, entry["card"])
+                if held is not None:
+                    # Two spellings of one card, such as its two faces' names, are one entry once looked up.
+                    held["count"] += e["count"]
+                    held["categories"] = category_names(deck, [*held["categories"], *e["categories"]])
+                    deck["cards"].remove(e)
+    deck["cards"].sort(key=lambda e: by_name(e["card"]["name"]))
 
     counted = [e for e in deck["cards"] if not e.get("from_player")]
     nonland = [e for e in counted if not has_type(e["card"], "land")]
@@ -1271,8 +1280,13 @@ def categories_for(deck: dict, card: dict, given: list[str] | None) -> list[str]
     return judged.get("categories", [])
 
 
+def entry_for(deck: dict, card: dict) -> dict | None:
+    """The deck's entry for a card by any of its names, so a face name the player typed finds the card."""
+    return next((e for name in names_of(card) if (e := recorded(deck, name))), None)
+
+
 def record(deck: dict, card: dict, count: int, categories: list[str], from_player: bool) -> None:
-    entry = next((e for name in names_of(card) if (e := recorded(deck, name))), None)
+    entry = entry_for(deck, card)
     if entry is None:
         entry = {"card": card, "count": 0, "categories": []}
         deck["cards"].append(entry)
@@ -1328,7 +1342,7 @@ def orphaned(deck: dict, gone: str) -> dict:
 
 def in_deck(deck: dict, card: dict) -> bool:
     """Whether the card is the commander or one of the deck's cards."""
-    return recorded(deck, card["name"]) is not None or is_commander(deck, card["name"])
+    return entry_for(deck, card) is not None or any(is_commander(deck, n) for n in names_of(card))
 
 
 def looked_up_for(scryfall: Scryfall, name: str) -> dict:
@@ -1345,7 +1359,7 @@ def swap(deck: dict, scryfall: Scryfall, args) -> dict:
     if out is None:
         raise Failure(f"{args.out!r} is not in the deck. Nothing was changed.", 2)
     card = looked_up_for(scryfall, args.into)
-    if matching_key(card["name"]) in map(matching_key, names_of(out["card"])):
+    if {*map(matching_key, names_of(card))} & {*map(matching_key, names_of(out["card"]))}:
         raise Failure(f"{card['name']!r} would go out and come back in. Nothing was changed.", 2)
     if in_deck(deck, card) and "basic" not in card["type_line"].casefold():
         raise Failure(f"{card['name']!r} is already in the deck. Nothing was changed.", 2)
