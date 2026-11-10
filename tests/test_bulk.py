@@ -12,6 +12,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import time
 
 import pytest
@@ -23,6 +24,7 @@ from conftest import (
     EXIT_NOT_RECORDED,
     EXIT_UNREACHABLE,
     ROOT,
+    S4_FIELDS,
     WEEK,
     Deckwright,
     bulk_cards,
@@ -48,7 +50,7 @@ def lookup(deck, *names, **kw) -> list[dict]:
 
 def assert_fixed_fields(card: dict, sc: dict):
     """S1's fixed fields of a single-faced card, from its Scryfall object."""
-    assert set(card) == CARD_FIELDS, f"fields must be exactly {sorted(CARD_FIELDS)}, got {sorted(card)}"
+    assert set(card) - S4_FIELDS == CARD_FIELDS, f"fields must be exactly {sorted(CARD_FIELDS)}, got {sorted(card)}"
     assert card["name"] == sc["name"]
     assert card["mana_cost"] == sc["mana_cost"]
     assert card["type_line"] == sc["type_line"]
@@ -101,7 +103,7 @@ def test_bulk_lookup_found(deck, scryfall):
 
     # Faces as at S1: every face's text, front first; a back face with no cost adds nothing.
     sc = scryfall_card("Bloodline Keeper")
-    assert set(keeper) == CARD_FIELDS
+    assert set(keeper) - S4_FIELDS == CARD_FIELDS
     assert keeper["name"] == "Bloodline Keeper // Lord of Lineage"
     assert keeper["mana_cost"] == "{2}{B}{B}"
     front, back = sc["card_faces"]
@@ -200,7 +202,7 @@ def test_bulk_lookup_results_as_s1(deck, scryfall):
     misspelt, missing = lookup(deck, "Vampiric Tutr", "Xyzzy Plover Quux")
     assert misspelt["result"] == "closest_match"
     assert misspelt["card"]["name"] == "Vampiric Tutor", "the closest match names the other card"
-    assert set(misspelt["card"]) == CARD_FIELDS
+    assert set(misspelt["card"]) - S4_FIELDS == CARD_FIELDS
     assert missing["result"] == "not_found"
     assert "card" not in missing
     assert deck.deck_file.read_bytes() == before, "a lookup writes nothing to the deck"
@@ -582,3 +584,71 @@ def test_bulk_stale_file_not_read_before_download(deck, scryfall):
     assert took < control + 3, (
         f"the old file was read before the download: {took:.1f} s against {control:.1f} s with none"
     )
+
+
+# S4: AC7 -----------------------------------------------------------------------------
+
+BASE = "a290734"  # S3, whose index (format 2) keeps no `cmc` and no `produced_mana`
+
+
+def base_script(tmp_path):
+    """deck.py as it was at S3, or None where the repository's history is not there to read it."""
+    shown = subprocess.run(
+        ["git", "-C", str(ROOT), "show", f"{BASE}:plugins/deckwright/skills/interview/deck.py"],
+        capture_output=True,
+    )
+    if shown.returncode != 0:
+        return None
+    folder = tmp_path / "s3-skill"
+    folder.mkdir()
+    (folder / "deck.py").write_bytes(shown.stdout)
+    return folder / "deck.py"
+
+
+def test_index_carries_cmc_and_produced_mana(deck, scryfall, unreachable_url):
+    place_bulk(deck.cache)
+    entries = lookup(deck, "Sol Ring", "Evolving Wilds", "Command Tower", "Bloodline Keeper", "Egon, God of Death")
+    sol, wilds, tower, keeper, egon = (e["card"] for e in entries)
+    assert set(sol) == CARD_FIELDS | S4_FIELDS, f"the fixed fields and S4's two: {sorted(sol)}"
+    assert (sol["cmc"], sol["produced_mana"]) == (1, ["C"])
+    assert (wilds["cmc"], wilds["produced_mana"]) == (0, []), "no produced_mana in Scryfall's data: an empty list"
+    assert tower["produced_mana"] == ["B", "G", "R", "U", "W"], "as Scryfall lists them"
+    assert keeper["cmc"] == 4 and keeper["produced_mana"] == []
+    assert egon["cmc"] == 3, "a modal double-faced card's mana value is its front face's, as Scryfall gives it"
+
+    # The deck's card facts carry them too: `measure` counts from them with no lookup of its own.
+    deck.new()
+    deck.add("Sol Ring")
+    deck.add("Evolving Wilds")
+    deck.fill()
+    measured = deck.measure(api=unreachable_url)
+    assert measured["lands_without_mana"] == ["Evolving Wilds"]
+    assert {float(e["mana_value"]): e["count"] for e in measured["curve"] if e["count"]} == {1.0: 1}
+
+    # No new endpoint: a fresh bulk file needed no request, and none was ever made beside the two known.
+    assert not scryfall.requests and not scryfall.data_requests, [r.path for r in scryfall.requests]
+
+
+def test_index_carries_cmc_and_produced_mana_s3_index_rebuilt(deck, scryfall, tmp_path):
+    """An index kept by S3's script, for the very bulk file there is now, is rebuilt rather than read."""
+    script = base_script(tmp_path)
+    if script is None:
+        pytest.skip(f"the repository's history does not hold {BASE}")
+    place_bulk(deck.cache)
+    s3 = Deckwright(deck.cwd, scryfall.url, script=script)
+    assert "cmc" not in lookup(s3, "Sol Ring")[0]["card"], "S3's lookup has no cmc"
+    kept = {p.name for p in deck.cache.iterdir()}
+    assert kept - {BULK_FILE}, f"S3 kept an index beside the bulk file: {kept}"
+
+    sol = lookup(deck, "Sol Ring")[0]["card"]
+    assert (sol["cmc"], sol["produced_mana"]) == (1, ["C"]), "the S3 index was rebuilt, not read"
+    assert not scryfall.downloads, "rebuilding the index reads the bulk file there; it downloads nothing"
+    assert {r.path for r in scryfall.requests} <= {"/bulk-data"}
+
+
+def test_index_carries_cmc_and_produced_mana_from_card_cache(deck, unreachable_url):
+    """A per-card cache file holds a whole Scryfall card object, so it answers with both fields too."""
+    deck.cache.mkdir()
+    (deck.cache / "evolving-wilds.json").write_text(json.dumps(scryfall_card("Evolving Wilds")), encoding="utf-8")
+    wilds = lookup(deck.offline(unreachable_url), "Evolving Wilds")[0]["card"]
+    assert (wilds["cmc"], wilds["produced_mana"]) == (0, [])

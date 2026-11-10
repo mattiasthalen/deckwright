@@ -46,6 +46,9 @@ li .n { display: inline-block; min-width: 2ch; color: var(--muted); text-align: 
 .bracket.over .lowest { color: var(--warn); }
 pre { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 14px/1.45 ui-monospace, Menlo, Consolas, monospace; margin: 8px 0 0; }
 button { font: inherit; background: var(--accent); color: var(--surface); border: 0; border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+.unfinished { color: var(--warn); font-weight: 600; margin: 0 0 16px; }
+.prose p { margin: 0 0 8px; white-space: pre-line; }
+ol { margin: 0; padding-left: 1.4em; }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 </style>
 </head>
@@ -56,7 +59,7 @@ button { font: inherit; background: var(--accent); color: var(--surface); border
   <p class="sub">Commander · colour identity {{identity}} · template {{template}}</p>
 </header>
 
-<section class="card" data-section="total">
+{{unfinished_section}}<section class="card" data-section="total">
   <h2>Total</h2>
   <p class="total">{{total}}</p>
   <p class="sub">{{standing}}</p>
@@ -80,7 +83,7 @@ button { font: inherit; background: var(--accent); color: var(--surface); border
   <p data-section="player-text">{{player_text}}</p>
 </section>
 
-<section class="card">
+{{review_sections}}<section class="card">
   <div class="row"><h2>Decklist</h2><button type="button" id="copy">Copy decklist</button></div>
   <pre id="decklist" data-section="decklist">{{decklist}}</pre>
 </section>

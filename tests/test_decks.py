@@ -7,7 +7,7 @@ import json
 import re
 import shutil
 
-from conftest import COMMANDER, EXIT_USAGE, FIXTURES, copy_tree_files, file_key, read_page
+from conftest import COMMANDER, EXIT_USAGE, FIXTURES, copy_tree_files, file_key, read_page, unfinished_mark
 
 S1 = FIXTURES / "s1"
 
@@ -137,18 +137,30 @@ def test_deck_name_very_long(deck):
 # C32 ---------------------------------------------------------------------------------
 
 
+def assert_s1_page(raw: str):
+    """S1's page, section for section, as 017a7a0 rendered it, with S4's unfinished mark beside it (AC17):
+    an S1 deck holds 44 of 100 cards and was never reviewed. The bytes were S1's own until S4 (C32)."""
+    s1 = read_page((S1 / "deck.html").read_text(encoding="utf-8"))
+    page = read_page(raw)
+    for key, texts in s1.texts.items():
+        assert page.texts.get(key) == texts, f"{key} is as S1 rendered it"
+    assert unfinished_mark(44).search(page.section("unfinished")), page.section("unfinished")
+    for section in ("measures", "review", "swaps", "maybeboard"):
+        assert f"section:{section}" not in page.texts, f"an S1 deck has no {section}"
+    assert page.decklist_children == 0
+
+
 def test_s1_deck_file_opens(deck, unreachable_url):
     """A deck.json written by 017a7a0, with no name, theme, plan or judgements, gives base's tally
-    and page byte for byte, with no network."""
+    byte for byte and base's page with the unfinished mark, with no network."""
     shutil.copy(S1 / "deck.json", deck.cwd / "deck.json")
     offline = deck.offline(unreachable_url)
     tally = (S1 / "tally.json").read_text(encoding="utf-8")
-    page = (S1 / "deck.html").read_bytes()
 
     assert offline.run("tally").stdout == tally
     assert offline.run("tally", "--deck", "deck.json").stdout == tally
     offline.run("page", "--out", "deck.html")
-    assert (deck.cwd / "deck.html").read_bytes() == page
+    assert_s1_page((deck.cwd / "deck.html").read_text(encoding="utf-8"))
     assert (deck.cwd / "deck.json").read_bytes() == (S1 / "deck.json").read_bytes(), "reading it changes nothing"
 
     # Kept among named decks, it opens there too, and is listed by its file's name.
@@ -156,7 +168,7 @@ def test_s1_deck_file_opens(deck, unreachable_url):
     shutil.copy(S1 / "deck.json", deck.cwd / "decks" / "meren-graveyard.json")
     assert offline.run("tally", "--deck", "decks/meren-graveyard.json").stdout == tally
     offline.run("page", "--deck", "decks/meren-graveyard.json", "--out", "old.html")
-    assert (deck.cwd / "old.html").read_bytes() == page
+    assert_s1_page((deck.cwd / "old.html").read_text(encoding="utf-8"))
     assert deck.json("decks") == [
         {"name": "meren-graveyard", "file": "decks/meren-graveyard.json", "commander": COMMANDER}
     ]

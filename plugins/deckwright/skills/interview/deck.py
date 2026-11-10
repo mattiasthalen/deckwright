@@ -34,7 +34,7 @@ import urllib.request
 import zlib
 from pathlib import Path
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 HERE = Path(__file__).resolve().parent
 SCRYFALL = "https://api.scryfall.com"
 ANY_NUMBER = "a deck can have any number of cards named"
@@ -47,7 +47,7 @@ EXIT_NOT_RECORDED = 4
 BULK_FILE = "default-cards.jsonl.gz"
 BULK_INDEX = "default-cards.index.json"
 # Bumped whenever index_bulk changes what it keeps, so an index built by an older script is rebuilt.
-INDEX_FORMAT = 2
+INDEX_FORMAT = 3
 # Scryfall publishes Default Cards daily and asks clients to cache it; a week keeps card facts current.
 BULK_MAX_AGE = 7 * 24 * 3600
 # How near a name must be to another card's to be named as its closest match.
@@ -67,6 +67,10 @@ MANABOX_COLUMNS = {
     "Binder Name", "Binder Type", "Name", "Set code", "Set name", "Collector number", "Foil", "Rarity",
     "Quantity", "ManaBox ID", "Scryfall ID", "Misprint", "Altered", "Condition", "Language", "Added",
 }  # fmt: skip
+# The commands that change what the review measured or judged; maybeboard changes, `judge` and `not-owned` do not.
+CLEARS_REVIEW = {"add", "remove", "swap", "target", "bracket", "theme", "plan"}
+IDENTITY_ORDER = "WUBRG"
+CARD_TYPES = ("creature", "instant", "sorcery", "artifact", "enchantment", "planeswalker", "land")
 LINE = re.compile(r"^\s*([0-9]+)\s+(.+?)\s*$")
 WHOLE_NUMBER = re.compile(r"[0-9]+")
 
@@ -137,6 +141,11 @@ def fixed_fields(card: dict) -> dict:
         "color_identity": list(card.get("color_identity", [])),
         "commander_legality": card.get("legalities", {}).get("commander", "not_legal"),
         "game_changer": bool(card.get("game_changer", False)),
+        # Scryfall's mana value: a split card's halves added up (Fire // Ice is 4), another card with faces its
+        # front face's (probed 2026-11-09). A reversible card has none of its own, so its front face's.
+        "cmc": card["cmc"] if "cmc" in card else next((face["cmc"] for face in faces if "cmc" in face), 0),
+        # Scryfall lists the mana a card makes on the card only, never on a face.
+        "produced_mana": list(card.get("produced_mana", [])),
     }
 
 
@@ -580,10 +589,9 @@ def narrowing(deck: dict, scryfall: Scryfall) -> dict:
         raise Failure("No collection is kept: hand one over with collection FILE.", 2)
     identity = set(deck["commander"]["color_identity"])
     judgements = deck.get("judgements", {})
-    commander = {matching_key(n) for n in names_of(deck["commander"])}
     cards = []
     for c in available["cards"]:
-        if c["available"] < 1 or matching_key(c["name"]) in commander:
+        if c["available"] < 1 or is_commander(deck, c["name"]):
             continue
         # A card that lost its name to another is never looked up by it: it would be the other card.
         card = c.get("card") or scryfall.by_name(c["name"], "the collection's cards")
@@ -677,11 +685,21 @@ def recorded(deck: dict, name: str) -> dict | None:
 # The tally -----------------------------------------------------------------------------
 
 
+def is_commander(deck: dict, name: str) -> bool:
+    """Whether the name is the commander's, by its full name or a face name."""
+    return matching_key(name) in map(matching_key, names_of(deck["commander"]))
+
+
+def has_type(card: dict, word: str) -> bool:
+    """Whether the word is in the card's front face's type line, the one the card is counted by."""
+    front = card["type_line"].split(" // ")[0]
+    return re.search(rf"\b{re.escape(word)}\b", front, re.I) is not None
+
+
 def counts_in(entry: dict, category: dict) -> bool:
     word = category.get("from_type_line")
     if word:
-        front = entry["card"]["type_line"].split(" // ")[0]
-        return re.search(rf"\b{re.escape(word)}\b", front, re.I) is not None
+        return has_type(entry["card"], word)
     return category["name"] in entry["categories"]
 
 
@@ -755,9 +773,88 @@ def tally(deck: dict, available: dict | None = None) -> dict:
         counted["name"] = deck["name"]
     if "not_owned" in deck:
         counted["not_owned"] = deck["not_owned"]
+    if "review" in deck:
+        # Present once measured, so a deck never measured reads as an S1 tally does. A review is written
+        # only on measures, measure refuses a deck off its size, and every change to the deck drops both,
+        # so a reviewed deck is a finished one (R1).
+        counted["reviewed"] = "text" in deck["review"]
     if available is not None:
         counted["ownership"] = ownership(deck, available)
     return counted
+
+
+# The review's measures -----------------------------------------------------------------
+
+
+def measure(deck: dict, scryfall: Scryfall) -> dict:
+    """The deck measured for its review, after looking each card from the player's text up again.
+
+    Refuses a deck that does not hold its deck size: a review judges the whole deck, not a part of it.
+    """
+    size = deck["template"]["deck_size"]
+    total = 1 + sum(e["count"] for e in deck["cards"])
+    if total != size:
+        short = f"{size - total} missing" if total < size else f"{total - size} over"
+        raise Failure(f"The deck holds {total} of its {size} cards ({short}). Nothing was measured.", 2)
+    for e in list(deck["cards"]):
+        if e.get("from_player"):
+            try:
+                entry = scryfall.lookup(e["card"]["name"])
+            except Unreachable:
+                continue
+            if entry["result"] == "found":
+                held = next(
+                    (o for o in deck["cards"] if o is not e and o["card"]["name"] == entry["card"]["name"]), None
+                )
+                looked_up_over(deck, e, entry["card"])
+                if held is not None:
+                    # Two spellings of one card, such as its two faces' names, are one entry once looked up.
+                    held["count"] += e["count"]
+                    held["categories"] = category_names(deck, [*held["categories"], *e["categories"]])
+                    deck["cards"].remove(e)
+    deck["cards"].sort(key=lambda e: by_name(e["card"]["name"]))
+
+    counted = [e for e in deck["cards"] if not e.get("from_player")]
+    nonland = [e for e in counted if not has_type(e["card"], "land")]
+    lands = [e for e in counted if has_type(e["card"], "land")]
+    curve: dict = {}
+    for e in nonland:
+        value = e["card"]["cmc"]
+        value = int(value) if float(value).is_integer() else value
+        curve[value] = curve.get(value, 0) + e["count"]
+    copies = sum(curve.values())
+    spent = sum(value * n for value, n in curve.items())
+
+    identity = [c for c in IDENTITY_ORDER if c in deck["commander"]["color_identity"]]
+    symbols = [
+        (symbol, e["count"])
+        for e in nonland
+        # Every half's cost, as each half can be cast: Fire // Ice asks for {R} and {U}.
+        for symbol in re.findall(r"\{([^}]+)\}", e["card"]["mana_cost"])
+    ]
+    colours = [
+        {
+            "colour": colour,
+            "pips": sum(n for symbol, n in symbols if colour in symbol.split("/")),
+            "sources": sum(e["count"] for e in lands if colour in e["card"]["produced_mana"]),
+        }
+        for colour in identity
+    ]
+
+    types = {kind: sum(e["count"] for e in deck["cards"] if has_type(e["card"], kind)) for kind in CARD_TYPES}
+    measured = {
+        "curve": [{"mana_value": value, "count": curve[value]} for value in sorted(curve)],
+        "average_mana_value": round(spent / copies, 2) if copies else 0,
+        "colours": colours,
+        "lands_without_mana": sorted({e["card"]["name"] for e in lands if not e["card"]["produced_mana"]}, key=by_name),
+        "types": types,
+    }
+    if deck.get("theme"):
+        judgements = deck.get("judgements", {})
+        serving = sum(e["count"] for e in deck["cards"] if judgements.get(e["card"]["name"], {}).get("serves_theme"))
+        measured["theme_density"] = {"serving": serving, "of": total - 1}
+    measured["not_counted"] = sorted((e["card"]["name"] for e in deck["cards"] if e.get("from_player")), key=by_name)
+    return measured
 
 
 def ownership(deck: dict, available: dict) -> dict:
@@ -816,7 +913,67 @@ def decklist(deck: dict) -> str:
     rows = [
         f"{e['count']} {e['card']['name']}" for e in sorted(deck["cards"], key=lambda e: by_name(e["card"]["name"]))
     ]
-    return "\n".join(["// COMMANDER", f"1 {deck['commander']['name']}", "", "// MAINBOARD", *rows])
+    lines = ["// COMMANDER", f"1 {deck['commander']['name']}", "", "// MAINBOARD", *rows]
+    if deck.get("maybeboard"):
+        # ManaBox imports a // MAYBEBOARD section as cards to look out for, outside the deck (A4).
+        lines += [
+            "",
+            "// MAYBEBOARD",
+            *(f"1 {name}" for name in sorted((m["name"] for m in deck["maybeboard"]), key=by_name)),
+        ]
+    return "\n".join(lines)
+
+
+def paragraphs(value: str) -> str:
+    """Plain text as paragraphs: a blank line starts a new one, and nothing in it is read as markup."""
+    return "".join(f"<p>{text(part)}</p>" for part in re.split(r"\n\s*\n", value.strip()) if part.strip())
+
+
+def review_sections(deck: dict) -> str:
+    review = deck.get("review", {})
+    sections = []
+    if "measures" in review:
+        m = review["measures"]
+        curve = ", ".join(f"{c['mana_value']}: {c['count']}" for c in m["curve"]) or "no nonland cards"
+        colours = "".join(
+            f"<li>{text(c['colour'])}: {text(c['pips'])} pips, {text(c['sources'])} lands</li>" for c in m["colours"]
+        )
+        types = ", ".join(f"{kind} {n}" for kind, n in m["types"].items())
+        rows = [
+            f"<li><strong>Curve (mana value: cards):</strong> {text(curve)}</li>",
+            f"<li><strong>Average mana value:</strong> {text(format(m['average_mana_value'], '.2f'))}</li>",
+            f"<li><strong>Colours:</strong><ul>{colours}</ul></li>",
+            f"<li><strong>Card types:</strong> {text(types)}</li>",
+            f"<li><strong>Lands that make no mana:</strong> {text(', '.join(m['lands_without_mana']) or 'none')}</li>",
+        ]
+        if "theme_density" in m:
+            t = m["theme_density"]
+            density = f"{text(t['serving'])} of {text(t['of'])} serve the theme"
+            rows.append(f"<li><strong>Theme density:</strong> {density}</li>")
+        if m["not_counted"]:
+            rows.append(f"<li><strong>Not counted:</strong> {text(', '.join(m['not_counted']))}</li>")
+        sections.append(
+            f'<section class="card" data-section="measures"><h2>Measures</h2><ul>{"".join(rows)}</ul></section>'
+        )
+    if "text" in review:
+        sections.append(
+            '<section class="card"><h2>Review</h2>'
+            f'<div class="prose" data-section="review">{paragraphs(review["text"])}</div></section>'
+        )
+    if deck.get("swaps"):
+        rows = "".join(
+            f'<li>Out {text(s["out"])}, in {text(s["in"])}<div class="prose">{paragraphs(s["why"])}</div></li>'
+            for s in deck["swaps"]
+        )
+        sections.append(f'<section class="card" data-section="swaps"><h2>Swaps made</h2><ol>{rows}</ol></section>')
+    if deck.get("maybeboard"):
+        rows = "".join(
+            f"<li>{text(m['name'])}, to replace {text(m['replaces'])}"
+            f'<div class="prose">{paragraphs(m["why"])}</div></li>'
+            for m in deck["maybeboard"]
+        )
+        sections.append(f'<section class="card" data-section="maybeboard"><h2>Maybeboard</h2><ul>{rows}</ul></section>')
+    return "".join(sections)
 
 
 def render_page(deck: dict, available: dict | None = None) -> str:
@@ -892,7 +1049,14 @@ def render_page(deck: dict, available: dict | None = None) -> str:
             f"<li><strong>Total:</strong> {o['owned']} owned, {o['not_owned']} not owned</li></ul></section>"
         )
 
+    unfinished = (
+        ""
+        if counted.get("reviewed")
+        else f'<p class="unfinished" data-section="unfinished">{total} of {size}, not reviewed</p>'
+    )
     fills = {
+        "unfinished_section": unfinished,
+        "review_sections": review_sections(deck),
         "name_section": f'<p class="sub" data-section="name">{text(deck["name"])}</p>' if deck.get("name") else "",
         "theme_section": theme,
         "ownership_section": owned,
@@ -921,12 +1085,16 @@ def render_page(deck: dict, available: dict | None = None) -> str:
 
 def run(args) -> str | None:
     deck_path = Path(args.deck or "deck.json")
-    looks_up = args.command in ("lookup", "new", "collection") or (args.command == "add" and args.from_player is None)
+    looks_up = (
+        args.command in ("lookup", "new", "collection", "swap")
+        or (args.command == "add" and args.from_player is None)
+        or (args.command == "maybeboard" and args.action == "add")
+    )
     # The cache, the collection and the decks belong to the working folder, so every deck shares them.
     scryfall = Scryfall(
         Path(os.environ.get("DECKWRIGHT_CACHE") or "deckwright-cache"),
         fresh=looks_up,
-        download=looks_up or args.command in ("read", "judge", "available"),
+        download=looks_up or args.command in ("read", "judge", "available", "measure"),
     )
 
     if args.command == "lookup":
@@ -1017,13 +1185,35 @@ def changed(args, deck: dict, deck_path: Path, scryfall: Scryfall) -> str | None
         return as_json(narrowing(deck, scryfall))
     if args.command == "judge":
         return judge(deck, deck_path, scryfall, args.judgements)
+    if args.command == "measure":
+        measured = measure(deck, scryfall)
+        deck["review"] = {"measures": measured}
+        write_deck(deck_path, deck)
+        return as_json(measured)
+    if args.command == "review":
+        if "measures" not in deck.get("review", {}):
+            raise Failure("The deck has not been measured as it is: run measure first. Nothing was recorded.", 2)
+        if not args.text.strip():
+            raise Failure("A review has words: give its text. Nothing was recorded.", 2)
+        deck["review"]["text"] = args.text
+        write_deck(deck_path, deck)
+        return f"Recorded the review of {deck_path}.\n"
+    if args.command == "maybeboard":
+        maybeboard(deck, scryfall, args)
+        write_deck(deck_path, deck)
+        return as_json({"maybeboard": deck.get("maybeboard", [])})
 
+    if args.command in CLEARS_REVIEW:
+        deck.pop("review", None)
+    said: dict = {}
     if args.command in ("theme", "plan"):
         deck[args.command] = args.text
     elif args.command == "not-owned":
         deck["not_owned"] = args.answer == "yes"
     elif args.command == "add":
-        add(deck, scryfall, args)
+        said = add(deck, scryfall, args)
+    elif args.command == "swap":
+        said = swap(deck, scryfall, args)
     elif args.command == "remove":
         if args.count is not None:
             at_least(1, args.count, "--count")
@@ -1033,6 +1223,7 @@ def changed(args, deck: dict, deck_path: Path, scryfall: Scryfall) -> str | None
         entry["count"] -= entry["count"] if args.count is None else args.count
         if entry["count"] <= 0:
             deck["cards"].remove(entry)
+        said = orphaned(deck, entry["card"]["name"])
     elif args.command == "target":
         (name,) = category_names(deck, [args.category])
         at_least(0, args.n, "A target")
@@ -1042,16 +1233,17 @@ def changed(args, deck: dict, deck_path: Path, scryfall: Scryfall) -> str | None
             raise Failure("A bracket is 1 to 5.", 2)
         deck["template"]["bracket_target"] = args.n
 
-    counted = as_json(tally(deck, deck_availability(deck, scryfall)))
+    counted = as_json({**tally(deck, deck_availability(deck, scryfall)), **said})
     write_deck(deck_path, deck)
     return counted
 
 
-def add(deck: dict, scryfall: Scryfall, args) -> None:
-    categories = category_names(deck, args.category or [])
+def add(deck: dict, scryfall: Scryfall, args) -> dict:
+    """Records the card; returns what the output says beside the tally."""
     at_least(1, args.count, "--count")
     if args.from_player is not None:
         card = player_card(args.name, args.from_player, args.type_line or "")
+        categories = category_names(deck, args.category or [])
     else:
         try:
             card = looked_up(scryfall, args.name)
@@ -1061,31 +1253,144 @@ def add(deck: dict, scryfall: Scryfall, args) -> None:
                 "--from-player TEXT --type-line LINE.",
                 failure.code,
             ) from None
-        if args.category is None:
-            judged = deck.get("judgements", {}).get(card["name"])
-            by_type = any(
-                counts_in({"card": card}, c) for c in deck["template"]["categories"] if c.get("from_type_line")
-            )
-            read_kept = "judgements" in deck  # a deck built from a collection
-            if read_kept and judged is None and not by_type and recorded(deck, card["name"]) is None:
-                # Without a judgement there are no categories to record it under, and it would count nowhere.
-                raise Failure(
-                    f"{card['name']!r} has no judgement in this deck's read. Judge it with judge, or give "
-                    "--category. Nothing was recorded.",
-                    2,
-                )
-            categories = (judged or {}).get("categories", [])
-    entry = next((e for name in names_of(card) if (e := recorded(deck, name))), None)
+        categories = categories_for(deck, card, args.category)
+    record(deck, card, args.count, categories, from_player=args.from_player is not None)
+    record_theme_fit(deck, card["name"], args.serves_theme)
+    return off_the_maybeboard(deck, card)
+
+
+def has_read(deck: dict) -> bool:
+    """Whether this deck was judged from a kept collection; a theme fit recorded without one is no read."""
+    return kept_collection() is not None and "judgements" in deck
+
+
+def categories_for(deck: dict, card: dict, given: list[str] | None) -> list[str]:
+    """The categories given, or else the read's judgement of the card."""
+    if given is not None:
+        return category_names(deck, given)
+    judged = deck.get("judgements", {}).get(card["name"], {})
+    by_type = any(counts_in({"card": card}, c) for c in deck["template"]["categories"] if c.get("from_type_line"))
+    if has_read(deck) and "categories" not in judged and not by_type and recorded(deck, card["name"]) is None:
+        # Without a judgement there are no categories to record it under, and it would count nowhere.
+        raise Failure(
+            f"{card['name']!r} has no judgement in this deck's read. Judge it with judge, or give "
+            "--category. Nothing was recorded.",
+            2,
+        )
+    return judged.get("categories", [])
+
+
+def entry_for(deck: dict, card: dict) -> dict | None:
+    """The deck's entry for a card by any of its names, so a face name the player typed finds the card."""
+    return next((e for name in names_of(card) if (e := recorded(deck, name))), None)
+
+
+def record(deck: dict, card: dict, count: int, categories: list[str], from_player: bool) -> None:
+    entry = entry_for(deck, card)
     if entry is None:
         entry = {"card": card, "count": 0, "categories": []}
         deck["cards"].append(entry)
-    if args.from_player is not None:
+    if from_player:
         entry.setdefault("from_player", entry["count"] == 0)
-    elif entry.pop("from_player", False):
-        entry["card"] = card
-    entry["count"] += args.count
+    elif entry.get("from_player"):
+        looked_up_over(deck, entry, card)
+    else:
+        entry.pop("from_player", None)
+    entry["count"] += count
     entry["categories"] = category_names(deck, [*entry["categories"], *categories])
     deck["cards"].sort(key=lambda e: by_name(e["card"]["name"]))
+
+
+def looked_up_over(deck: dict, entry: dict, card: dict) -> None:
+    """Puts a looked-up card over a card recorded from the player's text, judgement and all."""
+    typed = entry["card"]["name"]
+    entry["card"] = card
+    del entry["from_player"]
+    judgements = deck.get("judgements", {})
+    if typed in judgements and typed != card["name"]:
+        # The player's spelling gives way to the card's own; a field judged under the card's own name stands.
+        judgements[card["name"]] = {**judgements.pop(typed), **judgements.get(card["name"], {})}
+
+
+def record_theme_fit(deck: dict, name: str, answer: str | None) -> None:
+    if answer is not None:
+        deck.setdefault("judgements", {}).setdefault(name, {})["serves_theme"] = answer == "yes"
+
+
+def on_maybeboard(deck: dict, card: dict) -> list[dict]:
+    """The maybeboard's entries for a card, matched by its full name or a face name, as `recorded` matches."""
+    keys = {matching_key(n) for n in names_of(card)}
+    return [m for m in deck.get("maybeboard", []) if matching_key(m["name"]) in keys]
+
+
+def off_the_maybeboard(deck: dict, card: dict) -> dict:
+    """Takes a card going into the deck off the maybeboard, which never holds a card in the deck."""
+    left = on_maybeboard(deck, card)
+    if not left:
+        return {}
+    deck["maybeboard"] = [m for m in deck["maybeboard"] if m not in left]
+    return {"left_maybeboard": [m["name"] for m in left]}
+
+
+def orphaned(deck: dict, gone: str) -> dict:
+    """The maybeboard's entries left replacing a card no longer in the deck, for the player to drop or re-pair."""
+    if recorded(deck, gone) is not None:
+        return {}
+    left = [m for m in deck.get("maybeboard", []) if matching_key(m["replaces"]) == matching_key(gone)]
+    return {"orphaned_maybeboard": left} if left else {}
+
+
+def in_deck(deck: dict, card: dict) -> bool:
+    """Whether the card is the commander or one of the deck's cards."""
+    return entry_for(deck, card) is not None or any(is_commander(deck, n) for n in names_of(card))
+
+
+def looked_up_for(scryfall: Scryfall, name: str) -> dict:
+    """`looked_up` for a command with no --from-player to fall back on."""
+    try:
+        return looked_up(scryfall, name)
+    except Unreachable as failure:
+        raise Failure(f"{failure} Nothing was recorded.", failure.code) from None
+
+
+def swap(deck: dict, scryfall: Scryfall, args) -> dict:
+    """One copy of OUT out and one of IN in, in one step, so the deck never holds one card too few."""
+    out = recorded(deck, args.out)
+    if out is None:
+        raise Failure(f"{args.out!r} is not in the deck. Nothing was changed.", 2)
+    card = looked_up_for(scryfall, args.into)
+    if {*map(matching_key, names_of(card))} & {*map(matching_key, names_of(out["card"]))}:
+        raise Failure(f"{card['name']!r} would go out and come back in. Nothing was changed.", 2)
+    if in_deck(deck, card) and "basic" not in card["type_line"].casefold():
+        raise Failure(f"{card['name']!r} is already in the deck. Nothing was changed.", 2)
+    categories = categories_for(deck, card, args.category)
+    out_name = out["card"]["name"]
+    out["count"] -= 1
+    if out["count"] <= 0:
+        deck["cards"].remove(out)
+    record(deck, card, 1, categories, from_player=False)
+    record_theme_fit(deck, card["name"], args.serves_theme)
+    deck.setdefault("swaps", []).append({"out": out_name, "in": card["name"], "why": args.why})
+    return {**off_the_maybeboard(deck, card), **orphaned(deck, out_name)}
+
+
+def maybeboard(deck: dict, scryfall: Scryfall, args) -> None:
+    board = deck.setdefault("maybeboard", [])
+    if args.action == "remove":
+        entry = next((m for m in board if matching_key(m["name"]) == matching_key(args.name)), None)
+        if entry is None:
+            raise Failure(f"{args.name!r} is not on the maybeboard. Nothing was changed.", 2)
+        board.remove(entry)
+        return
+    replaces = recorded(deck, args.replaces)
+    if replaces is None:
+        raise Failure(f"{args.replaces!r} is not in the deck, so nothing can replace it. Nothing was recorded.", 2)
+    card = looked_up_for(scryfall, args.name)
+    if in_deck(deck, card):
+        raise Failure(f"{card['name']!r} is in the deck, so it cannot be on the maybeboard. Nothing was recorded.", 2)
+    if on_maybeboard(deck, card):
+        raise Failure(f"{card['name']!r} is already on the maybeboard. Nothing was recorded.", 2)
+    board.append({"name": card["name"], "replaces": replaces["card"]["name"], "why": args.why})
 
 
 def judge(deck: dict, deck_path: Path, scryfall: Scryfall, given: str) -> str:
@@ -1096,17 +1401,22 @@ def judge(deck: dict, deck_path: Path, scryfall: Scryfall, given: str) -> str:
             raise ValueError("expected a list of {name, categories, serves_theme}")
     except ValueError as error:
         raise Failure(f"The judgements are not readable ({error}).", 2) from None
-    cards = narrowing(deck, scryfall)["cards"]
+    own = [{"name": e["card"]["name"], "card": e["card"]} for e in deck["cards"]]
+    # Without a collection the deck's own cards are what is judged, so their theme fit can be recorded.
+    pool = narrowing(deck, scryfall)["cards"] if kept_collection() is not None else own
     # A whole name before a face's: "Demonic Tutor" is that card, not "Emeritus of Woe // Demonic Tutor".
-    read = {matching_key(e["name"]): e["name"] for e in cards}
-    for e in cards:
+    judgeable = [*pool, *own]
+    read = {}
+    for e in judgeable:
+        read.setdefault(matching_key(e["name"]), e["name"])
+    for e in judgeable:
         for n in names_of(e["card"]):
             read.setdefault(matching_key(n), e["name"])
     kept = deck.setdefault("judgements", {})
     for j in judgements:
         name = read.get(matching_key(j["name"]))
         if name is None:
-            raise Failure(f"{j['name']!r} is not in this deck's read. Nothing was recorded.", 2)
+            raise Failure(f"{j['name']!r} is in neither this deck's read nor the deck. Nothing was recorded.", 2)
         # A field left out keeps what was judged before, so a new theme is judged without the categories.
         judgement = {"categories": [], **kept.get(name, {})}
         if "categories" in j:
@@ -1115,7 +1425,7 @@ def judge(deck: dict, deck_path: Path, scryfall: Scryfall, given: str) -> str:
             judgement["serves_theme"] = bool(j["serves_theme"])
         kept[name] = judgement
     write_deck(deck_path, deck)
-    return as_json({"unjudged": sum(1 for e in cards if e["name"] not in kept), "judged": len(kept)})
+    return as_json({"unjudged": sum(1 for e in pool if e["name"] not in kept), "judged": len(kept)})
 
 
 def at_least(lowest: int, n: int, what: str) -> None:
@@ -1177,6 +1487,27 @@ def parser() -> argparse.ArgumentParser:
     add_command.add_argument(
         "--type-line", metavar="LINE", help="with --from-player: the card's type line as the player gave it"
     )
+    add_command.add_argument("--serves-theme", choices=["yes", "no"], help="whether the card serves the theme")
+
+    swap_command = command("swap", "Take one copy of OUT out and put IN in, in one step; prints the tally.")
+    swap_command.add_argument("out", metavar="OUT")
+    swap_command.add_argument("into", metavar="IN")
+    swap_command.add_argument("--why", required=True, metavar="TEXT", help="why the swap makes the deck better")
+    swap_command.add_argument(
+        "--category", nargs="+", action="extend", metavar="C", help="where IN counts (default: the read's categories)"
+    )
+    swap_command.add_argument("--serves-theme", choices=["yes", "no"], help="whether IN serves the theme")
+
+    board = commands.add_parser("maybeboard", help="Keep cards to look out for: maybeboard add or maybeboard remove.")
+    board_actions = board.add_subparsers(dest="action", required=True)
+    board_add = board_actions.add_parser("add", help="Put a card on the maybeboard, paired with the card it replaces.")
+    board_add.add_argument("name", metavar="IN")
+    board_add.add_argument("--replaces", required=True, metavar="OUT", help="the card in the deck it would replace")
+    board_add.add_argument("--why", required=True, metavar="TEXT")
+    board_remove = board_actions.add_parser("remove", help="Take a card off the maybeboard.")
+    board_remove.add_argument("name", metavar="NAME")
+    for sub in (board_add, board_remove):
+        sub.add_argument("--deck", default=None, help="the deck file (default ./deck.json)")
 
     remove = command("remove", "Take copies of a card out (all of them unless --count).")
     remove.add_argument("name", metavar="NAME")
@@ -1190,6 +1521,8 @@ def parser() -> argparse.ArgumentParser:
     bracket.add_argument("n", type=int, metavar="N")
 
     command("tally", "Count the deck against the template; prints JSON.")
+    command("measure", "Measure a deck that holds its deck size, for its review; prints JSON.")
+    command("review", "Record the written review of the deck as measured.").add_argument("text", metavar="TEXT")
 
     page = command("page", "Render the deck page.")
     page.add_argument("--out", metavar="FILE", help="where to write it (default: beside the deck file, named after it)")

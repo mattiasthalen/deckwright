@@ -55,6 +55,8 @@ CARD_FIELDS = {
     "commander_legality",
     "game_changer",
 }
+# The fixed fields S4 adds (tests/README.md): an S1 or S3 test checks the fields it knew, and leaves these to S4's.
+S4_FIELDS = {"cmc", "produced_mana"}
 
 EXIT_USAGE = 2
 EXIT_UNREACHABLE = 3
@@ -400,7 +402,10 @@ def unreachable_url() -> str:
 # Commands that act on one deck file, and so take `--deck PATH` after the command.
 DECK_COMMANDS = {
     "add", "remove", "target", "bracket", "tally", "page", "read", "judge", "theme", "plan", "available", "not-owned",
+    "measure", "review", "swap",
 }
+# Commands with a subcommand of their own, which take `--deck PATH` after it: `maybeboard add --deck PATH …`.
+DECK_COMMAND_GROUPS = {"maybeboard"}
 
 
 class Deckwright:
@@ -449,6 +454,8 @@ class Deckwright:
         assert self.script.exists(), f"the script is not built yet: {self.script}"
         if self.deck_path and args and args[0] in DECK_COMMANDS and "--deck" not in args:
             args = (args[0], "--deck", self.deck_path, *args[1:])
+        if self.deck_path and len(args) > 1 and args[0] in DECK_COMMAND_GROUPS and "--deck" not in args:
+            args = (args[0], args[1], "--deck", self.deck_path, *args[2:])
         proc = subprocess.run(
             [sys.executable, str(self.script), *args],
             cwd=self.cwd,
@@ -520,6 +527,37 @@ class Deckwright:
     def page(self, out: str = "deck.html", **kw) -> str:
         self.run("page", "--out", out, **kw)
         return (self.cwd / out).read_text(encoding="utf-8")
+
+    def measure(self, **kw) -> dict:
+        return self.json("measure", **kw)
+
+    def review(self, text: str, **kw):
+        return self.run("review", text, **kw)
+
+    def swap(self, out: str, into: str, why: str, *flags: str, **kw):
+        return self.run("swap", out, into, "--why", why, *flags, **kw)
+
+    def maybeboard_add(self, name: str, replaces: str, why: str, **kw):
+        return self.run("maybeboard", "add", name, "--replaces", replaces, "--why", why, **kw)
+
+    def maybeboard_remove(self, name: str, **kw):
+        return self.run("maybeboard", "remove", name, **kw)
+
+    def fill(self, total: int = 100, **kw) -> dict:
+        """Adds Swamps, then Forests, until the deck holds `total` cards; returns the tally."""
+        missing = total - self.tally(**kw)["total"]
+        assert missing >= 0, f"the deck already holds more than {total}"
+        if missing // 2:
+            self.add("Swamp", count=missing // 2, **kw)
+        if missing - missing // 2:
+            self.add("Forest", count=missing - missing // 2, **kw)
+        tally = self.tally(**kw)
+        assert tally["total"] == total, tally
+        return tally
+
+    def stored(self) -> dict:
+        """The deck file as JSON, for the fields the plan fixes (tests/README.md)."""
+        return json.loads(self.deck_file.read_text(encoding="utf-8"))
 
     @property
     def deck_file(self) -> Path:
@@ -681,3 +719,34 @@ def count_of(text: str, count: int, target: int) -> bool:
 
 def escaped(text: str) -> str:
     return html.escape(text, quote=False)
+
+
+# S4: the review --------------------------------------------------------------------------
+
+# The unfinished mark (tests/README.md): the count against the deck size, and whether it was reviewed.
+def unfinished_mark(total: int, deck_size: int = 100) -> re.Pattern:
+    return re.compile(rf"(?<!\d){total}\s+of\s+{deck_size},\s*not reviewed", re.I)
+
+
+def said(proc) -> str:
+    return proc.stdout + proc.stderr
+
+
+# argparse's own refusal of a command or flag it does not know: a refusal for that reason is no refusal
+# of the case a test sets up, since a script without the command refuses everything the same way.
+UNKNOWN_TO_ARGPARSE = re.compile(
+    r"unrecognized arguments|invalid choice: '(?:measure|review|swap|maybeboard|add|remove)'"
+)
+
+
+def assert_refused(proc, deck: Deckwright, before: bytes, code: int = EXIT_USAGE, by_argparse: bool = False):
+    """A refusal: the exit code, a plain message, no traceback, and the deck file as it was. Unless
+    `by_argparse`, the command and its flags exist and the script itself refused."""
+    if not by_argparse:
+        assert not UNKNOWN_TO_ARGPARSE.search(said(proc)), f"refused as an unknown command or flag: {said(proc)!r}"
+    assert proc.returncode == code, (
+        f"exit {proc.returncode}, expected {code}\nstdout: {proc.stdout}\nstderr: {proc.stderr}"
+    )
+    assert said(proc).strip(), "a refusal says why"
+    assert "Traceback" not in proc.stderr, proc.stderr
+    assert deck.deck_file.read_bytes() == before, "a refused command changes nothing in the deck file"
