@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "deckwright",
+  "description": "A deckbuilding tutor for Magic on Arena: it searches, explains and compares, and the player chooses every card.",
+  "owner": {
+    "name": "Mattias Thalén"
+  },
+  "plugins": [
+    {
+      "name": "deckwright",
+      "description": "A deckbuilding tutor for Magic on Arena: it searches, explains and compares, and the player chooses every card.",
+      "author": {
+        "name": "Mattias Thalén"
+      },
+      "category": "productivity",
+      "source": "./plugins/deckwright"
+    }
+  ]
+}

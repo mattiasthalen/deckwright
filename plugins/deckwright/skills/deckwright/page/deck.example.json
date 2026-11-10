@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "name": "Vren's Rat Pack",
+  "format": "brawl",
+  "criteria": [
+    {"kind": "format", "text": "Brawl on Arena"},
+    {"kind": "theme", "text": "Rats"},
+    {"kind": "colours", "text": "Blue-black"},
+    {"kind": "limit", "text": "None"}
+  ],
+  "categories": [
+    {"name": "Commander", "target": 1},
+    {"name": "Ramp", "target": 8},
+    {"name": "Removal", "target": 8, "count_reason": null},
+    {"name": "Lands", "target": 35}
+  ],
+  "cards": [
+    {
+      "scryfall_id": "00000000-0000-0000-0000-000000000000",
+      "name": "Vren, the Relentless",
+      "count": 1,
+      "category": "Commander",
+      "tags": ["rat", "removal payoff"],
+      "checked": true,
+      "bends": null,
+      "copy": {"mana_cost": "{2}{U}{B}", "type_line": "Legendary Creature — Rat Rogue", "text": "…", "taken": "2026-11-10"}
+    }
+  ],
+  "maybeboard": [
+    {"scryfall_id": "…", "name": "…", "kind": "later", "why": "…"},
+    {"scryfall_id": "…", "name": "…", "kind": "swap", "out": "…", "why": "…", "bends": null}
+  ],
+  "dismissed_findings": [
+    {"finding": "Only 6 card draw against a target of 8", "reason": "The rats draw enough", "card": null, "criterion": null}
+  ],
+  "last_review": {"date": "2026-11-10", "unfinished": false, "findings": ["…"]},
+  "handbook": [{"title": "How it wins", "text": "…"}],
+  "scenes": [{"title": "Every kill is a rat", "svg": "<svg …>…</svg>"}],
+  "approved": false
+}

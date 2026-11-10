@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deck</title>
+<style>
+:root{--bg:#f6f3ee;--fg:#1d1b18;--muted:#6b6459;--card:#fff;--line:#e2dcd2;--accent:#7a3b8f;--bar:#7a3b8f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15131a;--fg:#ece8f2;--muted:#a49cb3;--card:#1f1c26;--line:#332e3d;--accent:#c89be0;--bar:#c89be0}}
+:root[data-theme="dark"]{--bg:#15131a;--fg:#ece8f2;--muted:#a49cb3;--card:#1f1c26;--line:#332e3d;--accent:#c89be0;--bar:#c89be0}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:16px}
+h1{margin:.2em 0 0;font-size:1.8em}.sub{color:var(--muted)}
+.scenes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:16px 0}
+.scene{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px}.scene svg{width:100%;height:auto;display:block}
+nav{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:16px 0}
+nav button{background:none;border:0;padding:8px 12px;color:var(--muted);font:inherit;cursor:pointer;border-bottom:2px solid transparent}
+nav button[aria-selected=true]{color:var(--fg);border-color:var(--accent)}
+section[hidden]{display:none}
+.cat h2{font-size:1.1em;margin:20px 0 8px}.cat h2 small{color:var(--muted);font-weight:normal}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.c{background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer}
+.c img{width:100%;display:block}.c .t{padding:6px 8px;font-size:.85em}
+.c.text .t{min-height:120px}.c.open{grid-column:span 2}.c .more{display:none;padding:0 8px 8px;font-size:.8em;color:var(--muted);white-space:pre-wrap}.c.open .more{display:block}
+.chart{display:flex;align-items:flex-end;gap:8px;height:220px;padding:8px 0;border-bottom:1px solid var(--line)}
+.bar{flex:1;background:var(--bar);border-radius:4px 4px 0 0;position:relative;min-height:2px}
+.bar span{position:absolute;top:-1.4em;left:0;right:0;text-align:center;font-size:.85em}
+.axis{display:flex;gap:8px}.axis div{flex:1;text-align:center;color:var(--muted);font-size:.85em}
+pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;max-height:60vh}
+.btn{background:var(--accent);color:var(--bg);border:0;border-radius:6px;padding:8px 14px;font:inherit;cursor:pointer}
+.ledger li{margin:4px 0}.status{display:inline-block;padding:2px 8px;border-radius:99px;border:1px solid var(--line);font-size:.85em}
+</style>
+</head>
+<body>
+<main>
+<header><h1 id="name">Deck</h1><div class="sub" id="sub"></div></header>
+<div class="scenes" id="scenes"></div>
+<nav id="tabs"></nav>
+<section id="cards"></section>
+<section id="handbook" hidden></section>
+<section id="curve" hidden></section>
+<section id="ledger" hidden></section>
+<section id="arena" hidden></section>
+</main>
+<script>
+const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); Object.assign(e, attrs); e.append(...kids); return e; };
+const cmc = cost => (cost || '').match(/\{[^}]+\}/g)?.reduce((n, s) => n + (/^\{\d+\}$/.test(s) ? +s.slice(1, -1) : /X/.test(s) ? 0 : 1), 0) ?? 0;
+
+function tabs(names) {
+  const nav = document.getElementById('tabs');
+  names.forEach(([id, label], i) => {
+    const b = el('button', {textContent: label}); b.setAttribute('aria-selected', i === 0);
+    b.onclick = () => { names.forEach(([o]) => document.getElementById(o).hidden = o !== id);
+      nav.querySelectorAll('button').forEach(x => x.setAttribute('aria-selected', x === b)); };
+    nav.append(b);
+  });
+}
+
+function card(c) {
+  const box = el('div', {className: 'c'});
+  const img = el('img', {src: `cards/${c.scryfall_id}.jpg`, alt: c.name, loading: 'lazy'});
+  img.onerror = () => { img.remove(); box.classList.add('text'); };
+  box.append(img, el('div', {className: 't', textContent: `${c.count > 1 ? c.count + '× ' : ''}${c.name}${c.checked === false ? ' (not checked)' : ''}`}),
+    el('div', {className: 'more', textContent: [c.copy?.mana_cost, c.copy?.type_line, c.copy?.text, c.bends ? 'Bends: ' + c.bends : ''].filter(Boolean).join('\n')}));
+  box.onclick = () => box.classList.toggle('open');
+  return box;
+}
+
+function arenaList(deck) {
+  const line = c => `${c.count || 1} ${c.name}`;
+  const commander = deck.cards.filter(c => c.category === 'Commander');
+  const rest = deck.cards.filter(c => c.category !== 'Commander');
+  return (commander.length ? `Commander\n${commander.map(line).join('\n')}\n\n` : '') + `Deck\n${rest.map(line).join('\n')}`;
+}
+
+async function main() {
+  const [scenes, cards, handbook, curve, arena] = ['scenes', 'cards', 'handbook', 'curve', 'arena'].map(id => document.getElementById(id));
+  const deck = await (await fetch('deck.json', {cache: 'no-store'})).json();
+  const ledger = await fetch('LEDGER.md', {cache: 'no-store'}).then(r => r.ok ? r.text() : '').catch(() => '');
+  const size = deck.cards.reduce((n, c) => n + (c.count || 1), 0);
+  const want = deck.format === 'brawl' ? 100 : 60;
+  document.title = deck.name || 'Deck';
+  document.getElementById('name').textContent = deck.name || 'Deck';
+  document.getElementById('sub').append(`${deck.format === 'brawl' ? 'Brawl' : 'Standard'} · ${size} of ${want} cards · `,
+    el('span', {className: 'status', textContent: deck.approved ? 'Approved' : 'Not approved'}),
+    ' · ', (deck.criteria || []).map(c => c.text).join(' · '));
+  for (const s of deck.scenes || []) {
+    const box = el('div', {className: 'scene'}); box.innerHTML = s.svg; box.append(el('div', {className: 'sub', textContent: s.title})); scenes.append(box);
+  }
+  tabs([['cards', 'Cards'], ['handbook', 'Handbook'], ['curve', 'Mana curve'], ['ledger', 'Ledger'], ['arena', 'Arena list']]);
+
+  const byCat = new Map((deck.categories || []).map(c => [c.name, []]));
+  for (const c of deck.cards) { if (!byCat.has(c.category)) byCat.set(c.category, []); byCat.get(c.category).push(c); }
+  for (const [name, list] of byCat) {
+    const meta = (deck.categories || []).find(c => c.name === name) || {};
+    const count = list.reduce((n, c) => n + (c.count || 1), 0);
+    const h = el('h2', {textContent: name + ' '}, el('small', {textContent: `${count}${meta.target ? ' of ' + meta.target : ''}${meta.count_reason ? ' — ' + meta.count_reason : ''}`}));
+    const grid = el('div', {className: 'grid'}); list.forEach(c => grid.append(card(c)));
+    cards.append(el('div', {className: 'cat'}, h, grid));
+  }
+  if ((deck.maybeboard || []).length) {
+    const grid = el('div', {className: 'grid'});
+    deck.maybeboard.forEach(m => grid.append(card({...m, count: 1, copy: {text: (m.out ? `In for ${m.out}. ` : '') + (m.why || '')}})));
+    cards.append(el('div', {className: 'cat'}, el('h2', {textContent: 'Maybeboard'}), grid));
+  }
+
+  (deck.handbook || []).forEach(ch => handbook.append(el('h2', {textContent: ch.title}), el('p', {textContent: ch.text})));
+  if (!(deck.handbook || []).length) handbook.append(el('p', {className: 'sub', textContent: 'The handbook is written once the deck is complete.'}));
+
+  const counts = Array(8).fill(0);
+  deck.cards.filter(c => !/Land/.test(c.copy?.type_line || '')).forEach(c => counts[Math.min(cmc(c.copy?.mana_cost), 7)] += c.count || 1);
+  const max = Math.max(1, ...counts);
+  const chart = el('div', {className: 'chart'}), axis = el('div', {className: 'axis'});
+  counts.forEach((n, i) => { const b = el('div', {className: 'bar'}, el('span', {textContent: n})); b.style.height = `${n / max * 100}%`;
+    chart.append(b); axis.append(el('div', {textContent: i === 7 ? '7+' : i})); });
+  curve.append(chart, axis);
+
+  const items = ledger.split('\n').filter(l => l.startsWith('- '));
+  const ledger_list = el('ol', {className: 'ledger'}); items.forEach(l => ledger_list.append(el('li', {textContent: l.slice(2)})));
+  document.getElementById('ledger').append(items.length ? ledger_list : el('p', {className: 'sub', textContent: 'Nothing logged yet.'}));
+
+  const text = arenaList(deck);
+  const copy = el('button', {className: 'btn', textContent: 'Copy for Arena'});
+  copy.onclick = async () => { try { await navigator.clipboard.writeText(text); copy.textContent = 'Copied'; } catch { copy.textContent = 'Select the list and copy it'; } };
+  arena.append(copy, el('pre', {textContent: text}));
+}
+main().catch(e => document.getElementById('sub').textContent = 'Could not read deck.json: ' + e.message);
+</script>
+</body>
+</html>
