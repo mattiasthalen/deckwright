@@ -56,11 +56,26 @@ def read_brief(path: pathlib.Path) -> tuple[str, str]:
     return opening, player
 
 
+def isolated_env(memory: pathlib.Path) -> dict:
+    """The parent's environment minus the project's shared memory.
+
+    A run inherits the cloud session's memory store, and the bare runs of
+    2026-11-10 wrote stand-in decks into it as the owner's and read them back in
+    later runs. Each run gets an empty memory folder of its own instead.
+    """
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_MEMORY_STORES"}
+    env["CLAUDE_COWORK_MEMORY_PATH_OVERRIDE"] = str(memory)
+    return env
+
+
 def claude(args: list[str], prompt: str, cwd: pathlib.Path) -> list[dict]:
     """One headless turn; returns its stream-json events."""
+    memory = cwd.parent / "memory"
+    memory.mkdir(exist_ok=True)
     proc = subprocess.run(
         ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose", *args],
         cwd=cwd,
+        env=isolated_env(memory),
         capture_output=True,
         text=True,
         timeout=3600,

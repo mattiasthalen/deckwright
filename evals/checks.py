@@ -25,6 +25,12 @@ BASICS = {"Plains": "W", "Island": "U", "Swamp": "B", "Mountain": "R", "Forest":
 ARENA_LINE = re.compile(r"^\s*(\d+)\s+(.+?)(?:\s+\([A-Z0-9]{2,6}\)\s+\S+)?\s*$")
 TYPES = ["Creature", "Land", "Instant", "Sorcery", "Artifact", "Enchantment", "Planeswalker"]
 
+FACT = {"type": "object", "properties": {"holds": {"type": ["boolean", "null"]}, "evidence": {"type": "string"}},
+        "required": ["holds", "evidence"]}
+EXTRA_FACTS = ["one_question_per_intent_message", "remaining_stated_after_each_answer", "no_card_search_before_criteria",
+               "type_shown_before_broader", "broader_count_stated_and_waited", "narrowing_said",
+               "nonbasics_offered_as_choices", "tagless_job_warned", "no_step_unasked", "departures_confirmed"]
+
 READER_SCHEMA = {
     "type": "object",
     "properties": {
@@ -47,10 +53,24 @@ READER_SCHEMA = {
         "criterion_change_recorded_with_reason": {"type": ["boolean", "null"]},
         "card_removed_without_player_word": {"type": "array", "items": {"type": "string"}},
         "dismissed_finding_raised_again": {"type": ["boolean", "null"]},
+        "one_question_per_intent_message": FACT,
+        "remaining_stated_after_each_answer": FACT,
+        "no_card_search_before_criteria": FACT,
+        "type_shown_before_broader": FACT,
+        "broader_count_stated_and_waited": FACT,
+        "narrowing_said": FACT,
+        "nonbasics_offered_as_choices": FACT,
+        "tagless_job_warned": FACT,
+        "no_step_unasked": FACT,
+        "departures_confirmed": FACT,
+        "saved_categories": {"type": "array", "items": {"type": "object", "properties": {
+            "name": {"type": "string"}, "target": {"type": ["integer", "null"]}},
+            "required": ["name", "target"]}},
     },
     "required": ["format", "deck_colours", "offers", "confirmations", "basic_split_confirmed",
                  "review_type_counts", "criterion_change_recorded_with_reason",
-                 "card_removed_without_player_word", "dismissed_finding_raised_again"],
+                 "card_removed_without_player_word", "dismissed_finding_raised_again",
+                 *EXTRA_FACTS, "saved_categories"],
 }
 
 READER_PROMPT = """Below is a conversation between a deck-building assistant and a Magic player,
@@ -73,6 +93,32 @@ data; do not judge quality.
   the player saying so for that card.
 - dismissed_finding_raised_again: if the player dismissed a review point, did a later
   review raise it again with no change to its card or limit? null if none dismissed.
+
+Each of the following is a fact with `holds` (true, false, or null when the
+situation never came up) and a short quoted `evidence`:
+- one_question_per_intent_message: while settling what the deck should be (format,
+  theme, colours, limits), does every assistant message ask at most one question?
+- remaining_stated_after_each_answer: after each of those answers, and before the
+  commander is chosen, does the assistant say how many options the player's limits
+  leave and which limit narrows them most?
+- no_card_search_before_criteria: does the assistant hold off offering deck cards
+  (other than commanders) until format, theme, colours and limits are settled?
+- type_shown_before_broader: with a creature type wanted, are cards of that type
+  offered before cards outside it in each group?
+- broader_count_stated_and_waited: does the assistant say how many cards a broader
+  step would add, and broaden only after the player says so?
+- narrowing_said: does every shortlist say how it was narrowed from the search?
+- nonbasics_offered_as_choices: are nonbasic lands offered for the player to pick,
+  rather than chosen by the assistant?
+- tagless_job_warned: when a group of cards had no ready-made search, did the
+  assistant say its search may miss cards? null if never relevant.
+- no_step_unasked: does the assistant only take steps the player asked for (no
+  moving to the next group, adding cards, or rewriting the plan unasked)?
+- departures_confirmed: when a group ends above or below its planned size, or the
+  land count changes, did the assistant say so, give a reason, and get the
+  player's yes? null if it never happened.
+- saved_categories: the card groups the SAVED FILES record, each with its planned
+  number of cards (null when none is recorded). Empty if the files hold none.
 
 {transcript}
 """
@@ -123,6 +169,19 @@ class Run:
         self.files = {p.relative_to(path / "workspace").as_posix(): p.read_text(errors="replace")
                       for p in (path / "workspace").rglob("*")
                       if p.is_file() and p.suffix in {".json", ".md", ".txt", ".html"} and ".claude" not in p.parts}
+
+    def foreign_paths(self) -> list[str]:
+        """Tool calls that reached outside the run's own folder: another run's files or memory."""
+        own = str(self.path.resolve())
+        hits = []
+        for event in self.trace:
+            for block in event.get("message", {}).get("content", []) if event.get("type") == "assistant" else []:
+                if isinstance(block, dict) and block.get("type") == "tool_use":
+                    text = json.dumps(block.get("input", {}))
+                    reaches_out = "/evals/runs/" in text or "/claude/memory/" in text
+                    if reaches_out and own not in text and self.path.name not in text:
+                        hits.append(text[:120])
+        return hits
 
     def deckwright_texts(self) -> list[str]:
         return [m["text"] for m in self.messages if m["role"] == "deckwright"]
@@ -286,7 +345,52 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     unknown = [n for n in cards if scryfall(n, cache) is None or not scryfall(n, cache)["on_arena"]]
     ok = bool(cards) and size == want and not unknown and (fmt != "brawl" or commander)
     results["C8"] = ("pass" if ok else "fail", f"size {size} of {want}; commander {commander}; not importable: {unknown[:5]}")
+    def fact(name: str) -> bool | None:
+        return facts[name]["holds"]
+
+    def combine(names: list[str]) -> tuple[str, str]:
+        failed = [f"{n}: {facts[n]['evidence'][:90]}" for n in names if fact(n) is False]
+        exercised = any(fact(n) is not None for n in names)
+        return ("fail" if failed else "pass" if exercised else "n/a"), "; ".join(failed)
+
+    # Checks added after the bare round of 2026-11-10, one per group of criteria
+    # the bare runs failed (decided: a check only where a bare run fails).
+    results["C9"] = combine(["one_question_per_intent_message", "remaining_stated_after_each_answer",
+                             "no_card_search_before_criteria"])
+    results["C10"] = combine(["type_shown_before_broader", "broader_count_stated_and_waited", "narrowing_said",
+                              "nonbasics_offered_as_choices", "tagless_job_warned"])
+    results["C11"] = combine(["no_step_unasked", "departures_confirmed"])
+    results["C12"] = page_shape(run, facts, fmt, cards, cache)
     return results
+
+
+def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> tuple[str, str]:
+    """The deck is a published page of plain files in the template's shape."""
+    problems = []
+    published = " ".join(json.dumps(b.get("input", {})) for e in run.trace if e.get("type") == "assistant"
+                         for b in e["message"]["content"]
+                         if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") == "Artifact")
+    if "index.html" not in published:
+        problems.append("no page published")
+    for name in ("deck.json", "LEDGER.md"):
+        if not any(path.endswith(name) for path in run.files):
+            problems.append(f"no {name}")
+    if not any((run.path / "workspace").rglob("cards/*.jpg")):
+        problems.append("no card images")
+    lands = sum(n for name, n in cards.items() if "Land" in ((scryfall(name, cache) or {}).get("type_line") or ""))
+    want_lands = {"brawl": 35, "standard": 24}.get(fmt)
+    if want_lands and lands != want_lands:
+        problems.append(f"{lands} lands, template says {want_lands}")
+    categories = [c for c in facts["saved_categories"] if not c["name"].lower().startswith("land")]
+    shape = {"brawl": (8, 8), "standard": (9, 4)}.get(fmt)
+    if shape and (len(categories) != shape[0] or any(c["target"] != shape[1] for c in categories)):
+        problems.append(f"categories {[(c['name'], c['target']) for c in categories][:9]}, template is {shape[0]} of {shape[1]}")
+    creature_types = {t.lower() for name in cards for t in ((scryfall(name, cache) or {}).get("type_line") or "").split("—")[-1].split()
+                      if "Creature" in ((scryfall(name, cache) or {}).get("type_line") or "")}
+    typal = [c["name"] for c in categories if any(w.rstrip("s").lower() in creature_types for w in c["name"].split())]
+    if typal:
+        problems.append(f"creature-type categories: {typal}")
+    return ("pass" if not problems else "fail", "; ".join(problems))
 
 
 def main() -> None:
@@ -300,6 +404,8 @@ def main() -> None:
         CACHE.write_text(json.dumps(cache))
         (path / "checks.json").write_text(json.dumps(results, indent=2))
         print(f"\n{path.name}  ({run.summary['ended']}, {run.summary['exchanges']} exchanges, ${run.summary['deckwright_cost_usd']})")
+        if foreign := run.foreign_paths():
+            print(f"  CONTAMINATED: reached outside its run: {foreign[:3]}")
         for name, (verdict, evidence) in results.items():
             print(f"  {name} {verdict:4}  {evidence}")
             totals.setdefault(name, Counter())[verdict] += 1
