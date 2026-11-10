@@ -14,6 +14,12 @@ python3 evals/checks.py evals/runs/<stamp>/*
 - **The stand-in** is Sonnet 5.5 with no tools. It sees only Deckwright's replies.
 - **Each run has its own empty memory.** Runs that shared the project's memory
   wrote stand-in decks into it as the owner's and read them back (2026-11-10).
+- **Some briefs start half-built** (`## Start`): the runner copies a deck from
+  `starts/` into the workspace, so the run skips the interview and the first card
+  rounds, which cost most of a run and are exercised by the briefs that start from
+  nothing. `starts/build.py` regenerates those decks from Scryfall. Their cards
+  count as confirmed, and C9 is n/a there. The bare round ran before starts existed,
+  so it began every brief from nothing.
 - **Scryfall** is shared by every run and the checks: keep `-j` at 3 or below.
 
 ## Checks

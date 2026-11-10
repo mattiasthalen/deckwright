@@ -45,4 +45,4 @@ Each deck is one artifact holding plain files, published together after every de
 
 The first save comes with the first answer. Give the player the page's link after each save.
 
-**Opening a deck from its link:** read `deck.json` and `LEDGER.md`, check that the ledger adds up to the cards in `deck.json` (stop and show any difference card by card, and let the player say which is right), say where the deck stands, and ask what they want to do.
+**Opening a deck from its link or its files:** read `deck.json` and `LEDGER.md`, check that the ledger adds up to the cards in `deck.json` (stop and show any difference card by card, and let the player say which is right), say where the deck stands, and ask what they want to do.

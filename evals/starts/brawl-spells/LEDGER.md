@@ -1,0 +1,79 @@
+# Ledger
+
+- 2026-11-09 · criteria · Brawl on Arena · the player's answer
+- 2026-11-09 · criteria · Instants and sorceries · the player's answer
+- 2026-11-09 · criteria · Blue-red · the player's answer
+- 2026-11-09 · criteria · None · the player's answer
+- 2026-11-09 · in · Niv-Mizzet, Parun (6f3d2dc5-7b9d-4af6-9f3b-4de90fbf63c9) · the player chose it for Commander
+- 2026-11-09 · category · Ramp (8) · template accepted by the player
+- 2026-11-09 · category · Card draw (8) · template accepted by the player
+- 2026-11-09 · category · Removal (8) · template accepted by the player
+- 2026-11-09 · category · Personal favourites (8) · template accepted by the player
+- 2026-11-09 · category · Spell payoffs (8) · template accepted by the player
+- 2026-11-09 · category · Counterspells (8) · template accepted by the player
+- 2026-11-09 · category · Burn (8) · template accepted by the player
+- 2026-11-09 · category · Copy effects (8) · template accepted by the player
+- 2026-11-09 · in · Arcane Signet (c6b6117c-faab-4bbb-b851-07bd8061ef03) · the player chose it for Ramp
+- 2026-11-09 · in · Mind Stone (a92ac7d7-83a3-417e-944f-d7d85c442cf8) · the player chose it for Ramp
+- 2026-11-09 · in · Solemn Simulacrum (5383f45e-3da2-40fb-beee-801448bbb60f) · the player chose it for Ramp
+- 2026-11-09 · in · Chromatic Lantern (e8c3839e-eb11-48ce-91e0-7ae2aecb6157) · the player chose it for Ramp
+- 2026-11-09 · in · Jeska's Will (aa1e5db0-4cd8-4d42-bde1-3e3d0041339f) · the player chose it for Ramp
+- 2026-11-09 · in · Talisman of Creativity (248189cc-6177-43c1-9886-a4fa910b9353) · the player chose it for Ramp
+- 2026-11-09 · in · Wayfarer's Bauble (b279f268-c37e-4a2d-8195-74f4881226fc) · the player chose it for Ramp
+- 2026-11-09 · in · Ashnod's Altar (0f2d0ee5-3173-4a03-be45-2fe9ea49cdc3) · the player chose it for Ramp
+- 2026-11-09 · in · Rhystic Study (cd212de7-25f6-4b3b-a35b-df7d87fe205b) · the player chose it for Card draw
+- 2026-11-09 · in · Brainstorm (b5545882-6963-4729-b2c6-fb4bdc75ffcc) · the player chose it for Card draw
+- 2026-11-09 · in · The One Ring (d5806e68-1054-458e-866d-1f2470f682b2) · the player chose it for Card draw
+- 2026-11-09 · in · Frantic Search (d8c5e52d-57ae-464b-8860-7dd39ebfef64) · the player chose it for Card draw
+- 2026-11-09 · in · Faithless Looting (0415df8a-078f-4c12-84e5-b9af7b3e7739) · the player chose it for Card draw
+- 2026-11-09 · in · Mystic Remora (fce23be6-787a-43bb-8bfd-c6672fad9105) · the player chose it for Card draw
+- 2026-11-09 · in · Big Score (3383a939-4ab3-4546-9995-6c65cd3f4441) · the player chose it for Card draw
+- 2026-11-09 · in · Ponder (ba6b6fc5-5077-4812-b8e9-906783dbaf67) · the player chose it for Card draw
+- 2026-11-09 · in · Blasphemous Act (9af44900-0afe-4409-8bad-0db4a915be92) · the player chose it for Removal
+- 2026-11-09 · in · Chaos Warp (2a6c3d3b-93ec-43df-a0cd-ea12ab047d51) · the player chose it for Removal
+- 2026-11-09 · in · Cyclonic Rift (7037f57a-ca89-41bd-bf7f-2f54593c0f48) · the player chose it for Removal
+- 2026-11-09 · in · Abrade (548947dc-a5ca-43b5-9531-bcef20fa4ae5) · the player chose it for Removal
+- 2026-11-09 · in · Pongify (5780936e-629d-4737-9005-651234f5426d) · the player chose it for Removal
+- 2026-11-09 · in · Lightning Bolt (7673784e-db4b-43a1-8d55-1bb9fc1e284f) · the player chose it for Removal
+- 2026-11-09 · in · Rapid Hybridization (49420431-0595-4525-b751-3d119fcaca22) · the player chose it for Removal
+- 2026-11-09 · in · Untimely Malfunction (857bfb0e-17dc-4dda-bc37-3df927a9eae6) · the player chose it for Removal
+- 2026-11-09 · in · Counterspell (379f4020-a58c-484d-9b44-72b200884079) · the player chose it for Personal favourites
+- 2026-11-09 · in · An Offer You Can't Refuse (a829747f-cf9b-4d81-ba66-9f0630ed4565) · the player chose it for Personal favourites
+- 2026-11-09 · in · Negate (52d58fe4-6070-4022-9cd7-c35a11b44525) · the player chose it for Personal favourites
+- 2026-11-09 · in · Swan Song (8a12d781-c48f-4d19-bc71-78b4adcdf0af) · the player chose it for Personal favourites
+- 2026-11-09 · in · Mystical Tutor (5d98101f-e32a-4a4a-a649-faa920d111ee) · the player chose it for Personal favourites
+- 2026-11-09 · in · Preordain (e3868c3d-4fcd-444b-866f-0f8e50ce7b67) · the player chose it for Personal favourites
+- 2026-11-09 · in · Thrill of Possibility (882b348c-076b-41d8-b505-063480636669) · the player chose it for Personal favourites
+- 2026-11-09 · in · Opt (58d26b54-0093-4e90-a2b1-b57c64340f9c) · the player chose it for Personal favourites
+- 2026-11-09 · in · Storm-Kiln Artist (fa96b8dc-233a-4884-ab84-235cbc7df0b6) · the player chose it for Spell payoffs
+- 2026-11-09 · in · Archmage Emeritus (761df6cd-0928-4167-8902-58fdb50181a0) · the player chose it for Spell payoffs
+- 2026-11-09 · in · Guttersnipe (f6bb1ffc-2251-4655-b8f9-4c8047dd5d5f) · the player chose it for Spell payoffs
+- 2026-11-09 · in · Dualcaster Mage (32d294e8-ed96-4584-b4f2-1b03ae6d1314) · the player chose it for Spell payoffs
+- 2026-11-09 · in · Talrand, Sky Summoner (3d89c1a1-1896-4360-b123-52d82a6871d4) · the player chose it for Spell payoffs
+- 2026-11-09 · in · Young Pyromancer (8afb19df-b96a-4736-81ab-3561e2767d2d) · the player chose it for Spell payoffs
+- 2026-11-09 · in · Archmage of Runes (334b5018-2da9-49f1-9d09-83d312ecfb02) · the player chose it for Spell payoffs
+- 2026-11-09 · in · Electro, Assaulting Battery (d672cfad-e656-47f8-bf93-64f262aff33e) · the player chose it for Spell payoffs
+- 2026-11-09 · in · Force of Negation (e9be371c-c688-44ad-ab71-bd4c9f242d58) · the player chose it for Counterspells
+- 2026-11-09 · in · Hullbreaker Horror (4b546bcf-2e86-42af-bf32-81c7fd36ef8c) · the player chose it for Counterspells
+- 2026-11-09 · in · Flusterstorm (ba8fa9db-f24f-46d4-add1-71b7f77636e2) · the player chose it for Counterspells
+- 2026-11-09 · in · Pact of Negation (101af164-2b8e-4904-8edd-2433210d3c54) · the player chose it for Counterspells
+- 2026-11-09 · in · Mindbreak Trap (75b75aaf-499d-47b0-ab6d-873240b641b2) · the player chose it for Counterspells
+- 2026-11-09 · in · Tibalt's Trickery (dd921e27-3e08-438c-bec2-723226d35175) · the player chose it for Counterspells
+- 2026-11-09 · in · Narset's Reversal (63754036-d51e-47bb-925b-564d9dc922ff) · the player chose it for Counterspells
+- 2026-11-09 · in · Spell Pierce (8dd4374f-0301-4b2e-bc99-2cd19568cb3b) · the player chose it for Counterspells
+- 2026-11-09 · in · Impact Tremors (d0b7cecf-b51b-4d30-b7e9-cd7976271e07) · the player chose it for Burn
+- 2026-11-09 · in · Aetherflux Reservoir (7f5342d5-b8a6-46ee-afd7-b333bb836a7c) · the player chose it for Burn
+- 2026-11-09 · in · Goblin Bombardment (7ebd1f51-2db6-4c3f-95cb-8035a410a8e8) · the player chose it for Burn
+- 2026-11-09 · in · Chandra's Ignition (d6c144f5-37ec-41d7-8acd-6e7b94f12701) · the player chose it for Burn
+- 2026-11-09 · in · Terror of the Peaks (904ff94a-4db4-44a6-8593-89c32905b3fc) · the player chose it for Burn
+- 2026-11-09 · in · Reckless Fireweaver (8e166c5b-8991-4738-be78-caaac116b0ec) · the player chose it for Burn
+- 2026-11-09 · in · Purphoros, God of the Forge (fbd25e79-d29b-4b51-9653-3932c980b931) · the player chose it for Burn
+- 2026-11-09 · in · Warstorm Surge (b2a3a642-3471-4d93-9f05-829f29a9cbf3) · the player chose it for Burn
+- 2026-11-09 · in · Flare of Duplication (497a10c6-131b-464e-95e4-e47708a24d48) · the player chose it for Copy effects
+- 2026-11-09 · in · Lithoform Engine (6683416a-5820-4cd0-b28a-60a53239e9ef) · the player chose it for Copy effects
+- 2026-11-09 · in · Kitsa, Otterball Elite (c8ff751a-ec64-41d5-b22c-2a483ad9a9b2) · the player chose it for Copy effects
+- 2026-11-09 · in · Increasing Vengeance (6ef32c03-14f5-4ee2-af3a-4cbee45cd152) · the player chose it for Copy effects
+- 2026-11-09 · in · Expansion // Explosion (e0644c92-4d67-475e-8c8e-0e2c493682fb) · the player chose it for Copy effects
+- 2026-11-09 · in · Stella Lee, Wild Card (2a8a7696-b5d9-4378-9d5c-2c9007e4df63) · the player chose it for Copy effects
+- 2026-11-09 · in · Naru Meha, Master Wizard (57168712-73dc-411c-9d13-f0c43202cb9a) · the player chose it for Copy effects
+- 2026-11-09 · in · Gandalf the Grey (e2b975e6-e709-481f-bfbc-41a832508283) · the player chose it for Copy effects

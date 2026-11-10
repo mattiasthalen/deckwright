@@ -243,6 +243,16 @@ class Run:
         return data
 
 
+def start_cards(run: Run) -> set[str]:
+    """The cards of the half-built deck a run began from: chosen before the run, so
+    confirmed and already picked."""
+    start = run.summary.get("start")
+    if not start:
+        return set()
+    deck = json.loads((pathlib.Path(__file__).resolve().parent / "starts" / start / "deck.json").read_text())
+    return {c["name"] for c in deck["cards"]}
+
+
 def message_to_exchange(run: Run, message_index: int) -> int:
     return sum(1 for m in run.messages[:message_index] if m["role"] == "deckwright")
 
@@ -254,7 +264,8 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     brief = run.summary["brief"]
     results: dict[str, tuple[str, str]] = {}
 
-    confirmed = {name for c in facts["confirmations"] for name in c["cards"]}
+    started = start_cards(run)
+    confirmed = started | {name for c in facts["confirmations"] for name in c["cards"]}
     unseen = sorted(n for n in cards if n not in BASICS and n not in confirmed)
     basics_ok = facts["basic_split_confirmed"] or not any(n in BASICS for n in cards)
     if not cards:
@@ -267,7 +278,7 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     bad, picked = [], set()
     confirmations = sorted(facts["confirmations"], key=lambda c: c["message"])
     for offer in sorted(facts["offers"], key=lambda o: o["message"]):
-        picked_so_far = {n for c in confirmations if c["message"] < offer["message"] for n in c["cards"]}
+        picked_so_far = started | {n for c in confirmations if c["message"] < offer["message"] for n in c["cards"]}
         for name in offer["cards"]:
             card = scryfall(name, cache)
             if card is None:
@@ -355,8 +366,9 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
 
     # Checks added after the bare round of 2026-11-10, one per group of criteria
     # the bare runs failed (decided: a check only where a bare run fails).
-    results["C9"] = combine(["one_question_per_intent_message", "remaining_stated_after_each_answer",
-                             "no_card_search_before_criteria"])
+    results["C9"] = (("n/a", "began from a half-built deck: no intent interview") if started else
+                     combine(["one_question_per_intent_message", "remaining_stated_after_each_answer",
+                              "no_card_search_before_criteria"]))
     results["C10"] = combine(["type_shown_before_broader", "broader_count_stated_and_waited", "narrowing_said",
                               "nonbasics_offered_as_choices", "tagless_job_warned"])
     results["C11"] = combine(["no_step_unasked", "departures_confirmed"])

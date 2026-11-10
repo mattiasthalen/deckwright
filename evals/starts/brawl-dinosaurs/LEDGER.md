@@ -1,0 +1,39 @@
+# Ledger
+
+- 2026-11-09 · criteria · Brawl on Arena · the player's answer
+- 2026-11-09 · criteria · Dinosaurs · the player's answer
+- 2026-11-09 · criteria · Red-green · the player's answer
+- 2026-11-09 · criteria · None · the player's answer
+- 2026-11-09 · in · Etali, Primal Conqueror // Etali, Primal Sickness (95c14c4d-6c16-4826-8d93-d89ad04aee09) · the player chose it for Commander
+- 2026-11-09 · category · Ramp (8) · template accepted by the player
+- 2026-11-09 · category · Card draw (8) · template accepted by the player
+- 2026-11-09 · category · Removal (8) · template accepted by the player
+- 2026-11-09 · category · Personal favourites (8) · template accepted by the player
+- 2026-11-09 · category · Dinosaur payoffs (8) · template accepted by the player
+- 2026-11-09 · category · Big threats (8) · template accepted by the player
+- 2026-11-09 · category · Protection (8) · template accepted by the player
+- 2026-11-09 · category · Board wipes (8) · template accepted by the player
+- 2026-11-09 · in · Arcane Signet (c6b6117c-faab-4bbb-b851-07bd8061ef03) · the player chose it for Ramp
+- 2026-11-09 · in · Cultivate (4a433310-3fe2-4156-864d-7a6b2638340b) · the player chose it for Ramp
+- 2026-11-09 · in · Farseek (598f6334-4baf-4f9a-a70c-0cc1e8af68c9) · the player chose it for Ramp
+- 2026-11-09 · in · Nature's Lore (f43fb749-5672-4a5c-ac89-e443195b95bc) · the player chose it for Ramp
+- 2026-11-09 · in · Rampant Growth (ec480124-3f27-416e-b561-3ffcfe496959) · the player chose it for Ramp
+- 2026-11-09 · in · Mind Stone (a92ac7d7-83a3-417e-944f-d7d85c442cf8) · the player chose it for Ramp
+- 2026-11-09 · in · Birds of Paradise (4c72e177-d95d-41df-91b3-4e489175b6aa) · the player chose it for Ramp
+- 2026-11-09 · in · Solemn Simulacrum (5383f45e-3da2-40fb-beee-801448bbb60f) · the player chose it for Ramp
+- 2026-11-09 · in · Garruk's Uprising (4805c303-e73b-443b-a09f-49d2c2c88bb5) · the player chose it for Card draw
+- 2026-11-09 · in · The One Ring (d5806e68-1054-458e-866d-1f2470f682b2) · the player chose it for Card draw
+- 2026-11-09 · in · Faithless Looting (0415df8a-078f-4c12-84e5-b9af7b3e7739) · the player chose it for Card draw
+- 2026-11-09 · in · Jeska's Will (aa1e5db0-4cd8-4d42-bde1-3e3d0041339f) · the player chose it for Card draw
+- 2026-11-09 · in · Eternal Witness (05c1ce9a-2d66-4815-aead-91257fe1ff74) · the player chose it for Card draw
+- 2026-11-09 · in · Big Score (3383a939-4ab3-4546-9995-6c65cd3f4441) · the player chose it for Card draw
+- 2026-11-09 · in · Herald's Horn (e64d51b3-20a2-4cc3-bd70-7f165940c157) · the player chose it for Card draw
+- 2026-11-09 · in · Return of the Wildspeaker (b88a4943-bd1b-4d10-9cd3-b2ab91b25c10) · the player chose it for Card draw
+- 2026-11-09 · in · Blasphemous Act (9af44900-0afe-4409-8bad-0db4a915be92) · the player chose it for Removal
+- 2026-11-09 · in · Beast Within (b6b6c66f-e3e0-4904-ae41-2ecc786f70c5) · the player chose it for Removal
+- 2026-11-09 · in · Chaos Warp (2a6c3d3b-93ec-43df-a0cd-ea12ab047d51) · the player chose it for Removal
+- 2026-11-09 · in · Abrade (548947dc-a5ca-43b5-9531-bcef20fa4ae5) · the player chose it for Removal
+- 2026-11-09 · in · Lightning Bolt (7673784e-db4b-43a1-8d55-1bb9fc1e284f) · the player chose it for Removal
+- 2026-11-09 · in · Untimely Malfunction (857bfb0e-17dc-4dda-bc37-3df927a9eae6) · the player chose it for Removal
+- 2026-11-09 · in · Reclamation Sage (1918ea65-ab7f-4d40-97fd-a656c892a2a1) · the player chose it for Removal
+- 2026-11-09 · in · Aetherflux Reservoir (7f5342d5-b8a6-46ee-afd7-b333bb836a7c) · the player chose it for Removal

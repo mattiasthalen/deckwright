@@ -4,12 +4,16 @@ A player who disagrees with a review finding, then changes a card and asks again
 
 ## Opening
 
-Help me build a Brawl deck for MTG Arena.
+Let's carry on with my Brawl deck. Its files are in the deck folder here.
+
+## Start
+
+brawl-spells
 
 ## Player
 
-You want a blue-red deck about casting lots of instants and sorceries. No card
-limits.
+You want a blue-red deck about casting lots of instants and sorceries, with
+Niv-Mizzet, Parun as commander. No card limits. Every group but the lands is full.
 
 When you are shown cards to choose from, pick the one to three you like best. Answer
 questions plainly. Accept a reasonable land split.

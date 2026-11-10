@@ -1,0 +1,31 @@
+# Ledger
+
+- 2026-11-09 · criteria · Brawl on Arena · the player's answer
+- 2026-11-09 · criteria · Creature tokens · the player's answer
+- 2026-11-09 · criteria · Green-white · the player's answer
+- 2026-11-09 · criteria · None · the player's answer
+- 2026-11-09 · in · Ghalta and Mavren (a9ec900f-1e31-4440-a75a-20b256734d5b) · the player chose it for Commander
+- 2026-11-09 · category · Ramp (8) · template accepted by the player
+- 2026-11-09 · category · Card draw (8) · template accepted by the player
+- 2026-11-09 · category · Removal (8) · template accepted by the player
+- 2026-11-09 · category · Personal favourites (8) · template accepted by the player
+- 2026-11-09 · category · Token makers (8) · template accepted by the player
+- 2026-11-09 · category · Anthems (8) · template accepted by the player
+- 2026-11-09 · category · Token payoffs (8) · template accepted by the player
+- 2026-11-09 · category · Board wipes (8) · template accepted by the player
+- 2026-11-09 · in · Beast Within (b6b6c66f-e3e0-4904-ae41-2ecc786f70c5) · the player chose it for Token makers
+- 2026-11-09 · in · Stroke of Midnight (ab135925-d924-456d-851a-6ccdaaf27271) · the player chose it for Token makers
+- 2026-11-09 · in · Scute Swarm (61f42823-8a48-4b81-a037-664ba1c69f29) · the player chose it for Token makers
+- 2026-11-09 · in · Rampaging Baloths (c25ee47b-d099-4788-9c2b-73d151bf56fb) · the player chose it for Token makers
+- 2026-11-09 · in · Adeline, Resplendent Cathar (21a0e852-7855-4a6b-8eca-191a8e83023a) · the player chose it for Token makers
+- 2026-11-09 · in · Maskwood Nexus (471d2aef-cfd4-4131-bbc7-62eeed9f3343) · the player chose it for Token makers
+- 2026-11-09 · in · Felidar Retreat (89e3cc09-5057-4c05-88fc-d6cda809fc74) · the player chose it for Token makers
+- 2026-11-09 · in · Elspeth, Storm Slayer (73a065e3-b530-4e62-ab3c-4f6f908184ec) · the player chose it for Token makers
+- 2026-11-09 · in · Arcane Signet (c6b6117c-faab-4bbb-b851-07bd8061ef03) · the player chose it for Ramp
+- 2026-11-09 · in · Path to Exile (e2e30b25-b710-4566-8b0f-56f6e390a446) · the player chose it for Ramp
+- 2026-11-09 · in · Cultivate (4a433310-3fe2-4156-864d-7a6b2638340b) · the player chose it for Ramp
+- 2026-11-09 · in · Farseek (598f6334-4baf-4f9a-a70c-0cc1e8af68c9) · the player chose it for Ramp
+- 2026-11-09 · in · Nature's Lore (f43fb749-5672-4a5c-ac89-e443195b95bc) · the player chose it for Ramp
+- 2026-11-09 · in · Rampant Growth (ec480124-3f27-416e-b561-3ffcfe496959) · the player chose it for Ramp
+- 2026-11-09 · in · Mind Stone (a92ac7d7-83a3-417e-944f-d7d85c442cf8) · the player chose it for Ramp
+- 2026-11-09 · in · Birds of Paradise (4c72e177-d95d-41df-91b3-4e489175b6aa) · the player chose it for Ramp

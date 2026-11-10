@@ -17,12 +17,14 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import uuid
 
 DECKWRIGHT_MODEL = "claude-opus-5-5"
 STAND_IN_MODEL = "claude-sonnet-5-5"
 PLUGIN_DIR = pathlib.Path(__file__).resolve().parent.parent / "plugins" / "deckwright"
+STARTS_DIR = pathlib.Path(__file__).resolve().parent / "starts"
 RUNS_DIR = pathlib.Path(__file__).resolve().parent / "runs"
 END = "<<END>>"
 NEW_CONVERSATION = "<<NEW_CONVERSATION>>"
@@ -48,12 +50,13 @@ or your brief says you stop, reply with exactly {END} and nothing else.
 """
 
 
-def read_brief(path: pathlib.Path) -> tuple[str, str]:
-    """A brief holds `## Opening` (the player's first message) and `## Player`."""
+def read_brief(path: pathlib.Path) -> tuple[str, str, str | None]:
+    """A brief holds `## Opening` (the player's first message), `## Player`, and may
+    name a `## Start`: a half-built deck under `starts/` that the run begins from."""
     text = path.read_text()
-    opening = re.search(r"## Opening\n+(.+?)\n(?=## |\Z)", text, re.S).group(1).strip()
-    player = re.search(r"## Player\n+(.+)", text, re.S).group(1).strip()
-    return opening, player
+    section = lambda name: re.search(rf"## {name}\n+(.+?)\s*(?=\n## |\Z)", text, re.S)
+    start = section("Start")
+    return section("Opening").group(1).strip(), section("Player").group(1).strip(), start and start.group(1).strip()
 
 
 def isolated_env(memory: pathlib.Path) -> dict:
@@ -116,7 +119,9 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int) ->
     workspace.mkdir(parents=True)
     stand_in_cwd = out / "stand-in"
     stand_in_cwd.mkdir()
-    opening, player = read_brief(brief)
+    opening, player, start = read_brief(brief)
+    if start:
+        shutil.copytree(STARTS_DIR / start, workspace / "deck", ignore=shutil.ignore_patterns("*.py"))
     conversation = out / "conversation.jsonl"
     trace = out / "trace.jsonl"
     stand_in_session = str(uuid.uuid4())
@@ -149,7 +154,7 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int) ->
         if message.startswith(NEW_CONVERSATION):
             message = message[len(NEW_CONVERSATION):].strip()
             deckwright_session, conversation_no, first_deckwright = str(uuid.uuid4()), conversation_no + 1, True
-    summary = {"brief": brief.stem, "arm": arm, "ended": ended, "exchanges": exchange + 1,
+    summary = {"brief": brief.stem, "arm": arm, "start": start, "ended": ended, "exchanges": exchange + 1,
                "deckwright_cost_usd": round(cost, 2)}
     (out / "run.json").write_text(json.dumps(summary, indent=2))
     return summary
