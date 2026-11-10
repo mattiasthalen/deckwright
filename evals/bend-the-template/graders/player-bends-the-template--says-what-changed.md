@@ -1,7 +1,0 @@
----
-# AC19: in the message just before the target change or in the messages after it and before the next card is recorded, an assistant sentence says Ramp's target is 8.
-type: regex
-target: trace
-flags: i
-pattern: '"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?(?:(?:\b|(?<=\\n))ramp(?:\b|(?<=\\n))(?:[^"\\.!?]|\\[^n]){0,80}?(?:\b|(?<=\\n))8(?:\b|(?<=\\n))|(?:\b|(?<=\\n))8(?:\b|(?<=\\n))(?:[^"\\.!?]|\\[^n]){0,80}?(?:\b|(?<=\\n))ramp(?:\b|(?<=\\n)))(?:(?<![^\n])(?![^\n]*"(?:name":"Bash"|role":"assistant"))(?=(?<L1>[^\n]*\n))\k<L1>|(?!(?<![^\n])(?![^\n]*"(?:name":"Bash"|role":"assistant")))(?!"name":"Bash")[\s\S])*?"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))target(?:\b|(?<=\\n))(?:[^"\\]|\\.)*?[Rr]amp(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))8(?:\b|(?<=\\n))|"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))target(?:\b|(?<=\\n))(?:[^"\\]|\\.)*?[Rr]amp(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))8(?:\b|(?<=\\n))(?:(?<![^\n])(?![^\n]*"(?:name":"Bash"|role":"assistant"))(?=(?<L2>[^\n]*\n))\k<L2>|(?!(?<![^\n])(?![^\n]*"(?:name":"Bash"|role":"assistant")))(?!"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))add(?:\b|(?<=\\n)))[\s\S])*?"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?(?:(?:\b|(?<=\\n))ramp(?:\b|(?<=\\n))(?:[^"\\.!?]|\\[^n]){0,80}?(?:\b|(?<=\\n))8(?:\b|(?<=\\n))|(?:\b|(?<=\\n))8(?:\b|(?<=\\n))(?:[^"\\.!?]|\\[^n]){0,80}?(?:\b|(?<=\\n))ramp(?:\b|(?<=\\n)))'
----

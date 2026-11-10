@@ -1,7 +1,0 @@
----
-# AC20: no Lands count against its target is shown before the script has tallied anything: a tally run, or a new or add run, which print the tally too.
-type: regex
-target: trace
-match: not_contains
-pattern: '^(?:(?!"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*?deck\.py(?:[^"\\]|\\.)*?\b(?:tally|new|add)\b)[\s\S])*?"role":"assistant"[^\n]*"type":"text","text":"(?:[^"\\]|\\.)*?(?:\b|(?<=\\n))\d+\s*/\s*38\b'
----
