@@ -120,6 +120,7 @@ section[hidden] { display: none; }
 .card .caption b { color: var(--bone); font-weight: 500; display: block; }
 .card .rarity { color: var(--accent); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; }
 .card .flag { color: var(--blood); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; display: block; }
+.card .swap { display: block; }
 .card.rises { animation: rise .45s backwards; animation-delay: calc(var(--i) * 28ms); }
 @keyframes rise { from { transform: translateY(14px); opacity: 0; } }
 
@@ -185,7 +186,7 @@ dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); 
 .card-dialog h3 { font-size: 1.8rem; padding-right: 36px; }
 .card-dialog .type-line { color: var(--fog); font-size: .95rem; }
 .card-dialog .rules { white-space: pre-line; font-family: var(--font-serif); font-size: 1.02rem; line-height: 1.5; background: var(--night); border-radius: 10px; padding: 12px 14px; }
-.card-dialog .why { border-left: 3px solid var(--accent); padding-left: 12px; }
+.card-dialog .why, .card-dialog .swap { border-left: 3px solid var(--accent); padding-left: 12px; }
 .card-dialog .bends { color: var(--blood); font-size: .92rem; }
 .card-dialog .close { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border-radius: 50%; padding: 0; }
 [hidden] { display: none !important; }
@@ -245,6 +246,7 @@ dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); 
       <div class="type-line" id="dialog-type-line"></div>
       <div class="rules" id="dialog-rules"></div>
       <p class="why" id="dialog-why"></p>
+      <p class="swap" id="dialog-swap"></p>
       <p class="bends" id="dialog-bends"></p>
       <a id="dialog-scryfall" target="_blank" rel="noopener">Open on Scryfall</a>
     </div>
@@ -267,7 +269,10 @@ const BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'
 const COLOUR_WORDS = {W: 'white', U: 'blue', B: 'black', R: 'red', G: 'green', C: 'colourless', T: 'tap', X: 'X'};
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let deck, cardsByName = new Map();
+let deck;
+// The deck's cards by name, for scenes, the handbook and the ledger; the
+// maybeboard is not in the deck, but its tiles open from the grid.
+const cardsInDeck = new Map(), cardsToOpen = new Map();
 
 // ---------- reading cards ----------
 
@@ -309,7 +314,7 @@ const withManaDrawn = text => esc(text).replace(/(\{[^}]+\})+/g, manaRun);
 // A picture that fails to load is swapped for a blank card with its alt text.
 const picture = (id, alt) => `<img loading="lazy" src="${esc(url(`cards/${id}.jpg`))}" alt="${esc(alt)}">`;
 const blankCard = name => `<div class="blank-card">${esc(name)}</div>`;
-const cardPicture = name => cardsByName.has(name) ? picture(cardsByName.get(name).scryfall_id, name) : blankCard(name);
+const cardPicture = name => cardsInDeck.has(name) ? picture(cardsInDeck.get(name).scryfall_id, name) : blankCard(name);
 
 document.addEventListener('error', e => {
   const img = e.target;
@@ -447,9 +452,13 @@ function drawScenes() {
 
 // ---------- cards ----------
 
+// A swap suggestion on the maybeboard names the card it would replace.
+const swapFor = c => c.kind === 'swap' && c.out ? c.out : '';
+
 function drawTile(c, i) {
   return `<button class="card rises" type="button" style="--i:${i % 12}" data-card="${esc(c.name)}"><span class="face">${picture(c.scryfall_id, c.name)}${copiesOf(c) > 1 ? `<span class="copies">${copiesOf(c)}×</span>` : ''}</span>`
     + `<span class="caption"><b>${esc(c.name)}</b>${isRareOrMythic(c) ? `<span class="rarity">${esc(c.copy.rarity)}</span>` : ''}`
+    + `${swapFor(c) ? `<span class="swap">In for ${esc(swapFor(c))}</span>` : ''}`
     + `${c.checked === false ? '<span class="flag">not checked</span>' : ''}${c.bends ? '<span class="flag">bends a criterion</span>' : ''}</span></button>`;
 }
 
@@ -486,9 +495,9 @@ function drawCurve() {
 
 // ---------- handbook ----------
 
-// Only full card names open a card; the handbook text carries no markup.
+// Only full names of cards in the deck open a card; the handbook text carries no markup.
 function withCardNames(text) {
-  const names = [...cardsByName.keys()].filter(k => !BASIC_LANDS.includes(k)).sort((a, b) => b.length - a.length);
+  const names = [...cardsInDeck.keys()].filter(k => !BASIC_LANDS.includes(k)).sort((a, b) => b.length - a.length);
   if (!names.length) return esc(text);
   const pattern = new RegExp(`(?<![\\w-])(?:${names.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![\\w-])`, 'g');
   let out = '', last = 0;
@@ -560,7 +569,7 @@ function drawImport() {
 // ---------- card dialog ----------
 
 function openCard(name) {
-  const c = cardsByName.get(name);
+  const c = cardsToOpen.get(name);
   if (!c) return;
   const show = (id, value) => { $(id).hidden = !value; return $(id); };
   $('dialog-picture').innerHTML = picture(c.scryfall_id, c.name);
@@ -571,7 +580,8 @@ function openCard(name) {
   $('dialog-cost').setAttribute('role', 'img');
   show('dialog-type-line', c.copy?.type_line).textContent = c.copy?.type_line || '';
   show('dialog-rules', c.copy?.text).innerHTML = withManaDrawn(c.copy?.text || '');
-  show('dialog-why', c.why).textContent = c.why || '';
+  show('dialog-why', c.why && !swapFor(c)).textContent = c.why || '';
+  show('dialog-swap', swapFor(c)).textContent = swapFor(c) ? `In for ${swapFor(c)}.${c.why ? ' ' + c.why : ''}` : '';
   show('dialog-bends', c.bends).textContent = c.bends ? `Bends a criterion: ${c.bends}` : '';
   $('dialog-scryfall').href = `https://scryfall.com/card/${encodeURIComponent(c.scryfall_id)}`;
   $('card-dialog').showModal();
@@ -610,7 +620,8 @@ async function main() {
   }
   // A card at count 0 was taken out of the deck.
   deck.cards = (deck.cards || []).filter(c => copiesOf(c) > 0);
-  [...(deck.maybeboard || []), ...deck.cards].forEach(c => cardsByName.set(c.name, c));
+  deck.cards.forEach(c => cardsInDeck.set(c.name, c));
+  [...(deck.maybeboard || []), ...deck.cards].forEach(c => cardsToOpen.set(c.name, c));
   paintAccent();
   drawHero(); drawScenes(); drawCards(); drawCurve(); drawHandbook(); drawLedger(await read('LEDGER.md')); drawImport();
   listenForCards();
