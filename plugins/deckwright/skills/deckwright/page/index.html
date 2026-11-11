@@ -242,7 +242,7 @@ dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); 
     <div class="body">
       <div class="label" id="dialog-category"></div>
       <h3 id="dialog-name"></h3>
-      <div><span class="mana" id="dialog-cost"></span></div>
+      <div id="dialog-cost"></div>
       <div class="type-line" id="dialog-type-line"></div>
       <div class="rules" id="dialog-rules"></div>
       <p class="why" id="dialog-why"></p>
@@ -286,7 +286,10 @@ const isRareOrMythic = c => ['rare', 'mythic'].includes(c.copy?.rarity);
 const creatureTypes = c => (frontType(c).split('—')[1] || '').trim().split(/\s+/).filter(Boolean);
 
 const symbols = text => (text || '').match(/\{[^}]+\}/g) || [];
-const manaValue = cost => symbols(cost).reduce((sum, s) => sum + (/^\{\d+\}$/.test(s) ? +s.slice(1, -1) : /X/.test(s) ? 0 : 1), 0);
+const symbolValue = s => { const number = s.slice(1, -1).split('/').find(part => /^\d+$/.test(part)); return number !== undefined ? +number : /X/.test(s) ? 0 : 1; };
+// mana_value is Scryfall's cmc. A copy saved without it falls back to its
+// symbols, which overstates an adventure: its mana_cost holds both costs.
+const manaValue = c => c.copy?.mana_value ?? symbols(c.copy?.mana_cost).reduce((sum, s) => sum + symbolValue(s), 0);
 
 function plural(type) {
   const irregular = {Mouse: 'Mice', Fungus: 'Fungi', Ox: 'Oxen', Fish: 'Fish', Sheep: 'Sheep', Homunculus: 'Homunculi'};
@@ -309,6 +312,8 @@ function spokenMana(cost) {
   return symbols(cost).map(s => s.slice(1, -1).split('/').map(v => COLOUR_WORDS[v] || v).join(' or ')).join(', ');
 }
 const manaRun = cost => `<span class="mana" role="img" aria-label="${esc(spokenMana(cost))}">${manaSymbols(cost)}</span>`;
+// A card of two parts (an adventure, a split card) has both costs in mana_cost.
+const manaCost = cost => cost.split(' // ').map(manaRun).join(' // ');
 const withManaDrawn = text => esc(text).replace(/(\{[^}]+\})+/g, manaRun);
 
 // A picture that fails to load is swapped for a blank card with its alt text.
@@ -371,7 +376,7 @@ function headlineNumbers() {
   creatures.forEach(c => creatureTypes(c).forEach(t => shared.set(t, (shared.get(t) || 0) + copiesOf(c))));
   const [type, sharing = 0] = [...shared].sort((a, b) => b[1] - a[1])[0] || [];
   const rares = total(deck.cards.filter(isRareOrMythic));
-  const average = total(spells) ? spells.reduce((sum, c) => sum + manaValue(c.copy?.mana_cost) * copiesOf(c), 0) / total(spells) : 0;
+  const average = total(spells) ? spells.reduce((sum, c) => sum + manaValue(c) * copiesOf(c), 0) / total(spells) : 0;
   return [
     [total(deck.cards), 'cards'],
     sharing > 3 && sharing * 3 >= total(creatures) ? [sharing, plural(type)] : [total(creatures), 'creatures'],
@@ -484,7 +489,7 @@ function drawCards() {
 
 function drawCurve() {
   const columns = Array.from({length: 8}, () => ({creatures: 0, others: 0}));
-  deck.cards.filter(c => !isLand(c)).forEach(c => { columns[Math.min(manaValue(c.copy?.mana_cost), 7)][isCreature(c) ? 'creatures' : 'others'] += copiesOf(c); });
+  deck.cards.filter(c => !isLand(c)).forEach(c => { columns[Math.min(manaValue(c), 7)][isCreature(c) ? 'creatures' : 'others'] += copiesOf(c); });
   const tallest = Math.max(1, ...columns.map(b => b.creatures + b.others));
   $('curve').innerHTML = `<div class="section-head"><span class="label">Mana curve</span><h2>What it costs</h2>${deck.curve_note ? `<p class="lede">${esc(deck.curve_note)}</p>` : ''}</div>`
     + `<div class="curve">${columns.map((b, i) => `<div class="bar" style="--i:${i}"><b>${b.creatures + b.others}</b><div class="column" style="height:${(b.creatures + b.others) / tallest * 82}%">`
@@ -575,9 +580,7 @@ function openCard(name) {
   $('dialog-picture').innerHTML = picture(c.scryfall_id, c.name);
   $('dialog-name').textContent = c.name;
   $('dialog-category').textContent = [c.category || 'Maybeboard', isRareOrMythic(c) ? c.copy.rarity : ''].filter(Boolean).join(' · ');
-  show('dialog-cost', c.copy?.mana_cost).innerHTML = manaSymbols(c.copy?.mana_cost);
-  $('dialog-cost').setAttribute('aria-label', spokenMana(c.copy?.mana_cost));
-  $('dialog-cost').setAttribute('role', 'img');
+  show('dialog-cost', c.copy?.mana_cost).innerHTML = manaCost(c.copy?.mana_cost || '');
   show('dialog-type-line', c.copy?.type_line).textContent = c.copy?.type_line || '';
   show('dialog-rules', c.copy?.text).innerHTML = withManaDrawn(c.copy?.text || '');
   show('dialog-why', c.why && !swapFor(c)).textContent = c.why || '';

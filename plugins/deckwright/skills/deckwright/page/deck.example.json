@@ -27,7 +27,7 @@
       "checked": true,
       "bends": null,
       "why": "The engine: every creature an opponent loses comes back as a Rat for you.",
-      "copy": {"mana_cost": "{2}{U}{B}", "type_line": "Legendary Creature — Rat Rogue", "text": "…", "rarity": "rare", "taken": "2026-11-10"}
+      "copy": {"mana_cost": "{2}{U}{B}", "mana_value": 4, "type_line": "Legendary Creature — Rat Rogue", "text": "…", "rarity": "rare", "taken": "2026-11-10"}
     },
     {
       "scryfall_id": "00000000-0000-0000-0000-000000000002",
@@ -38,7 +38,7 @@
       "checked": true,
       "bends": null,
       "why": "Two mana kills anything, and Vren turns the kill into a Rat.",
-      "copy": {"mana_cost": "{1}{B}", "type_line": "Instant", "text": "Destroy target creature. You lose 2 life.", "rarity": "uncommon", "taken": "2026-11-10"}
+      "copy": {"mana_cost": "{1}{B}", "mana_value": 2, "type_line": "Instant", "text": "Destroy target creature. You lose 2 life.", "rarity": "uncommon", "taken": "2026-11-10"}
     },
     {
       "scryfall_id": "00000000-0000-0000-0000-000000000003",
@@ -48,7 +48,7 @@
       "tags": ["land"],
       "checked": true,
       "bends": null,
-      "copy": {"mana_cost": "", "type_line": "Basic Land — Swamp", "text": "({T}: Add {B}.)", "rarity": "common", "taken": "2026-11-10"}
+      "copy": {"mana_cost": "", "mana_value": 0, "type_line": "Basic Land — Swamp", "text": "({T}: Add {B}.)", "rarity": "common", "taken": "2026-11-10"}
     }
   ],
   "maybeboard": [

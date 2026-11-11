@@ -68,11 +68,15 @@ def search(query: str) -> list[dict]:
 
 def copy_of(card: dict) -> dict:
     faces = card.get("card_faces") or [card]
-    return {"mana_cost": card.get("mana_cost") or faces[0].get("mana_cost", ""),
+    copy = {"mana_cost": card.get("mana_cost") or faces[0].get("mana_cost", ""),
             "type_line": card["type_line"],
             "text": "\n//\n".join(f.get("oracle_text", "") for f in faces),
             "rarity": card["rarity"],
             "taken": TAKEN}
+    # Scryfall's cmc is the mana value; without it the page counts the cost's symbols.
+    if "cmc" in card:
+        copy["mana_value"] = card["cmc"]
+    return copy
 
 
 def build(name: str, spec: dict) -> None:
