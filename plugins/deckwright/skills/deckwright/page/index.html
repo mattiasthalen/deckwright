@@ -300,7 +300,8 @@ const manaValue = c => c.copy?.mana_value ?? symbols(c.copy?.mana_cost).reduce((
 
 function plural(type) {
   const irregular = {Mouse: 'Mice', Fungus: 'Fungi', Ox: 'Oxen', Homunculus: 'Homunculi', Cyclops: 'Cyclopes', Child: 'Children',
-    Sheep: 'Sheep', Kithkin: 'Kithkin', Kor: 'Kor', Djinn: 'Djinn', Efreet: 'Efreet', Samurai: 'Samurai', Elk: 'Elk', Squid: 'Squid'};
+    Sheep: 'Sheep', Kithkin: 'Kithkin', Kor: 'Kor', Djinn: 'Djinn', Efreet: 'Efreet', Samurai: 'Samurai', Elk: 'Elk', Squid: 'Squid',
+    Eldrazi: 'Eldrazi', Myr: 'Myr', Vedalken: 'Vedalken', Aetherborn: 'Aetherborn', Deer: 'Deer'};
   if (irregular[type]) return irregular[type];
   if (/(folk|fish)$/.test(type)) return type;
   if (/[lr]f$/.test(type)) return type.slice(0, -1) + 'ves';
