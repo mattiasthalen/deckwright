@@ -229,14 +229,14 @@ def play_round(briefs: list[pathlib.Path], arm: str, runs: int, round_dir: pathl
 
     A finished run is skipped. Any other run folder, cut off mid-run or stopped by the
     budget, is cleared, so the run plays again from its start. Once the
-    budget is used up no further run starts, and a run not started gets no folder, so
-    `--resume` takes it as never played.
+    budget is used up no further run starts: a run not started gets no folder and an
+    unfinished one keeps what it has, so `--resume` plays both.
     """
     def play(brief: pathlib.Path, out: pathlib.Path) -> dict:
-        if out.exists():
-            shutil.rmtree(out)
         if budget.used_up():
             return {"brief": brief.stem, "arm": arm, "ended": f"not started: {STOPPED_BY_BUDGET}"}
+        if out.exists():
+            shutil.rmtree(out)
         return run(brief, arm, out, max_exchanges, budget)
 
     unfinished = [(b, round_dir / f"{b.stem}--{arm}--{n}") for b in briefs for n in range(1, runs + 1)]
