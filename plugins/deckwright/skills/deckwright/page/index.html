@@ -403,8 +403,8 @@ function headlineNumbers() {
 
 function drawHero() {
   const size = total(deck.cards), formatSize = deck.format === 'brawl' ? 100 : 60;
-  const name = deck.name || 'Deck', words = name.split(' ');
-  document.title = name;
+  const words = String(deck.name || '').match(/\S+/g) || ['Deck'];
+  document.title = words.join(' ');
   $('deck-name').innerHTML = `${words.length > 1 ? esc(words.slice(0, -1).join(' ')) + ' ' : ''}<em>${esc(words.at(-1))}</em>`;
   $('hero-line').innerHTML = `${deck.format === 'brawl' ? 'Brawl' : 'Standard'} · ${size} of ${formatSize} cards · <b>${deck.approved ? 'Approved' : 'In progress'}</b>`;
   $('pitch').textContent = deck.pitch || '';
