@@ -77,3 +77,5 @@ as DIED. A started run copies its start into `start/`, which the checks read.
 - `run.json` costs before 2026-11-11 summed running totals; they were recalculated
   from the traces.
 - Runs `checks.py` flags as CONTAMINATED reached outside their own folder.
+- Every brief builds one deck, so the checks read one page a run: a run that
+  publishes two decks has their files merged. Fix it when a brief builds two.
