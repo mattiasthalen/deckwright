@@ -893,6 +893,49 @@ describe('Scenes', () => {
       }
     }));
 
+  test('At the end of its step the "−N" mark sits on the life total\'s circle and the "+N" mark on a card back, in the main scene and a smaller one, at desktop and phone width', async () => {
+    // Where the thing's "−N" or "+N" mark is drawn, and whether it touches what it
+    // marks: the life total's circle itself, not the square box around it, or a
+    // card back as drawn, turned with the fan, not the larger box around the turn.
+    const marked = (scene, caption, index) => scene.evaluate((s, { caption, index }) => {
+      const t = s.innerText.includes(caption) && s.querySelectorAll('.thing')[index];
+      if (!t) return null;
+      t.getAnimations({ subtree: true }).forEach(a => { try { a.finish(); } catch {} });
+      const ends = [...t.querySelectorAll('*')].filter(e => !e.children.length);
+      const mark = ends.find(e => /^[−+]/.test(e.textContent.trim()));
+      if (!mark) return { mark: null };
+      const m = mark.getBoundingClientRect(), at = { left: Math.round(m.left), top: Math.round(m.top), right: Math.round(m.right), bottom: Math.round(m.bottom) };
+      let circle = ends.filter(e => /^\d+$/.test(e.textContent.trim())).at(-1);
+      while (circle && circle !== t && getComputedStyle(circle).borderTopLeftRadius !== '50%') circle = circle.parentElement;
+      if (circle && circle !== t) {
+        const c = circle.getBoundingClientRect(), x = c.left + c.width / 2, y = c.top + c.height / 2;
+        const dx = Math.max(m.left - x, 0, x - m.right), dy = Math.max(m.top - y, 0, y - m.bottom);
+        return { mark: at, circle: { left: Math.round(c.left), top: Math.round(c.top), width: Math.round(c.width) }, touches: Math.hypot(dx, dy) < c.width / 2 };
+      }
+      const backs = [...t.querySelectorAll('img')];
+      let touches = false;
+      for (let px = m.left + 1; px < m.right && !touches; px += 2)
+        for (let py = m.top + 1; py < m.bottom && !touches; py += 2)
+          touches = document.elementsFromPoint(px, py).some(e => backs.includes(e));
+      return { mark: at, backs: backs.length, touches };
+    }, { caption, index });
+    for (const [width, viewport] of [['desktop', { width: 1280, height: 800 }], ['phone', { width: 375, height: 740 }]]) {
+      await open('drawn-brawl', { clock: true, viewport }, async ({ page, deck }) => {
+        for (const sceneIndex of deck.scenes.keys()) {
+          const { scene, step } = await toLastStep(page, 'drawn-brawl', sceneIndex);
+          await settlePictures(scene);
+          const where = `at ${width} width, in the ${sceneIndex === 0 ? 'main' : 'smaller'} scene "${step.caption}"`;
+          for (const kind of ['damage', 'draw']) {
+            const index = step.things.findIndex(t => t[kind] !== undefined);
+            const seen = await whenShown(page, step.caption, () => marked(scene, step.caption, index));
+            assert.ok(seen.mark && (seen.circle || seen.backs), `${where}, the ${kind} thing shows no mark, or nothing for it to sit on: ${JSON.stringify(seen)}`);
+            assert.ok(seen.touches, `${where}, the ${kind === 'damage' ? '"−N" mark is off the life total\'s circle' : '"+N" mark is off every card back'}: ${JSON.stringify(seen)}`);
+          }
+        }
+      });
+    }
+  });
+
   test('A badge given on a damage or draw thing is not drawn: its "−N" or "+N" mark is its badge', () =>
     open('drawn-oddly', { reducedMotion: 'reduce' }, async ({ page, deck }) => {
       const scene = page.locator('#engine .scene').nth(1);
