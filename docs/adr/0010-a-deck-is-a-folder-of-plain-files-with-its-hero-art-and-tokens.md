@@ -11,7 +11,8 @@ links and the ledger inside `deck.json`. Its reasons stand: about a hundred save
 per deck, a deck resumed from its link, and pages that cannot load outside images.
 
 The page now opens with the hero card's artwork (ADR-0009) and plays scenes that
-show tokens (ADR-0008). Neither picture is in the folder ADR-0003 listed.
+show tokens and deal drawn cards in as Magic card backs (ADR-0008). None of these
+pictures is in the folder ADR-0003 listed.
 
 ## Decision
 
@@ -23,7 +24,9 @@ Each deck is one artifact holding plain files, by relative path:
 - `cards/<scryfall id>.jpg`, the picture of each card in the deck and of each
   token a scene uses;
 - `art/<scryfall id>.jpg`, the artwork crop of the hero card, which is a card in
-  the deck; a two-faced card's crop is on its first face.
+  the deck; a two-faced card's crop is on its first face;
+- `cards/back.jpg`, Scryfall's picture of the Magic card back, saved when a scene
+  draws cards.
 
 A save publishes `deck.json` and the new ledger entry together. The page asks for
 nothing outside the folder except its font stylesheet and the fonts it names.
@@ -39,6 +42,7 @@ The architecture tests enforce this boundary.
 
 As in ADR-0003: each save is a small publish, the two files can disagree and
 Deckwright checks them on opening, and the folder can later move to a repository.
-A deck now has one more file to fetch when its hero card is set, and one per
-token. A missing art file or token picture leaves the hero without art or the
-token as a named blank card.
+A deck now has one more file to fetch when its hero card is set, one per token,
+and the card back when a scene draws cards. A missing art file or token picture
+leaves the hero without art or the token as a named blank card, and a missing
+card back leaves drawn cards as blank cards.
