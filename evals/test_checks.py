@@ -393,6 +393,82 @@ def test_resume_continues_in_the_rounds_own_folder():
         runner.RUNS_DIR, runner.play_round = real
 
 
+def test_the_reader_and_the_judge_start_claude_cut_off_from_shared_memory():
+    import json
+    import os
+    import subprocess
+    import tempfile
+    from unittest import mock
+    import judge
+    starts = []
+
+    class Claude:
+        """Stands in for the process behind every subprocess call."""
+
+        def __init__(self, args, env=None, **_):
+            self.args, self.returncode = args, 0
+            starts.append(env)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def communicate(self, *_, **__):
+            return json.dumps({"structured_output": facts()}), ""
+
+        def poll(self):
+            return 0
+
+    shared = {"CLAUDE_MEMORY_STORES": '[{"path": "/v1/code/memory/shared"}]',
+              "CLAUDE_COWORK_MEMORY_PATH_OVERRIDE": "/shared/memory"}
+    with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, shared), \
+            mock.patch.object(subprocess, "Popen", Claude):
+        r = fake_run([{"role": "player", "text": "hi"}], [])
+        r.path = pathlib.Path(tmp)
+        checks.Run.read(r)
+        judge.ask("one conversation", "another")
+    assert len(starts) == 2, starts
+    for who, env in zip(("reader", "judge"), starts):
+        assert env is not None, f"the {who} ran in the parent's environment, shared memory and all"
+        assert "CLAUDE_MEMORY_STORES" not in env, f"the {who} can reach the project's memory store"
+        assert env.get("CLAUDE_COWORK_MEMORY_PATH_OVERRIDE") not in (None, "/shared/memory"), \
+            f"the {who} was shown the project's memory folder"
+
+
+def test_starts_on_the_same_day_share_one_publish_budget():
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        ledger = pathlib.Path(tmp) / "publishes"
+        ledger.mkdir()
+        (ledger / "2020-01-01").write_text("publish\n" * 5)
+        one_round, beside_it = runner.PublishBudget(2, ledger), runner.PublishBudget(2, ledger)
+        assert not one_round.used_up(), "another day's publishes were counted against today's budget"
+        one_round.count(artifact_call("t1"))
+        beside_it.count(artifact_call("t2"))
+        assert one_round.used_up() and beside_it.used_up(), "two rounds side by side each kept a budget of their own"
+        assert runner.PublishBudget(2, ledger).used_up(), "a start later the same day began a new count"
+
+
+def test_every_start_of_the_runner_counts_against_the_days_budget():
+    import tempfile
+    from unittest import mock
+    real = runner.RUNS_DIR, runner.play_round
+    budgets = []
+    runner.play_round = lambda *args: budgets.append(args[-1]) or []
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            runner.RUNS_DIR = pathlib.Path(tmp)
+            for _ in range(2):
+                with mock.patch.object(sys, "argv", ["run.py", "a.md", "--arm", "bare", "--publish-budget", "1"]):
+                    runner.main()
+            budgets[0].count(artifact_call("t1"))
+            assert budgets[1].used_up(), "a second start of run.py did not see the first one's publish"
+    finally:
+        runner.RUNS_DIR, runner.play_round = real
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):
