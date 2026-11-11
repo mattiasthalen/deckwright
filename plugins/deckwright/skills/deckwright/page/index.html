@@ -76,6 +76,7 @@ function arenaList(deck) {
 async function main() {
   const [scenes, cards, handbook, curve, arena] = ['scenes', 'cards', 'handbook', 'curve', 'arena'].map(id => document.getElementById(id));
   const deck = await (await fetch('deck.json', {cache: 'no-store'})).json();
+  deck.cards = deck.cards.filter(c => (c.count ?? 1) > 0);  // a card at count 0 was taken out
   const ledger = await fetch('LEDGER.md', {cache: 'no-store'}).then(r => r.ok ? r.text() : '').catch(() => '');
   const size = deck.cards.reduce((n, c) => n + (c.count ?? 1), 0);
   const want = deck.format === 'brawl' ? 100 : 60;

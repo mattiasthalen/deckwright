@@ -127,15 +127,8 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int) ->
 
     `run.json` is written however the run ends, so a run that dies still counts.
     """
-    workspace = out / "workspace"
-    workspace.mkdir(parents=True)
-    stand_in_cwd = out / "stand-in"
-    stand_in_cwd.mkdir()
+    workspace, stand_in_cwd = out / "workspace", out / "stand-in"
     opening, player, start, ends = read_brief(brief)
-    if start:
-        shutil.copytree(STARTS_DIR / start, workspace / "deck", ignore=shutil.ignore_patterns("*.py"))
-        # The checks read the start as the run began, not as starts/ is later.
-        shutil.copytree(STARTS_DIR / start, out / "start", ignore=shutil.ignore_patterns("*.py"))
     conversation = out / "conversation.jsonl"
     trace = out / "trace.jsonl"
     stand_in_session = str(uuid.uuid4())
@@ -147,7 +140,14 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int) ->
         with path.open("a") as f:
             f.write(json.dumps(record) + "\n")
 
+    out.mkdir(parents=True, exist_ok=True)
     try:
+        workspace.mkdir()
+        stand_in_cwd.mkdir()
+        if start:
+            shutil.copytree(STARTS_DIR / start, workspace / "deck", ignore=shutil.ignore_patterns("*.py"))
+            # The checks read the start as the run began, not as starts/ is later.
+            shutil.copytree(STARTS_DIR / start, out / "start", ignore=shutil.ignore_patterns("*.py"))
         for exchange in range(max_exchanges):
             log(conversation, {"role": "player", "conversation": conversation_no, "text": message})
             # Each conversation remembers nothing of the one before: a resumed deck comes from its page.

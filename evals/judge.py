@@ -73,6 +73,8 @@ def runs_by_key(stamps: list[pathlib.Path]) -> dict[tuple[str, str], pathlib.Pat
         for run in stamp.iterdir():
             if (run / "run.json").exists():
                 brief, _, n = run.name.split("--")
+                if (brief, n) in found:
+                    raise SystemExit(f"two runs pair as {brief} {n}: {found[(brief, n)]} and {run}")
                 found[(brief, n)] = run
     return found
 
@@ -86,7 +88,8 @@ def main() -> None:
     bare, skill = runs_by_key(args.bare), runs_by_key(args.skill)
     results = json.loads(args.out.read_text()) if args.out.exists() else {}
     for key in sorted(bare.keys() & skill.keys()):
-        name = "--".join(key)
+        # Keyed by both runs, so a new round is judged afresh against the same bare runs.
+        name = f"{bare[key]}|{skill[key]}"
         if name not in results:
             b, s = transcript(bare[key]), transcript(skill[key])
             first, second = ask(s, b), ask(b, s)  # the skill is A, then B
@@ -95,7 +98,7 @@ def main() -> None:
                                  else "bare" if first[q]["winner"] == "B" and second[q]["winner"] == "A" else "split"}
                              for q in QUESTIONS}
             args.out.write_text(json.dumps(results, indent=2))
-        print(name, {q: v["verdict"] for q, v in results[name].items()})
+        print("--".join(key), {q: v["verdict"] for q, v in results[name].items()})
     totals = {q: Counter(results[name][q]["verdict"] for name in results) for q in QUESTIONS}
     print("Totals:", {q: dict(c) for q, c in totals.items()})
 

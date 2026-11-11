@@ -33,8 +33,6 @@ EXTRA_FACTS = ["one_question_per_intent_message", "remaining_stated_after_each_a
                "type_shown_before_broader", "broader_count_stated_and_waited", "narrowing_said",
                "nonbasics_offered_as_choices", "tagless_job_warned", "no_step_unasked", "departures_confirmed",
                "no_strength_or_price_question"]
-# Read only for briefs that start from nothing, and absent from readers cached before it was added.
-OPTIONAL_FACTS = {"no_strength_or_price_question"}
 
 READER_SCHEMA = {
     "type": "object",
@@ -147,15 +145,26 @@ def scryfall_get(path: str, pause: float) -> dict | None:
     raise RuntimeError(f"Scryfall unreachable for {path}")
 
 
+def spells(name: str, real: str) -> bool:
+    """`name` spells the card `real`: the same name, a face of it, or the start of a
+    face of a two-faced card ("Riverglide" for Riverglide Pathway // Lavaglide Pathway).
+    Commas and apostrophes are ignored."""
+    plain = lambda text: re.sub(r"[,']", "", text).strip()
+    return any(plain(f) == plain(g) or ("//" in real and plain(g).startswith(plain(f)))
+               for f in faces(name) for g in faces(real))
+
+
 def scryfall(name: str, cache: dict) -> dict | None:
+    # An entry a looser rule stored under a name that does not spell it is not that card.
+    if cache.get(name) and not spells(name, cache[name]["name"]):
+        del cache[name]
     if name not in cache:
         card = scryfall_get("/cards/named?exact=" + urllib.parse.quote(name), 0.5)
         if card is None:
             # A two-faced card may be spelled by one face or with a shortened face;
             # fuzzy finds those, and is kept only when a face really matches.
             near = scryfall_get("/cards/named?fuzzy=" + urllib.parse.quote(name), 0.5)
-            if near and any(f == g or g.startswith(f) or f.startswith(g)
-                            for f in faces(name) for g in faces(near["name"])):
+            if near and spells(name, near["name"]):
                 card = near
         if card is None:
             cache[name] = None
@@ -241,14 +250,23 @@ class Run:
             return None
 
     def foreign_paths(self) -> list[str]:
-        """Tool calls that reached outside the run's own folder: another run's files or memory."""
+        """Tool calls that reached outside the run: another run's files, memory, or an
+        artifact in the account's gallery this run did not publish."""
         own = str(self.path.resolve())
+        scratch = f"{self.path.parent.name}-{self.path.name}-workspace"  # the run's session scratchpad
+        results = [json.dumps(e.get("message", {}).get("content", [])) for e in self.trace if e.get("type") == "user"]
+        mine = {url for text in results if "Published" in text
+                for url in re.findall(r"claude\.ai/(?:code/)?artifact/[\w-]+", text)}
         hits = []
-        for _, _, _, given, _ in self.tool_uses():
+        for _, _, name, given, _ in self.tool_uses():
             text = json.dumps(given)
             reaches_out = "/evals/runs/" in text or "/claude/memory/" in text
-            if reaches_out and own not in text and self.path.name not in text:
+            if reaches_out and own not in text and scratch not in text:
                 hits.append(text[:120])
+            if name == "Artifact" and given.get("action") in ("list", "read", "delete"):
+                url = given.get("url")
+                if not url or not any(m in url for m in mine):
+                    hits.append(f"Artifact {given.get('action')} {url or '(the gallery)'}")
         return hits
 
     def deckwright_texts(self) -> list[str]:
@@ -285,6 +303,7 @@ class Run:
             cards = Counter()
             for card in deck["cards"]:
                 cards[card["name"]] += int(card.get("count", 1))
+            cards = +cards  # a card at count 0 was taken out
             commander = next((c["name"] for c in deck["cards"] if str(c.get("category", "")).lower() == "commander"), None)
             return cards, commander
         candidates = self.deckwright_texts() + list(self.files.values())
@@ -486,12 +505,15 @@ def type_line_of(name: str, cache: dict) -> str:
     return (scryfall(name, cache) or {}).get("type_line") or ""
 
 
-def singular(word: str) -> str:
-    """Elves → elf, wolves → wolf, rats → rat: enough for creature types."""
-    for plural, single in (("ves", "f"), ("ies", "y"), ("s", "")):
-        if word.endswith(plural) and len(word) > len(plural) + 1:
-            return word[: -len(plural)] + single
-    return word
+def singulars(word: str) -> set[str]:
+    """The forms a plural creature type may come from: elves → elf, zombies → zombie,
+    faeries → faerie, foxes → fox, rats → rat."""
+    forms = {word, word[:-1], word[:-2]}
+    if word.endswith("ves"):
+        forms |= {word[:-3] + "f", word[:-3] + "fe"}
+    if word.endswith("ies"):
+        forms.add(word[:-3] + "y")
+    return {form for form in forms if len(form) > 1}
 
 
 def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> tuple[str, str]:
@@ -519,7 +541,7 @@ def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> 
     # Categories a half-built start already had were not Deckwright's to name.
     inherited = {c["name"] for c in run.start["categories"]} if run.start else set()
     typal = [c["name"] for c in categories if c["name"] not in inherited
-             and any(singular(word) in creature_types for word in c["name"].lower().replace("-", " ").split())]
+             and any(singulars(word) & creature_types for word in c["name"].lower().replace("-", " ").split())]
     if typal:
         problems.append(f"creature-type categories: {typal}")
     return ("pass" if not problems else "fail", "; ".join(problems))

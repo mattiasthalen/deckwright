@@ -69,6 +69,11 @@ as DIED. A started run copies its start into `start/`, which the checks read.
   word per category (AC42).
 - AC18 (offered cards shown as pictures in chat) is not run: runs may not send files
   into chat.
+- The judge is blind by label only: the skill arm's saved page files show which
+  arm is which, so "page explains" cannot be blind. It reads the last 150,000
+  characters of a long conversation, which can drop the intent interview.
+- Runs share the account's artifact gallery and its limit of 200 publishes a day;
+  `checks.py` flags a run that lists or reads a page it did not publish.
 - `run.json` costs before 2026-11-11 summed running totals; they were recalculated
   from the traces.
 - Runs `checks.py` flags as CONTAMINATED reached outside their own folder.
