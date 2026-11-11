@@ -13,8 +13,8 @@ it had saved itself.
 Every card Deckwright describes is looked up on Scryfall in that conversation.
 Each card in `deck.json` carries its Scryfall id and a copy for display (name,
 mana cost, type line, rules text, the date taken); Deckwright never reasons from
-the copy. The review looks every card up again and recounts from type line, text,
-Scryfall tags and legality, never from saved tags. A changed text is a finding.
+the copy. The review looks every card up again and recounts from type line, text
+and legality, never from saved tags. Scryfall tags serve the search only. A changed text is a finding.
 When Scryfall is down, Deckwright stops; a card the player insists on is saved as
 not checked and blocks approval.
 
