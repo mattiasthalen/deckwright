@@ -414,6 +414,7 @@ const drawnCapitalBrawl = { ...drawnBrawl, format: 'Brawl' };
 const drawnNoFormat = { ...drawnBrawl, format: 'constructor' };
 
 const drawsCards = deck => (deck.scenes || []).some(s => (s.steps || []).some(st => Array.isArray(st.things) && st.things.some(t => t.draw !== undefined)));
+const savesCardBack = folder => folder.back ?? (typeof folder.deck === 'object' && drawsCards(folder.deck));
 
 const ledgerFile = entries => '# Ledger\n\n' + entries.map(([date, kind, subject, why]) => `- ${date} · ${kind} · ${subject} · ${why}`).join('\n') + '\n';
 
@@ -477,12 +478,13 @@ async function jpeg(browser, width, height, colour) {
 
 // The page with the deck folder's files set in window.DECK_FILES by a script
 // before the page's own: text files as text, pictures as data URLs.
-function packedPage(page, folder, cardPicture, artCrop) {
+function packedPage(page, folder, cardPicture, artCrop, cardBack) {
   const dataUrl = bytes => `data:image/jpeg;base64,${Buffer.from(bytes).toString('base64')}`;
   const files = { 'deck.json': JSON.stringify(folder.deck) };
   if (folder.ledger !== undefined) files['LEDGER.md'] = folder.ledger;
   for (const id of folder.pictures) files[`cards/${id}.jpg`] = dataUrl(cardPicture);
   for (const id of folder.art) files[`art/${id}.jpg`] = dataUrl(artCrop);
+  if (savesCardBack(folder)) files['cards/back.jpg'] = dataUrl(cardBack);
   const script = `<script>window.DECK_FILES = ${JSON.stringify(files).replace(/</g, '\\u003c')};</script>\n`;
   const at = page.indexOf('<script>');
   if (at < 0) throw new Error('the page has no inline script to put DECK_FILES before');
@@ -501,7 +503,7 @@ async function startDeckServer(browser) {
     fs.mkdirSync(path.join(dir, 'cards'), { recursive: true });
     fs.mkdirSync(path.join(dir, 'art'), { recursive: true });
     if (f.packedFrom) {
-      fs.writeFileSync(path.join(dir, 'index.html'), packedPage(page.toString('utf8'), folders[f.packedFrom], cardPicture, artCrop));
+      fs.writeFileSync(path.join(dir, 'index.html'), packedPage(page.toString('utf8'), folders[f.packedFrom], cardPicture, artCrop, cardBack));
       continue;
     }
     fs.writeFileSync(path.join(dir, 'index.html'), page);
@@ -509,7 +511,7 @@ async function startDeckServer(browser) {
     if (f.ledger !== undefined) fs.writeFileSync(path.join(dir, 'LEDGER.md'), f.ledger);
     for (const id of f.pictures) fs.writeFileSync(path.join(dir, 'cards', `${id}.jpg`), cardPicture);
     for (const id of f.art) fs.writeFileSync(path.join(dir, 'art', `${id}.jpg`), artCrop);
-    if (f.back ?? (typeof f.deck === 'object' && drawsCards(f.deck))) fs.writeFileSync(path.join(dir, 'cards', 'back.jpg'), cardBack);
+    if (savesCardBack(f)) fs.writeFileSync(path.join(dir, 'cards', 'back.jpg'), cardBack);
   }
   const server = http.createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
