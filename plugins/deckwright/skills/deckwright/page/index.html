@@ -358,7 +358,7 @@ function arenaList() {
 }
 async function copyArenaList() {
   try { await navigator.clipboard.writeText(arenaList()); toast('Copied. Paste it into Arena.'); }
-  catch { toast('Select the list at the bottom and copy it'); location.hash = '#import'; }
+  catch { toast('Select the list at the bottom and copy it'); $('import').scrollIntoView(); }
 }
 
 // ---------- colours ----------
