@@ -269,6 +269,108 @@ def test_a_run_costs_the_last_total_of_each_conversation():
     assert summary["deckwright_cost_usd"] == 0.60, f"0.40 and 0.20 are what the two conversations cost: {summary}"
 
 
+def artifact_call(call_id, refused=False, action="publish"):
+    """One Deckwright turn's trace of an Artifact call and the answer it got."""
+    answer = {"type": "tool_result", "tool_use_id": call_id, "content": "published"}
+    if refused:
+        answer |= {"is_error": True, "content": "publish 429: daily publish limit for your plan reached (200)"}
+    return [{"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": call_id, "name": "Artifact", "input": {"file_path": "index.html", "action": action}}]}},
+            {"type": "user", "message": {"content": [answer]}}]
+
+
+def test_the_budget_counts_only_publishes_the_artifact_tool_accepted():
+    budget = runner.PublishBudget(2)
+    budget.count(artifact_call("t1") + artifact_call("t2", refused=True) + artifact_call("t3", action="read"))
+    assert not budget.used_up(), "a refused publish or a read was counted against the budget"
+    budget.count(artifact_call("t4"))
+    assert budget.used_up(), "two accepted publishes did not use up a budget of two"
+    assert 0 < runner.DEFAULT_PUBLISH_BUDGET < 200, "the default leaves the owner nothing of the day's 200 publishes"
+
+
+def test_a_run_stops_once_the_round_has_published_its_budget():
+    turns = [artifact_call(f"t{n}") + [{"type": "result", "result": "Saved. Next?"}] for n in range(6)]
+    summary = play(turns, ["ok"] * 6, budget=runner.PublishBudget(2))
+    assert summary["ended"] == "publish budget", summary
+    assert summary["exchanges"] == 2, f"the run went on publishing past its budget: {summary}"
+
+
+def test_a_round_out_of_budget_starts_no_more_runs():
+    import tempfile
+    budget = runner.PublishBudget(1)
+    budget.count(artifact_call("t1"))
+    real, started = runner.run, []
+    runner.run = lambda brief, arm, out, *rest: started.append(out.name)
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            round_dir = pathlib.Path(tmp) / "20261111T120000"
+            summaries = list(runner.play_round([pathlib.Path(tmp) / "a.md"], "bare", 2, round_dir, 2, 5, budget))
+            left = list(round_dir.glob("*"))
+    finally:
+        runner.run = real
+    assert not started, started
+    # No folder and no run.json: a later --resume takes these runs as never played.
+    assert not left, left
+    assert [s["ended"] for s in summaries] == ["not started: publish budget"] * 2, summaries
+
+
+def test_a_resumed_round_plays_only_its_unfinished_runs():
+    import json
+    import tempfile
+    real, played, leftovers = runner.run, [], []
+
+    def fake_run(brief, arm, out, max_exchanges, budget):
+        played.append(out.name)
+        leftovers.extend(out.rglob("*"))
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "run.json").write_text(json.dumps({"ended": "player ended"}))
+        return {"brief": brief.stem, "arm": arm, "ended": "player ended"}
+    runner.run = fake_run
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            round_dir = pathlib.Path(tmp) / "20261111T120000"
+            finished, cut_off = round_dir / "a--bare--1", round_dir / "a--bare--2"
+            (cut_off / "workspace").mkdir(parents=True)
+            (cut_off / "trace.jsonl").write_text("{}\n")
+            finished.mkdir()
+            (finished / "run.json").write_text('{"ended": "turn cap"}')
+            summaries = list(runner.play_round([pathlib.Path(tmp) / "a.md"], "bare", 3, round_dir, 2, 5,
+                                               runner.PublishBudget(10)))
+            kept = (finished / "run.json").read_text()
+    finally:
+        runner.run = real
+    assert sorted(played) == ["a--bare--2", "a--bare--3"], f"played {played}"
+    assert kept == '{"ended": "turn cap"}', "the finished run was played again"
+    assert not leftovers, f"the cut-off run began on what its first try left behind: {leftovers}"
+    assert len(summaries) == 2, summaries
+
+
+def test_resume_continues_in_the_rounds_own_folder():
+    import tempfile
+    from unittest import mock
+    real = runner.RUNS_DIR, runner.play_round
+    rounds = []
+    runner.play_round = lambda briefs, arm, runs, round_dir, *rest: rounds.append((arm, runs, round_dir)) or []
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            runner.RUNS_DIR = pathlib.Path(tmp)
+            (runner.RUNS_DIR / "20261111T120000").mkdir()
+            with mock.patch.object(sys, "argv", ["run.py", "a.md", "--arm", "skill", "--runs", "2",
+                                                 "--resume", "20261111T120000"]):
+                runner.main()
+            with mock.patch.object(sys, "argv", ["run.py", "a.md", "--arm", "skill", "--resume", "20250101T000000"]), \
+                    mock.patch.object(sys, "stderr"):
+                try:
+                    runner.main()
+                    unknown = "played"
+                except SystemExit:
+                    unknown = "refused"
+            assert rounds == [("skill", 2, runner.RUNS_DIR / "20261111T120000")], rounds
+            assert unknown == "refused", "resuming a round that does not exist started a new one under its name"
+    finally:
+        runner.RUNS_DIR, runner.play_round = real
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):
