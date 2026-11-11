@@ -288,6 +288,7 @@ const lostFiles = {
     steps: [
       { caption: 'Faded Rat waits.', things: [{ card: 'Faded Rat' }] },
       { caption: 'Faded Rat attacks.', things: [{ card: 'Faded Rat', does: 'taps' }] },
+      { caption: 'Faded Rat is exiled.', things: [{ card: 'Faded Rat', does: 'leaves' }] },
     ],
   }],
   handbook: [{ title: 'Pairs', blocks: [{ pairs: [{ cards: ['Faded Rat', 'Swamp'], text: 'One picture is missing.' }] }] }],
@@ -295,6 +296,42 @@ const lostFiles = {
 };
 
 const LINE_THE_PAGE_CANNOT_SPLIT = 'Rebuilt the mana base by hand';
+const LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID = `Traded Faded Rat (${scryfallId(701)}) for a cheaper printing`;
+
+// The several deck with one thing written in a shape the page cannot draw.
+const SEVERAL_LEDGER = [['2026-11-05', 'in', `Smoke Tyrant (${scryfallId(201)})`, 'the commander']];
+const misdrawn = over => ({ ...several, ...over });
+const misdrawnScene = misdrawn({ scenes: [
+  { title: 'A later step with one thing', steps: [
+    { caption: 'Smoke Tyrant waits.', things: [{ card: 'Smoke Tyrant' }] },
+    { caption: 'Its things are one object.', things: { card: 'Smoke Tyrant' } },
+  ] },
+  { title: 'A first step with one thing', steps: [{ caption: 'Its things are one object.', things: { card: 'Quick Shock' } }] },
+] });
+const misdrawnBlock = misdrawn({ handbook: [{ title: 'A list written as one string', blocks: [{ list: 'Keep Quick Shock.' }] }] });
+const halfManaValue = misdrawn({ cards: [...several.cards, card(206, 'Half Spark', 'Spells', '{½}', 'Instant', { manaValue: 0.5 })] });
+
+// Names with one long word, in every place the page shows a card name or handbook prose.
+const LONG_WORD = 'Asmoranomardicadaistinaculdacar';
+const longNames = {
+  ...several,
+  name: 'Long Word Deck',
+  cards: [
+    card(901, `${LONG_WORD} Tyrant`, 'Commander', '{B}{R}', 'Legendary Creature — Elemental', { why: `${LONG_WORD} leads.` }),
+    card(902, LONG_WORD, 'Spells', '{R}', 'Instant', { text: `${LONG_WORD} deals 2 damage to any target.`, why: `${LONG_WORD} answers ${LONG_WORD}.` }),
+    card(903, 'Swamp', 'Lands', '', 'Basic Land — Swamp', { count: 9 }),
+  ],
+  handbook: [{ title: `${LONG_WORD} wins`, blocks: [
+    { text: `Cast ${LONG_WORD} early. ${LONG_WORD}${LONG_WORD} is not a card.` },
+    { list: [`Keep ${LONG_WORD} for a blocker.`] },
+    { note: `${LONG_WORD} answers a ${LONG_WORD}.` },
+    { turns: [{ turn: 'T1', text: `Play ${LONG_WORD} and a Swamp.` }] },
+    { pairs: [{ cards: [`${LONG_WORD} Tyrant`, LONG_WORD], text: `${LONG_WORD} and ${LONG_WORD}.` }] },
+  ] }],
+};
+
+// A deck name with a space before, after and inside it.
+const spacedName = { ...several, name: '  Ash and  Shadow Pack ' };
 
 // A deck whose shared creature type is the only one it has, at four copies.
 const tribe = (n, type) => ({
@@ -307,6 +344,7 @@ const tribe = (n, type) => ({
   approved: false,
 });
 const TRIBES = { Merfolk: 'Merfolk', Kithkin: 'Kithkin', Kor: 'Kor', Elf: 'Elves' };
+const TRIBES_WITHOUT_S = ['Eldrazi', 'Myr', 'Vedalken', 'Aetherborn', 'Deer'];
 
 const ledgerFile = entries => '# Ledger\n\n' + entries.map(([date, kind, subject, why]) => `- ${date} · ${kind} · ${subject} · ${why}`).join('\n') + '\n';
 
@@ -323,7 +361,13 @@ function deckFolders() {
   return {
     rich: { deck: rich, ledger: ledgerFile(RICH_LEDGER), ...all(rich) },
     mono: { deck: mono, ...all(mono) },
-    several: { deck: several, ledger: ledgerFile([['2026-11-05', 'in', `Smoke Tyrant (${scryfallId(201)})`, 'the commander']]), ...all(several) },
+    several: { deck: several, ledger: ledgerFile(SEVERAL_LEDGER), ...all(several) },
+    'misdrawn-scene': { deck: misdrawnScene, ledger: ledgerFile(SEVERAL_LEDGER), ...all(misdrawnScene) },
+    'misdrawn-block': { deck: misdrawnBlock, ledger: ledgerFile(SEVERAL_LEDGER), ...all(misdrawnBlock) },
+    'half-mana-value': { deck: halfManaValue, ledger: ledgerFile(SEVERAL_LEDGER), ...all(halfManaValue) },
+    'long-names': { deck: longNames, ...all(longNames),
+      ledger: ledgerFile([['2026-11-08', 'in', `${LONG_WORD} (${scryfallId(902)})`, `${LONG_WORD} answers ${LONG_WORD}`]]) },
+    'spaced-name': { deck: spacedName, ...all(spacedName) },
     colourless: { deck: colourless, ledger: ledgerFile([['2026-11-05', 'in', `Iron Golem Sovereign (${scryfallId(301)})`, 'the commander']]), ...all(colourless) },
     stray: { deck: stray, pictures: new Set([scryfallId(402)]), art: [] },
     'version-one': { deck: versionOne, ledger: '', ...all(versionOne) },
@@ -334,8 +378,8 @@ function deckFolders() {
     'second-thoughts': { deck: secondThoughts, ...all(secondThoughts),
       ledger: ledgerFile([['2026-11-06', 'in', `Marsh Warden (${scryfallId(601)})`, 'the commander'], ['2026-11-06', 'out', `Maybe Rat (${scryfallId(604)})`, 'moved to the maybeboard']]) },
     'lost-files': { deck: lostFiles, pictures: new Set([scryfallId(702)]), art: [],
-      ledger: ledgerFile([['2026-11-07', 'in', `Faded Rat (${scryfallId(701)})`, 'the commander']]) + `- ${LINE_THE_PAGE_CANNOT_SPLIT}\n` },
-    ...Object.fromEntries(Object.keys(TRIBES).map((type, i) => [`tribe-${type.toLowerCase()}`, { deck: tribe(800 + 10 * i, type), ...all(tribe(800 + 10 * i, type)) }])),
+      ledger: ledgerFile([['2026-11-07', 'in', `Faded Rat (${scryfallId(701)})`, 'the commander']]) + `- ${LINE_THE_PAGE_CANNOT_SPLIT}\n- ${LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID}\n` },
+    ...Object.fromEntries([...Object.keys(TRIBES), ...TRIBES_WITHOUT_S].map((type, i) => [`tribe-${type.toLowerCase()}`, { deck: tribe(800 + 10 * i, type), ...all(tribe(800 + 10 * i, type)) }])),
     // The rich deck with every file given to the page in window.DECK_FILES and none in the folder.
     packed: { deck: rich, packedFrom: 'rich', pictures: new Set(), art: [] },
     example: { deck: example, ledger: ledgerFile([['2026-11-10', 'in', 'An example card', 'the example ledger']]), ...all(example) },
@@ -446,5 +490,6 @@ async function withDeck(browser, server, name, options, use) {
 }
 
 module.exports = {
-  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, LINE_THE_PAGE_CANNOT_SPLIT, startDeckServer, withDeck,
+  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
+  LONG_WORD, startDeckServer, withDeck,
 };

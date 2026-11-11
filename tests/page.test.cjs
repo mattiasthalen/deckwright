@@ -22,7 +22,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const {
-  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, LINE_THE_PAGE_CANNOT_SPLIT, startDeckServer, withDeck,
+  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
+  LONG_WORD, startDeckServer, withDeck,
 } = require('./page-harness.cjs');
 
 let browser, server;
@@ -232,6 +233,25 @@ const curveBuckets = deck => {
 const ledgerSubject = subject => subject.replace(/\s*\([0-9a-f-]{36}\)/, '');
 const KIND_WORDS = { in: 'In', out: 'Out', criteria: 'Criteria', category: 'Category', finding: 'Finding' };
 
+// The page around a section it could not draw: that section is left out with its
+// error on the console, and every other section, the ledger, the Arena list and
+// the card dialog are drawn.
+async function drawnWithout(page, errors, deckName, leftOut) {
+  const deck = deckOf(deckName);
+  for (const id of ['top', 'cards', 'curve', 'handbook', 'ledger', 'import'].filter(id => id !== leftOut)) {
+    assert.ok(await visible(page.locator(`#${id}`)), `the #${id} section is not drawn; errors: ${errors.join(' | ')}`);
+  }
+  const pre = page.locator('pre').filter({ visible: true });
+  assert.equal(await pre.count(), 1, 'the Arena list is not drawn');
+  assert.equal((await pre.innerText()).trim(), arenaList(deck));
+  assert.ok(await until(async () => (await page.locator('#ledger').innerText()).includes('the commander')), 'the ledger entry is not drawn');
+  const d = await openCard(page, deckName, 'Quick Shock');
+  assert.ok((await d.innerText()).includes('Quick Shock'), 'the card dialog does not open');
+  await closeDialog(page);
+  assert.ok(!(await visible(page.locator(`#${leftOut}`))), `the #${leftOut} section it could not draw is shown`);
+  assert.ok(errors.some(e => e.includes(`#${leftOut}`)), `the console does not say the #${leftOut} section could not be drawn: ${errors.join(' | ')}`);
+}
+
 // ======================================================================
 describe('The look', () => {
   test('AC1: The page has no tab control, and its sections appear in this order: hero, scenes, cards, curve, handbook, ledger, Arena list', () =>
@@ -380,6 +400,30 @@ describe('The look', () => {
       assert.ok(widths.page <= widths.view && widths.body <= widths.view, `the page is ${widths.page} px wide in a ${widths.view} px window`);
     }));
 
+  test('A card name or handbook word longer than the window wraps: at phone width nothing scrolls sideways, in the page or the card dialog', () =>
+    open('long-names', { viewport: { width: 375, height: 740 } }, async ({ page }) => {
+      for (const id of ['top', 'cards', 'curve', 'handbook', 'ledger', 'import']) {
+        assert.ok(await visible(page.locator(`#${id}`)), `the #${id} section is not drawn, so the width check would prove nothing`);
+      }
+      const width = () => page.evaluate(() => ({ page: document.documentElement.scrollWidth, body: document.body.scrollWidth, view: document.documentElement.clientWidth }));
+      let w = await width();
+      assert.ok(w.page <= w.view && w.body <= w.view, `the page is ${w.page} px wide in a ${w.view} px window`);
+      const d = await openCard(page, 'long-names', LONG_WORD);
+      const box = await d.evaluate(e => { const r = e.getBoundingClientRect(); return { left: r.left, right: r.right, inner: e.scrollWidth - e.clientWidth }; });
+      w = await width();
+      assert.ok(box.left >= 0 && box.right <= w.view && box.inner <= 0, `the dialog spans ${box.left.toFixed(0)} to ${box.right.toFixed(0)} px (${box.inner} px hidden) in a ${w.view} px window`);
+    }));
+
+  test('A deck name with spaces before, after or doubled inside it is drawn word by word, and its last word carries the blend', () =>
+    open('spaced-name', async ({ page }) => {
+      assert.equal((await page.locator('#top h1').innerText()).replace(/\s+/g, ' ').trim(), 'Ash and Shadow Pack');
+      const blended = await page.evaluate(() => {
+        const h1 = document.querySelector('h1');
+        return [h1, ...h1.querySelectorAll('*')].filter(e => /gradient/.test(getComputedStyle(e).backgroundImage)).map(e => e.textContent);
+      });
+      assert.deepEqual(blended, ['Pack'], `the blend is on ${JSON.stringify(blended)}`);
+    }));
+
   test('AC8: A deck with no hero field still shows its name and numbers', () =>
     open('several', async ({ page, deck, outside }) => {
       assert.ok(await visible(page.locator('#top')), 'the hero is not on the page');
@@ -406,6 +450,15 @@ describe('The look', () => {
       await open(`tribe-${type.toLowerCase()}`, async ({ page }) => {
         const { text, found } = await headline(page, { shared: plural });
         assert.equal(found.shared, 4, `four ${type} creatures are not headlined as 4 ${plural}: ${text.replace(/\s+/g, ' ')}`);
+      });
+    }
+  });
+
+  test('The shared creature type is named in the plural Arena uses: Eldrazi, Myr, Vedalken, Aetherborn and Deer take no s', async () => {
+    for (const type of TRIBES_WITHOUT_S) {
+      await open(`tribe-${type.toLowerCase()}`, async ({ page }) => {
+        const { text, found } = await headline(page, { shared: type });
+        assert.equal(found.shared, 4, `four ${type} creatures are not headlined as 4 ${type}: ${text.replace(/\s+/g, ' ')}`);
       });
     }
   });
@@ -538,6 +591,46 @@ describe('Scenes', () => {
       assert.ok(motions.leaves.names.length && (motions.leaves.opacity < 0.9 || motions.leaves.grey), 'a thing that leaves does not fade out');
       assert.deepEqual({ names: motions.still.names, angle: motions.still.angle, opacity: motions.still.opacity },
         { names: [], angle: 0, opacity: 1 }, 'a thing with no does moves');
+    }));
+
+  test('A thing that taps turns while its step is shown, from standing to turned, rather than being drawn already turned', () =>
+    open('rich', { clock: true }, async ({ page }) => {
+      const scene = page.locator('.scene').filter({ hasText: 'Five motions and one card standing still.' });
+      assert.ok(await visible(scene), 'the scene with every motion is not drawn');
+      await scene.scrollIntoViewIfNeeded();
+      const turning = await scene.evaluate((s, src) => {
+        const img = [...s.querySelectorAll('.thing img')].find(i => new URL(i.src, location.href).pathname === src);
+        const turns = img?.getAnimations().filter(a => a.effect.getKeyframes().some(k => /rotate/.test(k.transform || '')));
+        return img ? { turns: turns.length, transform: getComputedStyle(img).transform } : null;
+      }, picturePath('rich', scryfallId(5)));
+      assert.ok(turning, 'the thing that taps is not drawn as a picture');
+      assert.ok(turning.turns > 0, `a thing that taps does not turn: it is drawn as ${turning.transform} with no animation`);
+    }));
+
+  test('A blank card standing in for a missing picture taps and leaves as a picture does', () =>
+    open('lost-files', { clock: true }, async ({ page, deck }) => {
+      const engine = page.locator('#engine');
+      assert.ok(await visible(engine), 'the scenes section is not on the page');
+      await settlePictures(engine);
+      const [waits, taps, leaves] = deck.scenes[0].steps;
+      const ended = () => engine.evaluate(e => {
+        const blank = [...e.querySelectorAll('.thing *')].find(b => b.children.length === 0 && b.textContent.trim() === 'Faded Rat');
+        if (!blank) return null;
+        const moving = blank.getAnimations().length;
+        blank.getAnimations().forEach(a => { try { a.finish(); } catch {} });
+        const s = getComputedStyle(blank), m = new DOMMatrix(s.transform === 'none' ? undefined : s.transform);
+        return { moving, angle: Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI), opacity: +s.opacity, grey: /grayscale\((1|0\.[5-9])/.test(s.filter) };
+      });
+      await nextStep(page, engine, waits.caption);
+      assert.ok((await engine.innerText()).includes(taps.caption), 'the scene did not move to the step where Faded Rat taps');
+      const tapped = await ended();
+      assert.ok(tapped, 'Faded Rat is not drawn on a blank card');
+      assert.ok(tapped.moving > 0, 'a blank card that taps does not move');
+      assert.equal(Math.abs(tapped.angle), 90, `a blank card that taps ends turned ${tapped.angle} degrees`);
+      await nextStep(page, engine, taps.caption);
+      assert.ok((await engine.innerText()).includes(leaves.caption), 'the scene did not move to the step where Faded Rat leaves');
+      const left = await ended();
+      assert.ok(left.moving > 0 && (left.opacity < 0.9 || left.grey), 'a blank card that leaves does not fade out');
     }));
 
   test('AC14: With reduced motion, a scene shows its last step and does not advance', () =>
@@ -923,6 +1016,13 @@ describe('Ledger', () => {
       assert.doesNotMatch(text, /\b(undefined|null)\b/, 'the line shows a placeholder');
     }));
 
+  test('A ledger line the page cannot split is shown without its Scryfall id', () =>
+    open('lost-files', async ({ page }) => {
+      const text = await sectionText(page, 'ledger');
+      assert.doesNotMatch(text, UUID, 'the ledger shows a Scryfall id');
+      assert.ok(text.includes(ledgerSubject(LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID)), `the line is not shown as "${ledgerSubject(LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID)}"`);
+    }));
+
   test('LEDGER.md fails to arrive: the ledger says "Nothing logged yet.", the cards still open and the Arena list is drawn', () =>
     open('rich', { refuse: ['/LEDGER.md'] }, async ({ page, deck, requested }) => {
       assert.ok(requested.some(p => p.endsWith('/LEDGER.md')), 'the page never asked for LEDGER.md, so nothing was refused');
@@ -1132,6 +1232,41 @@ describe('Edge cases', () => {
       const inView = await until(() => pre.evaluate(e => { const r = e.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }));
       assert.ok(inView, 'the Arena list is not brought into view');
       assert.equal((await pre.innerText()).trim(), arenaList(deck));
+    }));
+
+  test('The clipboard refused a second time still brings the Arena list into view', () =>
+    open('rich', { clipboard: false }, async ({ page }) => {
+      const copy = page.locator('#top').getByRole('button', { name: /copy/i }).first();
+      const pre = page.locator('pre').filter({ visible: true });
+      const inView = () => until(() => pre.evaluate(e => { const r = e.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }));
+      await copy.click();
+      assert.ok(await inView(), 'the first refusal does not bring the Arena list into view');
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+      assert.ok(!(await pre.evaluate(e => e.getBoundingClientRect().top < innerHeight)), 'the Arena list is still in view at the top of the page, so this test proves nothing');
+      await copy.click();
+      assert.ok(await inView(), 'the second refusal does not bring the Arena list into view');
+    }));
+
+  test('A scene step whose things are not a list leaves the scenes out, and the rest of the page is drawn', () =>
+    open('misdrawn-scene', ({ page, errors }) => drawnWithout(page, errors, 'misdrawn-scene', 'engine')));
+
+  test('A handbook block whose list is not a list leaves the handbook out, with no link to it, and the rest of the page is drawn', () =>
+    open('misdrawn-block', async ({ page, errors }) => {
+      await drawnWithout(page, errors, 'misdrawn-block', 'handbook');
+      const toHandbook = page.locator('#top').getByRole('link', { name: /handbook/i });
+      assert.equal(await toHandbook.filter({ visible: true }).count(), 0, 'the hero links to a handbook that is left out');
+    }));
+
+  test('A mana value with a fraction is drawn in the curve column of its whole number, and the rest of the page is drawn', () =>
+    open('half-mana-value', { reducedMotion: 'reduce' }, async ({ page, errors }) => {
+      const pre = page.locator('pre').filter({ visible: true });
+      assert.equal(await pre.count(), 1, `the Arena list is not drawn; errors: ${errors.join(' | ')}`);
+      assert.equal((await pre.innerText()).trim(), arenaList(deckOf('half-mana-value')));
+      const curve = await steadyCurve(page);
+      assert.ok(curve?.legend, 'the curve is not drawn');
+      const parts = curve.columns.map(c => c.other > 0 ? 'other' : c.creature > 0 ? 'creature' : '');
+      assert.deepEqual(parts.slice(0, 3), ['other', 'other', 'creature'], 'Half Spark (0.5) is not in column 0 beside the two one-mana spells in column 1 and the commander in column 2');
+      assert.deepEqual(errors, []);
     }));
 
   test('No pitch, curve note, why or rarity: that line or mark is absent', () =>
