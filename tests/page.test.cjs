@@ -22,8 +22,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const {
-  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, LINE_THE_PAGE_CANNOT_SPLIT,
-  startDeckServer, withDeck, arenaList, rgb, hsl, resolveColour, settlePictures, pictures, until,
+  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, LINE_THE_PAGE_CANNOT_SPLIT, startDeckServer, withDeck,
 } = require('./page-harness.cjs');
 
 let browser, server;
@@ -43,6 +42,60 @@ const isCreature = c => /\bCreature\b/.test(frontType(c));
 const symbolValue = s => { const n = s.slice(1, -1).split('/').find(p => /^\d+$/.test(p)); return n !== undefined ? +n : /X/.test(s) ? 0 : 1; };
 const manaValue = c => c.copy?.mana_value ?? ((c.copy?.mana_cost || '').match(/\{[^}]+\}/g) || []).reduce((n, s) => n + symbolValue(s), 0);
 const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
+
+const arenaList = deck => {
+  const live = deck.cards.filter(c => (c.count ?? 1) > 0);
+  const line = c => `${c.count ?? 1} ${c.name}`;
+  const commander = live.filter(c => c.category === 'Commander'), rest = live.filter(c => c.category !== 'Commander');
+  return (commander.length ? `Commander\n${commander.map(line).join('\n')}\n\n` : '') + `Deck\n${rest.map(line).join('\n')}`;
+};
+
+function rgb(css) {
+  const m = String(css).match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/);
+  if (!m) throw new Error(`not an rgb colour: ${css}`);
+  return m.slice(1, 4).map(Number);
+}
+
+function hsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? 60 * (((g - b) / d) % 6) : max === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+  return { h: (h + 360) % 360, s, l };
+}
+
+// Resolves any CSS colour expression (a custom property included) to rgb() in the page.
+const resolveColour = (page, expression) => page.evaluate(expr => {
+  const probe = document.createElement('div');
+  probe.style.color = expr;
+  document.body.append(probe);
+  const out = getComputedStyle(probe).color;
+  probe.remove();
+  return out;
+}, expression);
+
+// Scrolls an element into view and waits for every picture inside it to finish loading.
+async function settlePictures(locator) {
+  await locator.scrollIntoViewIfNeeded();
+  await locator.evaluate(async root => {
+    const imgs = [...root.querySelectorAll('img')];
+    imgs.forEach(i => { i.loading = 'eager'; });
+    await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.addEventListener('load', r, { once: true }); i.addEventListener('error', r, { once: true }); setTimeout(r, 3000); })));
+  });
+}
+
+const pictures = locator => locator.evaluate(root => [...root.querySelectorAll('img')].map(i => ({
+  src: new URL(i.currentSrc || i.src, location.href).pathname, loaded: i.complete && i.naturalWidth > 0, broken: i.complete && i.naturalWidth === 0,
+  width: i.getBoundingClientRect().width, top: i.getBoundingClientRect().top, bottom: i.getBoundingClientRect().bottom,
+})));
+
+const until = async (check, ms = 4000, every = 50) => {
+  const end = Date.now() + ms;
+  let last;
+  while (Date.now() < end) { last = await check(); if (last) return last; await new Promise(r => setTimeout(r, every)); }
+  return check();
+};
 
 async function visible(locator) {
   return (await locator.count()) > 0 && locator.first().isVisible();
