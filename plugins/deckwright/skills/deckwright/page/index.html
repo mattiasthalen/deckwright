@@ -418,7 +418,6 @@ function drawHero() {
     probe.src = src;
   }
   $('stats').innerHTML = headlineNumbers().map(([number, label]) => `<div class="stat"><b>${esc(number)}</b><span>${esc(label)}</span></div>`).join('');
-  $('to-handbook').hidden = !chapters().length;
   $('copy-top').onclick = copyArenaList;
 }
 
@@ -441,11 +440,13 @@ function playScene(box, scene) {
   const stage = document.createElement('div');
   box.append(stage);
   let at = 0;
-  const drawStep = () => {
-    const step = scene.steps[at];
-    stage.innerHTML = `<div class="row">${(step.things || []).map(drawThing).join('')}</div><div class="caption">${esc(step.caption)}</div>`
-      + `<div class="dots" aria-hidden="true">${scene.steps.map((_, i) => `<i class="${i === at ? 'on' : ''}"></i>`).join('')}</div>`;
-  };
+  const stepHtml = i => `<div class="row">${(scene.steps[i].things || []).map(drawThing).join('')}</div><div class="caption">${esc(scene.steps[i].caption)}</div>`
+    + `<div class="dots" aria-hidden="true">${scene.steps.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>`;
+  // Each step is drawn again when its turn comes, so that a picture found
+  // missing meanwhile is drawn blank; drawing every step once now makes a step
+  // that cannot be drawn fail the scenes section here rather than mid-play.
+  scene.steps.forEach((_, i) => stepHtml(i));
+  const drawStep = () => { stage.innerHTML = stepHtml(at); };
   if (reducedMotion()) { at = scene.steps.length - 1; drawStep(); return; }
   drawStep();
   let onScreen = false;
@@ -504,7 +505,7 @@ function drawCards() {
 
 function drawCurve() {
   const columns = Array.from({length: 8}, () => ({creatures: 0, others: 0}));
-  deck.cards.filter(c => !isLand(c)).forEach(c => { columns[Math.min(manaValue(c), 7)][isCreature(c) ? 'creatures' : 'others'] += copiesOf(c); });
+  deck.cards.filter(c => !isLand(c)).forEach(c => { columns[Math.min(Math.floor(manaValue(c)), 7)][isCreature(c) ? 'creatures' : 'others'] += copiesOf(c); });
   const tallest = Math.max(1, ...columns.map(b => b.creatures + b.others));
   $('curve').innerHTML = `<div class="section-head"><span class="label">Mana curve</span><h2>What it costs</h2>${deck.curve_note ? `<p class="lede">${esc(deck.curve_note)}</p>` : ''}</div>`
     + `<div class="curve">${columns.map((b, i) => `<div class="bar" style="--i:${i}"><b>${b.creatures + b.others}</b><div class="column" style="height:${(b.creatures + b.others) / tallest * 82}%">`
@@ -637,6 +638,18 @@ function tiltCardsUnderPointer() {
   });
 }
 
+// A section that cannot be drawn, such as a scene or chapter written in a shape
+// the page does not know, is left out; the rest of the page is still drawn.
+function drawSection(id, draw) {
+  try {
+    draw();
+  } catch (e) {
+    $(id).innerHTML = '';
+    $(id).hidden = true;
+    console.error(`The #${id} section could not be drawn:`, e);
+  }
+}
+
 async function main() {
   try {
     deck = JSON.parse(await read('deck.json'));
@@ -652,10 +665,17 @@ async function main() {
   [...(deck.maybeboard || []), ...deck.cards].forEach(c => cardsToOpen.set(c.name, c));
   matchCardNames();
   paintAccent();
-  drawHero(); drawScenes(); drawCards(); drawCurve(); drawHandbook(); drawImport();
+  drawSection('top', drawHero);
+  drawSection('engine', drawScenes);
+  drawSection('cards', drawCards);
+  drawSection('curve', drawCurve);
+  drawSection('handbook', drawHandbook);
+  drawSection('import', drawImport);
+  $('to-handbook').hidden = $('handbook').hidden || !chapters().length;
   listenForCards();
   tiltCardsUnderPointer();
-  drawLedger(await read('LEDGER.md'));
+  const ledger = await read('LEDGER.md');
+  drawSection('ledger', () => drawLedger(ledger));
 }
 main();
 </script>
