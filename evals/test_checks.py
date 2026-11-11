@@ -135,11 +135,11 @@ def test_c5_accepts_a_count_without_the_commander():
         assert checks.check(r, cache)["C5"][0] == "pass", said
 
 
-def test_final_list_keeps_a_count_of_zero():
+def test_final_list_drops_a_card_at_count_zero():
     deck = {"cards": [{"name": "Sol Ring", "count": 0, "category": "Ramp"}]}
     r = fake_run([], [], deck=deck)
     cards, _ = checks.Run.final_list(r)
-    assert cards["Sol Ring"] == 0, f"count 0 read as {cards['Sol Ring']}: C7 would fail on a card taken out"
+    assert "Sol Ring" not in cards, "a card at count 0 is still in the list: C1, C7 and C8 would read it"
 
 
 def test_a_stand_in_failure_ends_the_run():
