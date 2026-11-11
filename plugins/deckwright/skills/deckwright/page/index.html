@@ -293,8 +293,10 @@ const symbolValue = s => { const number = s.slice(1, -1).split('/').find(part =>
 const manaValue = c => c.copy?.mana_value ?? symbols(c.copy?.mana_cost).reduce((sum, s) => sum + symbolValue(s), 0);
 
 function plural(type) {
-  const irregular = {Mouse: 'Mice', Fungus: 'Fungi', Ox: 'Oxen', Fish: 'Fish', Sheep: 'Sheep', Homunculus: 'Homunculi'};
+  const irregular = {Mouse: 'Mice', Fungus: 'Fungi', Ox: 'Oxen', Homunculus: 'Homunculi', Cyclops: 'Cyclopes', Child: 'Children',
+    Sheep: 'Sheep', Kithkin: 'Kithkin', Kor: 'Kor', Djinn: 'Djinn', Efreet: 'Efreet', Samurai: 'Samurai', Elk: 'Elk', Squid: 'Squid'};
   if (irregular[type]) return irregular[type];
+  if (/(folk|fish)$/.test(type)) return type;
   if (/[lr]f$/.test(type)) return type.slice(0, -1) + 'ves';
   if (/(s|x|ch|sh)$/.test(type)) return type + 'es';
   if (/[^aeiou]y$/.test(type)) return type.slice(0, -1) + 'ies';
@@ -409,7 +411,7 @@ function drawHero() {
     };
     probe.src = src;
   }
-  $('stats').innerHTML = headlineNumbers().map(([number, label]) => `<div class="stat"><b>${number}</b><span>${esc(label)}</span></div>`).join('');
+  $('stats').innerHTML = headlineNumbers().map(([number, label]) => `<div class="stat"><b>${esc(number)}</b><span>${esc(label)}</span></div>`).join('');
   $('to-handbook').hidden = !chapters().length;
   $('copy-top').onclick = copyArenaList;
 }
@@ -468,7 +470,7 @@ function drawScenes() {
 const swapFor = c => c.kind === 'swap' && c.out ? c.out : '';
 
 function drawTile(c, i) {
-  return `<button class="card rises" type="button" style="--i:${i % 12}" data-card="${esc(c.name)}"><span class="face">${picture(c.scryfall_id, c.name)}${copiesOf(c) > 1 ? `<span class="copies">${copiesOf(c)}×</span>` : ''}</span>`
+  return `<button class="card rises" type="button" style="--i:${i % 12}" data-card="${esc(c.name)}"><span class="face">${picture(c.scryfall_id, c.name)}${copiesOf(c) > 1 ? `<span class="copies">${esc(copiesOf(c))}×</span>` : ''}</span>`
     + `<span class="caption"><b>${esc(c.name)}</b>${isRareOrMythic(c) ? `<span class="rarity">${esc(c.copy.rarity)}</span>` : ''}`
     + `${swapFor(c) ? `<span class="swap">In for ${esc(swapFor(c))}</span>` : ''}`
     + `${c.checked === false ? '<span class="flag">not checked</span>' : ''}${c.bends ? '<span class="flag">bends a criterion</span>' : ''}</span></button>`;
@@ -476,7 +478,7 @@ function drawTile(c, i) {
 
 function drawCategory(name, members, category = {}) {
   const countOf = category.target ? `${total(members)} of ${category.target}` : `${total(members)}`;
-  return `<div class="category"><div class="category-head"><h3>${esc(name)}</h3><span class="count-of">${countOf}</span>${category.count_reason ? `<span class="count-reason">${esc(category.count_reason)}</span>` : ''}</div>`
+  return `<div class="category"><div class="category-head"><h3>${esc(name)}</h3><span class="count-of">${esc(countOf)}</span>${category.count_reason ? `<span class="count-reason">${esc(category.count_reason)}</span>` : ''}</div>`
     + (members.length ? `<div class="grid">${members.map(drawTile).join('')}</div>` : '<p class="empty">Nothing picked yet.</p>') + '</div>';
 }
 
