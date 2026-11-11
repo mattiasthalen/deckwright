@@ -67,7 +67,7 @@ function card(c) {
 }
 
 function arenaList(deck) {
-  const line = c => `${c.count || 1} ${c.name}`;
+  const line = c => `${c.count ?? 1} ${c.name}`;
   const commander = deck.cards.filter(c => c.category === 'Commander');
   const rest = deck.cards.filter(c => c.category !== 'Commander');
   return (commander.length ? `Commander\n${commander.map(line).join('\n')}\n\n` : '') + `Deck\n${rest.map(line).join('\n')}`;
@@ -77,7 +77,7 @@ async function main() {
   const [scenes, cards, handbook, curve, arena] = ['scenes', 'cards', 'handbook', 'curve', 'arena'].map(id => document.getElementById(id));
   const deck = await (await fetch('deck.json', {cache: 'no-store'})).json();
   const ledger = await fetch('LEDGER.md', {cache: 'no-store'}).then(r => r.ok ? r.text() : '').catch(() => '');
-  const size = deck.cards.reduce((n, c) => n + (c.count || 1), 0);
+  const size = deck.cards.reduce((n, c) => n + (c.count ?? 1), 0);
   const want = deck.format === 'brawl' ? 100 : 60;
   document.title = deck.name || 'Deck';
   document.getElementById('name').textContent = deck.name || 'Deck';
@@ -93,7 +93,7 @@ async function main() {
   for (const c of deck.cards) { if (!byCat.has(c.category)) byCat.set(c.category, []); byCat.get(c.category).push(c); }
   for (const [name, list] of byCat) {
     const meta = (deck.categories || []).find(c => c.name === name) || {};
-    const count = list.reduce((n, c) => n + (c.count || 1), 0);
+    const count = list.reduce((n, c) => n + (c.count ?? 1), 0);
     const h = el('h2', {textContent: name + ' '}, el('small', {textContent: `${count}${meta.target ? ' of ' + meta.target : ''}${meta.count_reason ? ' — ' + meta.count_reason : ''}`}));
     const grid = el('div', {className: 'grid'}); list.forEach(c => grid.append(card(c)));
     cards.append(el('div', {className: 'cat'}, h, grid));
@@ -108,7 +108,7 @@ async function main() {
   if (!(deck.handbook || []).length) handbook.append(el('p', {className: 'sub', textContent: 'The handbook is written once the deck is complete.'}));
 
   const counts = Array(8).fill(0);
-  deck.cards.filter(c => !/Land/.test(c.copy?.type_line || '')).forEach(c => counts[Math.min(cmc(c.copy?.mana_cost), 7)] += c.count || 1);
+  deck.cards.filter(c => !/Land/.test(c.copy?.type_line || '')).forEach(c => counts[Math.min(cmc(c.copy?.mana_cost), 7)] += c.count ?? 1);
   const max = Math.max(1, ...counts);
   const chart = el('div', {className: 'chart'}), axis = el('div', {className: 'axis'});
   counts.forEach((n, i) => { const b = el('div', {className: 'bar'}, el('span', {textContent: n})); b.style.height = `${n / max * 100}%`;

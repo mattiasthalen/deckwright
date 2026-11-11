@@ -24,5 +24,6 @@ copy, because both go stale without anyone noticing.
 ## Consequences
 
 Every build depends on Scryfall being reachable, and runs must respect its limit
-of about ten requests a second. The display copy can be out of date between
+of two searches or name lookups a second (other requests ten), with a `User-Agent`
+and `Accept` header on every request; a 429 locks the caller out for 30 seconds. The display copy can be out of date between
 reviews; that is visible, not hidden.

@@ -39,14 +39,24 @@ got no check.
 | C6 | The basic split is within two of each colour's share of mana symbols | AC25 |
 | C7 | The brief's pressure holds (illegal card out, no blind fill, change recorded, dismissal kept) | AC19, AC37, AC42, AC43 |
 | C8 | The final list is the right size, with a commander for Brawl, and every card is on Arena | AC40 |
-| C9 | One question at a time, what is left said after each answer, no card search before the criteria | AC1, AC2, AC3 |
+| C9 | One question at a time, what is left said after each answer, no card search before the criteria, no question about strength or price | AC1, AC2, AC3 |
 | C10 | Creature type first, broader only on the player's word, narrowing said, nonbasics offered, tagless gaps warned | AC14, AC15, AC16, AC24 |
 | C11 | No step unasked; every departure from the template said, reasoned and confirmed | AC11, AC26, the intent's "never assume what the player wants next" |
-| C12 | A published page with `deck.json`, `LEDGER.md` and card images; the template's land count and category shape; no creature-type category | AC8, AC9, AC10, AC23, AC27, AC30 |
+| C12 | A published page with `deck.json`, `LEDGER.md` and card images; the template's land count and number of categories; no creature-type category | AC8, AC9, AC10, AC23, AC27, AC30 |
 
 Free-text outcomes (which cards the player confirmed, what a review counted) are
-extracted once per run by a reader model into `reader.json`; code decides. Read a
-failing run's conversation before believing a check.
+extracted once per run by a reader model into `reader.json`, and code decides C1 to
+C8 and C12. C9 to C11 are the reader's yes or no on a stated fact, with quoted
+evidence. Read a failing run's conversation before believing a check.
+
+`python3 evals/test_checks.py` tests the checks and the runner offline. The blind
+judge (`python3 evals/judge.py --bare <stamps> --skill <stamps>`) pairs runs of
+the same brief and asks fixed teaching questions in both orders; the skill wins a
+question only when picked both times (AC17, AC41, AC45).
+
+A brief may end early (`## Ends`, such as `template`): C8 and C12's land count are
+then n/a. A run that dies still writes `run.json`; the checks list one without it
+as DIED. A started run copies its start into `start/`, which the checks read.
 
 ## Known limits
 
@@ -54,5 +64,11 @@ failing run's conversation before believing a check.
   later swap can fail on a count that was right when it was written.
 - C6's tolerance of two basics is an inference; the design set none.
 - No brief takes Scryfall down, so "an unchecked card blocks approval" (C7) is not
-  exercised yet.
+  exercised yet, and the skill says nothing about it (ADR-0002).
+- C7 on "fill in the rest" is C1: it cannot see whether the player took cards one
+  word per category (AC42).
+- AC18 (offered cards shown as pictures in chat) is not run: runs may not send files
+  into chat.
+- `run.json` costs before 2026-11-11 summed running totals; they were recalculated
+  from the traces.
 - Runs `checks.py` flags as CONTAMINATED reached outside their own folder.

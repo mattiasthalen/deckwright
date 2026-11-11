@@ -30,20 +30,20 @@ DECKS = {
         "commander": '!"Vren, the Relentless"', "categories": [], "filled": {}, "per": 8},
     "brawl-dinosaurs": {
         "format": "brawl", "colours": "rg", "theme": "Dinosaurs",
-        "commander": 't:dinosaur is:commander',
+        "commander": '!"Etali, Primal Conqueror // Etali, Primal Sickness"',
         "categories": BRAWL + ["Enrage payoffs", "Big threats", "Protection", "Board wipes"],
         "filled": {"Ramp": "otag:ramp -t:land", "Card draw": "otag:card-advantage -t:land",
                    "Removal": "otag:removal -t:land"},
         "per": 8},
     "brawl-tokens": {
         "format": "brawl", "colours": "gw", "theme": "Creature tokens",
-        "commander": 'o:"create" o:"token" is:commander t:creature',
+        "commander": '!"Ghalta and Mavren"',
         "categories": BRAWL + ["Token makers", "Anthems", "Token payoffs", "Board wipes"],
         "filled": {"Token makers": 'o:"create" o:"creature token" -t:land', "Ramp": "otag:ramp -t:land"},
         "per": 8},
     "brawl-spells": {
         "format": "brawl", "colours": "ur", "theme": "Instants and sorceries",
-        "commander": 'o:"instant or sorcery" is:commander',
+        "commander": '!"Niv-Mizzet, Parun"',
         "categories": BRAWL + ["Spell payoffs", "Counterspells", "Burn", "Copy effects"],
         "filled": {"Ramp": "otag:ramp -t:land", "Card draw": "otag:card-advantage -t:land",
                    "Removal": "otag:removal -t:land", "Personal favourites": "(t:instant or t:sorcery) -t:land",

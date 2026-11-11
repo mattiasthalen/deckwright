@@ -1,10 +1,11 @@
-"""The eight counted checks, read off a run's conversation, trace and files.
+"""The counted checks, read off a run's conversation, trace and files.
 
-    uv run evals/checks.py evals/runs/<stamp>/*
+    python3 evals/checks.py evals/runs/<stamp>/*
 
 Each check reads outcomes, never wording. Where an outcome sits in free text (which
 cards the player confirmed, what a review counted) a reader model extracts it as
-data once per run, and code decides. Card facts come from Scryfall.
+data once per run, and code decides C1 to C8 and C12. C9 to C11 are the reader's
+yes or no on a stated fact, with quoted evidence. Card facts come from Scryfall.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
@@ -29,7 +31,10 @@ FACT = {"type": "object", "properties": {"holds": {"type": ["boolean", "null"]},
         "required": ["holds", "evidence"]}
 EXTRA_FACTS = ["one_question_per_intent_message", "remaining_stated_after_each_answer", "no_card_search_before_criteria",
                "type_shown_before_broader", "broader_count_stated_and_waited", "narrowing_said",
-               "nonbasics_offered_as_choices", "tagless_job_warned", "no_step_unasked", "departures_confirmed"]
+               "nonbasics_offered_as_choices", "tagless_job_warned", "no_step_unasked", "departures_confirmed",
+               "no_strength_or_price_question"]
+# Read only for briefs that start from nothing, and absent from readers cached before it was added.
+OPTIONAL_FACTS = {"no_strength_or_price_question"}
 
 READER_SCHEMA = {
     "type": "object",
@@ -53,16 +58,7 @@ READER_SCHEMA = {
         "criterion_change_recorded_with_reason": {"type": ["boolean", "null"]},
         "card_removed_without_player_word": {"type": "array", "items": {"type": "string"}},
         "dismissed_finding_raised_again": {"type": ["boolean", "null"]},
-        "one_question_per_intent_message": FACT,
-        "remaining_stated_after_each_answer": FACT,
-        "no_card_search_before_criteria": FACT,
-        "type_shown_before_broader": FACT,
-        "broader_count_stated_and_waited": FACT,
-        "narrowing_said": FACT,
-        "nonbasics_offered_as_choices": FACT,
-        "tagless_job_warned": FACT,
-        "no_step_unasked": FACT,
-        "departures_confirmed": FACT,
+        **dict.fromkeys(EXTRA_FACTS, FACT),
         "saved_categories": {"type": "array", "items": {"type": "object", "properties": {
             "name": {"type": "string"}, "target": {"type": ["integer", "null"]}},
             "required": ["name", "target"]}},
@@ -117,6 +113,9 @@ situation never came up) and a short quoted `evidence`:
 - departures_confirmed: when a group ends above or below its planned size, or the
   land count changes, did the assistant say so, give a reason, and get the
   player's yes? null if it never happened.
+- no_strength_or_price_question: while settling what the deck should be, does the
+  assistant hold off asking how strong, competitive or casual the deck should be, or
+  about budget, price or wildcards? null if no such settling happened.
 - saved_categories: the card groups the SAVED FILES record, each with its planned
   number of cards (null when none is recorded). Empty if the files hold none.
 
@@ -127,15 +126,15 @@ situation never came up) and a short quoted `evidence`:
 def scryfall_get(path: str, pause: float) -> dict | None:
     """One Scryfall request; None when the card is not found.
 
-    Scryfall limits searches harder than single-card lookups, and a 429 must be
-    waited out: retrying at once risks a network block.
+    Scryfall allows two searches or name lookups a second, and a 429 locks the
+    caller out for 30 seconds: wait it out, since retrying at once risks a ban.
     """
     request = urllib.request.Request("https://api.scryfall.com" + path,
                                      headers={"User-Agent": "deckwright-evals/0.1", "Accept": "application/json"})
-    while True:
+    for attempt in range(5):
         time.sleep(pause)
         try:
-            with urllib.request.urlopen(request) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:
                 return json.load(response)
         except urllib.error.HTTPError as error:
             if error.code == 404:
@@ -143,13 +142,21 @@ def scryfall_get(path: str, pause: float) -> dict | None:
             if error.code != 429:
                 raise
             time.sleep(61)
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            time.sleep(5 * (attempt + 1))
+    raise RuntimeError(f"Scryfall unreachable for {path}")
 
 
 def scryfall(name: str, cache: dict) -> dict | None:
     if name not in cache:
-        card = scryfall_get("/cards/named?exact=" + urllib.parse.quote(name), 0.15)
-        # The reader may shorten a name ("Kogla") or a face pair; fuzzy finds those.
-        card = card or scryfall_get("/cards/named?fuzzy=" + urllib.parse.quote(name), 0.15)
+        card = scryfall_get("/cards/named?exact=" + urllib.parse.quote(name), 0.5)
+        if card is None:
+            # A two-faced card may be spelled by one face or with a shortened face;
+            # fuzzy finds those, and is kept only when a face really matches.
+            near = scryfall_get("/cards/named?fuzzy=" + urllib.parse.quote(name), 0.5)
+            if near and any(f == g or g.startswith(f) or f.startswith(g)
+                            for f in faces(name) for g in faces(near["name"])):
+                card = near
         if card is None:
             cache[name] = None
         else:
@@ -157,7 +164,8 @@ def scryfall(name: str, cache: dict) -> dict | None:
             if not card.get("mana_cost") and card.get("card_faces"):
                 cache[name]["mana_cost"] = card["card_faces"][0].get("mana_cost", "")
             # `games` belongs to one printing; a card is on Arena if any printing is.
-            found = scryfall_get("/cards/search?q=" + urllib.parse.quote(f'!"{card["name"]}" game:arena'), 0.6)
+            exact = card["name"].replace('"', '\\"')
+            found = scryfall_get("/cards/search?q=" + urllib.parse.quote(f'!"{exact}" game:arena'), 0.6)
             cache[name]["on_arena"] = bool(found and found.get("total_cards"))
     return cache[name]
 
@@ -172,6 +180,23 @@ class Run:
                       for p in (path / "workspace").rglob("*")
                       if p.is_file() and p.suffix in {".json", ".md", ".txt", ".html"} and ".claude" not in p.parts}
         self.published = self.last_published()
+        # The start as the run began: runs copy it in; older runs predate the copy.
+        start = path / "start" / "deck.json"
+        self.start = json.loads(start.read_text()) if start.exists() else None
+
+    def tool_uses(self):
+        """Every tool call: (exchange, conversation, name, input, refused)."""
+        errors = {block.get("tool_use_id") for event in self.trace if event.get("type") == "user"
+                  for block in event.get("message", {}).get("content", [])
+                  if isinstance(block, dict) and block.get("type") == "tool_result" and (
+                      block.get("is_error") or "publish 429" in str(block.get("content"))[:300])}
+        for event in self.trace:
+            if event.get("type") != "assistant":
+                continue
+            for block in event.get("message", {}).get("content", []):
+                if isinstance(block, dict) and block.get("type") == "tool_use":
+                    yield (event.get("exchange", 0), event.get("conversation", 1), block.get("name"),
+                           block.get("input", {}), block.get("id") in errors)
 
     def last_published(self) -> dict[str, pathlib.Path]:
         """The page's files as the publishes left them, by published path, read from disk now.
@@ -180,11 +205,9 @@ class Run:
         relative sources resolve against the workspace.
         """
         files: dict[str, pathlib.Path] = {}
-        for event in self.trace:
-            for block in event.get("message", {}).get("content", []) if event.get("type") == "assistant" else []:
-                if not (isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name") == "Artifact"):
+        for _, _, name, given, refused in self.tool_uses():
+                if name != "Artifact" or refused:
                     continue
-                given = block.get("input", {})
                 if given.get("action", "publish") != "publish" or not str(given.get("file_path", "")).endswith(".html"):
                     continue
                 workspace = self.path / "workspace"
@@ -221,23 +244,24 @@ class Run:
         """Tool calls that reached outside the run's own folder: another run's files or memory."""
         own = str(self.path.resolve())
         hits = []
-        for event in self.trace:
-            for block in event.get("message", {}).get("content", []) if event.get("type") == "assistant" else []:
-                if isinstance(block, dict) and block.get("type") == "tool_use":
-                    text = json.dumps(block.get("input", {}))
-                    reaches_out = "/evals/runs/" in text or "/claude/memory/" in text
-                    if reaches_out and own not in text and self.path.name not in text:
-                        hits.append(text[:120])
+        for _, _, _, given, _ in self.tool_uses():
+            text = json.dumps(given)
+            reaches_out = "/evals/runs/" in text or "/claude/memory/" in text
+            if reaches_out and own not in text and self.path.name not in text:
+                hits.append(text[:120])
         return hits
 
     def deckwright_texts(self) -> list[str]:
         return [m["text"] for m in self.messages if m["role"] == "deckwright"]
 
     def tool_results_before(self, exchange: int) -> str:
-        """Every tool output Deckwright saw up to and including `exchange`."""
+        """Every tool output Deckwright saw in this conversation up to and including `exchange`."""
+        conversation = next((e.get("conversation", 1) for e in self.trace if e.get("exchange") == exchange), 1)
         out = []
         for event in self.trace:
             if event.get("exchange", 0) > exchange or event.get("type") != "user":
+                continue
+            if event.get("conversation", 1) != conversation:
                 continue
             for block in event.get("message", {}).get("content", []):
                 if isinstance(block, dict) and block.get("type") == "tool_result":
@@ -246,12 +270,11 @@ class Run:
         return "\n".join(out)
 
     def saves_by_exchange(self) -> Counter:
+        """Publishes the Artifact tool accepted, by exchange."""
         saves = Counter()
-        for event in self.trace:
-            for block in event.get("message", {}).get("content", []) if event.get("type") == "assistant" else []:
-                if isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name") == "Artifact":
-                    if block.get("input", {}).get("action", "publish") == "publish":
-                        saves[event["exchange"]] += 1
+        for exchange, _, name, given, refused in self.tool_uses():
+            if name == "Artifact" and given.get("action", "publish") == "publish" and not refused:
+                saves[exchange] += 1
         return saves
 
     def final_list(self) -> tuple[Counter, str | None]:
@@ -261,7 +284,7 @@ class Run:
         if deck and deck.get("cards"):
             cards = Counter()
             for card in deck["cards"]:
-                cards[card["name"]] += int(card.get("count") or 1)
+                cards[card["name"]] += int(card.get("count", 1))
             commander = next((c["name"] for c in deck["cards"] if str(c.get("category", "")).lower() == "commander"), None)
             return cards, commander
         candidates = self.deckwright_texts() + list(self.files.values())
@@ -297,7 +320,10 @@ class Run:
             ["claude", "-p", "--model", READER_MODEL, "--tools", "", "--output-format", "json",
              "--json-schema", json.dumps(READER_SCHEMA)],
             input=prompt, capture_output=True, text=True, timeout=1800)
-        data = json.loads(proc.stdout)["structured_output"]
+        try:
+            data = json.loads(proc.stdout)["structured_output"]
+        except (json.JSONDecodeError, KeyError) as error:
+            raise RuntimeError(f"the reader gave no structured output for {self.path.name}") from error
         cached.write_text(json.dumps(data, indent=2))
         return data
 
@@ -312,11 +338,12 @@ def faces(name: str) -> set[str]:
 def start_cards(run: Run) -> set[str]:
     """The cards of the half-built deck a run began from: chosen before the run, so
     confirmed and already picked."""
-    start = run.summary.get("start")
-    if not start:
-        return set()
-    deck = json.loads((pathlib.Path(__file__).resolve().parent / "starts" / start / "deck.json").read_text())
-    return {c["name"] for c in deck["cards"]}
+    return {c["name"] for c in run.start["cards"]} if run.start else set()
+
+
+def named_in(name: str, text: str) -> bool:
+    """A card name stands in the text as a whole name, not inside another word."""
+    return any(re.search(r"(?<![\w'])" + re.escape(face) + r"(?![\w'])", text) for face in faces(name))
 
 
 def message_to_exchange(run: Run, message_index: int) -> int:
@@ -365,23 +392,25 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     unlooked = []
     for offer in facts["offers"]:
         seen = run.tool_results_before(message_to_exchange(run, offer["message"]))
-        unlooked += [n for n in offer["cards"] if not any(face in seen.lower() for face in faces(n))]
+        seen = seen.lower()
+        unlooked += [n for n in offer["cards"] if not named_in(n, seen)]
     results["C3"] = ("pass" if not unlooked else "fail", f"never looked up: {sorted(set(unlooked))[:8]}")
 
     saves = run.saves_by_exchange()
     pick_exchanges = {message_to_exchange(run, c["message"]) for c in facts["confirmations"] if c["cards"]}
     unsaved = sorted(e for e in pick_exchanges if not saves.get(e))
-    results["C4"] = ("pass" if pick_exchanges and not unsaved else "fail",
+    results["C4"] = (("n/a" if not pick_exchanges else "pass" if not unsaved else "fail"),
                      f"{len(saves)} exchanges with a save; picks not saved in their exchange: {len(unsaved)} of {len(pick_exchanges)}")
 
     if facts["review_type_counts"] and cards:
         # A two-faced card may be counted by its front face or by every face: a
         # review is right anywhere between the two counts.
+        # A Brawl review may count the commander or only the 99, so either is right.
         front, any_face = Counter(), Counter()
         for name, n in cards.items():
-            type_line = (scryfall(name, cache) or {}).get("type_line") or ""
+            type_line = type_line_of(name, cache)
             for t in TYPES:
-                front[t] += n * (t in type_line.split(" // ")[0])
+                front[t] += n * (t in type_line.split(" // ")[0]) * (name != commander)
                 any_face[t] += n * (t in type_line)
 
         def counted(t: str) -> str:
@@ -402,11 +431,12 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
             for colour in "WUBRG":
                 if colour in symbol:
                     pips[colour] += n
-    if len(basics) + len(pips) and sum(pips.values()) and sum(basics.values()):
+    if sum(pips.values()) and sum(basics.values()):
         total = sum(basics.values())
-        expected = {c: total * pips[c] / sum(pips.values()) for c in pips}
+        expected = {c: total * pips[c] / sum(pips.values()) for c in set(pips) | set(basics)}
         # [inferred] within two basics of the pip share; the design set no tolerance.
-        off = [f"{c}: {basics.get(c, 0)} vs {expected[c]:.1f}" for c in expected if abs(basics.get(c, 0) - expected[c]) > 2]
+        off = [f"{c}: {basics.get(c, 0)} vs {expected[c]:.1f}" for c in sorted(expected)
+               if abs(basics.get(c, 0) - expected[c]) > 2]
         results["C6"] = ("pass" if not off else "fail", "; ".join(off))
     else:
         results["C6"] = ("n/a", "no basics or no coloured pips")
@@ -424,13 +454,16 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     else:
         results["C7"] = ("n/a", "no pressure in this brief")
 
-    size = sum(cards.values()) + (0 if commander and commander in cards else (1 if commander else 0))
+    size = sum(cards.values()) + int(bool(commander) and commander not in cards)
     want = {"brawl": 100, "standard": 60}.get(fmt)
-    unknown = [n for n in cards if scryfall(n, cache) is None or not scryfall(n, cache)["on_arena"]]
+    unknown = [n for n in cards if not (scryfall(n, cache) or {}).get("on_arena")]
     ok = bool(cards) and size == want and not unknown and (fmt != "brawl" or commander)
-    results["C8"] = ("pass" if ok else "fail", f"size {size} of {want}; commander {commander}; not importable: {unknown[:5]}")
+    if run.summary.get("ends"):
+        results["C8"] = ("n/a", f"the brief ends at the {run.summary['ends']}")
+    else:
+        results["C8"] = ("pass" if ok else "fail", f"size {size} of {want}; commander {commander}; not importable: {unknown[:5]}")
     def fact(name: str) -> bool | None:
-        return facts[name]["holds"]
+        return facts.get(name, {"holds": None})["holds"]
 
     def combine(names: list[str]) -> tuple[str, str]:
         failed = [f"{n}: {facts[n]['evidence'][:90]}" for n in names if fact(n) is False]
@@ -441,7 +474,7 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     # the bare runs failed (decided: a check only where a bare run fails).
     results["C9"] = (("n/a", "began from a half-built deck: no intent interview") if started else
                      combine(["one_question_per_intent_message", "remaining_stated_after_each_answer",
-                              "no_card_search_before_criteria"]))
+                              "no_card_search_before_criteria", "no_strength_or_price_question"]))
     results["C10"] = combine(["type_shown_before_broader", "broader_count_stated_and_waited", "narrowing_said",
                               "nonbasics_offered_as_choices", "tagless_job_warned"])
     results["C11"] = combine(["no_step_unasked", "departures_confirmed"])
@@ -449,37 +482,44 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     return results
 
 
+def type_line_of(name: str, cache: dict) -> str:
+    return (scryfall(name, cache) or {}).get("type_line") or ""
+
+
+def singular(word: str) -> str:
+    """Elves → elf, wolves → wolf, rats → rat: enough for creature types."""
+    for plural, single in (("ves", "f"), ("ies", "y"), ("s", "")):
+        if word.endswith(plural) and len(word) > len(plural) + 1:
+            return word[: -len(plural)] + single
+    return word
+
+
 def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> tuple[str, str]:
     """The deck is a published page of plain files in the template's shape."""
     problems = []
-    published = " ".join(json.dumps(b.get("input", {})) for e in run.trace if e.get("type") == "assistant"
-                         for b in e["message"]["content"]
-                         if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") == "Artifact")
-    if "index.html" not in published:
+    if "index.html" not in run.published:
         problems.append("no page published")
     for name in ("deck.json", "LEDGER.md"):
         if name not in run.published:
             problems.append(f"no {name} published")
     if not any(k.startswith("cards/") and k.endswith(".jpg") for k in run.published):
         problems.append("no card images published")
-    lands = sum(n for name, n in cards.items() if "Land" in ((scryfall(name, cache) or {}).get("type_line") or ""))
+    # A two-faced spell with a land back is a spell: a land counts by its front face.
+    lands = sum(n for name, n in cards.items() if "Land" in type_line_of(name, cache).split(" // ")[0])
     want_lands = {"brawl": 35, "standard": 24}.get(fmt)
-    if want_lands and lands != want_lands:
+    if want_lands and lands != want_lands and not run.summary.get("ends"):
         problems.append(f"{lands} lands, template says {want_lands}")
     # A target off the template is a departure, which C11 judges; the shape is the number of jobs.
     categories = [c for c in facts["saved_categories"] if c["name"].lower() not in ("commander", "lands", "land")]
     shape = {"brawl": (8, 8), "standard": (9, 4)}.get(fmt)
     if shape and len(categories) != shape[0]:
         problems.append(f"{len(categories)} categories {[c['name'] for c in categories][:10]}, template has {shape[0]}")
-    creature_types = {t.lower() for name in cards for t in ((scryfall(name, cache) or {}).get("type_line") or "").split("—")[-1].split()
-                      if "Creature" in ((scryfall(name, cache) or {}).get("type_line") or "")}
+    creature_types = {kind.lower() for name in cards for face in type_line_of(name, cache).split(" // ")
+                      if "Creature" in face and "—" in face for kind in face.split("—")[1].split()}
     # Categories a half-built start already had were not Deckwright's to name.
-    inherited = set()
-    if run.summary.get("start"):
-        start = json.loads((pathlib.Path(__file__).resolve().parent / "starts" / run.summary["start"] / "deck.json").read_text())
-        inherited = {c["name"] for c in start["categories"]} | {"Dinosaur payoffs"}  # renamed after round 1
+    inherited = {c["name"] for c in run.start["categories"]} if run.start else set()
     typal = [c["name"] for c in categories if c["name"] not in inherited
-             and any(w.rstrip("s").lower() in creature_types for w in c["name"].split())]
+             and any(singular(word) in creature_types for word in c["name"].lower().replace("-", " ").split())]
     if typal:
         problems.append(f"creature-type categories: {typal}")
     return ("pass" if not problems else "fail", "; ".join(problems))
@@ -490,6 +530,8 @@ def main() -> None:
     totals: dict[str, Counter] = {}
     for path in map(pathlib.Path, sys.argv[1:]):
         if not (path / "run.json").exists():
+            print(f"\n{path.name}  DIED: no run.json, so the run never finished")
+            totals.setdefault("died", Counter())["runs"] += 1
             continue
         run = Run(path)
         results = check(run, cache)

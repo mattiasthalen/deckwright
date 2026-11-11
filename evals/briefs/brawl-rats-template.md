@@ -19,3 +19,7 @@ fine and you have no card limits. The commander is chosen; nothing else is.
 Answer questions plainly. When you are shown a template (the groups of cards the
 deck will have), accept it as proposed. Once the assistant says the template is
 saved, you have to go: stop.
+
+## Ends
+
+template

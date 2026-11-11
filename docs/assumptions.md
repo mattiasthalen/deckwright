@@ -16,3 +16,6 @@ milestone 1 design interview, 2026-11-10.
 - Arena accepts the copy block: Mattias pasted the Vren list (2026-11-10).
 - Artifact pages cannot load outside images; files published beside `index.html` load (spike, 2026-11-10).
 - Card images attached as files render in a project thread's chat; markdown image links do not.
+- An account can publish 200 artifact versions a day; three parallel Brawl runs hit it (2026-11-11), and the refused saves were retried.
+- `claude -p --resume` reports the session's running total as `total_cost_usd`.
+- Unverified: whether Arena imports a two-faced card written in full (`A // B`), as the page's copy block writes it. Probe: paste one modal, one transform, one adventure and one split card each way.
