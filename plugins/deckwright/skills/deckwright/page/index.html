@@ -436,7 +436,7 @@ function drawHero() {
   const words = String(deck.name || '').match(/\S+/g) || ['Deck'];
   document.title = words.join(' ');
   $('deck-name').innerHTML = `${words.length > 1 ? esc(words.slice(0, -1).join(' ')) + ' ' : ''}<em>${esc(words.at(-1))}</em>`;
-  $('hero-line').innerHTML = `${format().name} · ${size} of ${format().size} cards ·<b>${deck.approved ? 'Approved' : 'In progress'}</b>`;
+  $('hero-line').innerHTML = `${format().name} · ${size} of ${format().size} cards · <b>${deck.approved ? 'Approved' : 'In progress'}</b>`;
   $('pitch').textContent = deck.pitch || '';
   $('pitch').hidden = !deck.pitch;
   $('criteria').innerHTML = (deck.criteria || []).map(c => `<span>${esc(c.text)}</span>`).join('');
