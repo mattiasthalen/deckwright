@@ -250,8 +250,8 @@ class Run:
             return None
 
     def foreign_paths(self) -> list[str]:
-        """Tool calls that reached outside the run: another run's files, memory, or an
-        artifact in the account's gallery this run did not publish."""
+        """Tool calls that reached outside the run: another run's files, memory, or a
+        page in the account's gallery this run did not publish."""
         own = str(self.path.resolve())
         scratch = f"{self.path.parent.name}-{self.path.name}-workspace"  # the run's session scratchpad
         results = [json.dumps(e.get("message", {}).get("content", [])) for e in self.trace if e.get("type") == "user"]
@@ -263,10 +263,10 @@ class Run:
             reaches_out = "/evals/runs/" in text or "/claude/memory/" in text
             if reaches_out and own not in text and scratch not in text:
                 hits.append(text[:120])
-            if name == "Artifact" and given.get("action") in ("list", "read", "delete"):
-                url = given.get("url")
-                if not url or not any(m in url for m in mine):
-                    hits.append(f"Artifact {given.get('action')} {url or '(the gallery)'}")
+            # Listing the gallery shows titles only; reading another page is reaching out.
+            if name == "Artifact" and given.get("action") in ("read", "delete") and given.get("url"):
+                if not any(m in given["url"] for m in mine):
+                    hits.append(f"Artifact {given['action']} {given['url']}")
         return hits
 
     def deckwright_texts(self) -> list[str]:
