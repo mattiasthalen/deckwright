@@ -345,6 +345,28 @@ def test_a_resumed_round_plays_only_its_unfinished_runs():
     assert len(summaries) == 2, summaries
 
 
+def test_a_resumed_round_plays_a_run_the_budget_stopped_again():
+    import tempfile
+    real, played, leftovers = runner.run, [], []
+
+    def fake_run(brief, arm, out, max_exchanges, budget):
+        played.append(out.name)
+        leftovers.extend(out.rglob("*"))
+        return {"brief": brief.stem, "arm": arm, "ended": "player ended"}
+    runner.run = fake_run
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            stopped = pathlib.Path(tmp) / "20261111T120000" / "a--bare--1"
+            stopped.mkdir(parents=True)
+            (stopped / "trace.jsonl").write_text("{}\n")
+            (stopped / "run.json").write_text('{"ended": "publish budget"}')
+            list(runner.play_round([pathlib.Path(tmp) / "a.md"], "bare", 1, stopped.parent, 2, 5, runner.PublishBudget(10)))
+    finally:
+        runner.run = real
+    assert played == ["a--bare--1"], "a run the budget stopped short was taken as finished"
+    assert not leftovers, f"the run began on what its first try left behind: {leftovers}"
+
+
 def test_resume_continues_in_the_rounds_own_folder():
     import tempfile
     from unittest import mock
