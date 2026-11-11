@@ -1,6 +1,6 @@
 """Write the half-built decks some briefs start from, from live Scryfall searches.
 
-    python3 evals/starts/build.py
+    python3 evals/starts/build.py [deck ...]
 
 A started run skips the opening interview and the first card rounds, which cost
 most of a run and are already exercised by the briefs that start from nothing.
@@ -24,10 +24,14 @@ TAKEN = "2026-11-09"
 
 BRAWL = ["Ramp", "Card draw", "Removal", "Personal favourites"]
 DECKS = {
+    # Criteria and commander only: the template comes next.
+    "brawl-rats-criteria": {
+        "format": "brawl", "colours": "ub", "theme": "Rats",
+        "commander": '!"Vren, the Relentless"', "categories": [], "filled": {}, "per": 8},
     "brawl-dinosaurs": {
         "format": "brawl", "colours": "rg", "theme": "Dinosaurs",
         "commander": 't:dinosaur is:commander',
-        "categories": BRAWL + ["Dinosaur payoffs", "Big threats", "Protection", "Board wipes"],
+        "categories": BRAWL + ["Enrage payoffs", "Big threats", "Protection", "Board wipes"],
         "filled": {"Ramp": "otag:ramp -t:land", "Card draw": "otag:card-advantage -t:land",
                    "Removal": "otag:removal -t:land"},
         "per": 8},
@@ -75,7 +79,7 @@ def build(name: str, spec: dict) -> None:
     pool = f"legal:{fmt} game:arena id<={colours}"
     criteria = [{"kind": "format", "text": f"{fmt.title()} on Arena"}, {"kind": "theme", "text": spec["theme"]},
                 {"kind": "colours", "text": {"rg": "Red-green", "gw": "Green-white", "ur": "Blue-red",
-                                             "bg": "Black-green"}[colours]},
+                                             "bg": "Black-green", "ub": "Blue-black"}[colours]},
                 {"kind": "limit", "text": "None"}]
     ledger = [f"- {TAKEN} · criteria · {c['text']} · the player's answer" for c in criteria]
     cards, used = [], set()
@@ -95,7 +99,8 @@ def build(name: str, spec: dict) -> None:
     for category in spec["categories"]:
         categories.append({"name": category, "target": spec["per"]})
         ledger.append(f"- {TAKEN} · category · {category} ({spec['per']}) · template accepted by the player")
-    categories.append({"name": "Lands", "target": 35 if fmt == "brawl" else 24})
+    if spec["categories"]:
+        categories.append({"name": "Lands", "target": 35 if fmt == "brawl" else 24})
     for category, query in spec["filled"].items():
         picks = [c for c in search(f"{pool} {query}") if c["name"] not in used and "Land" not in c["type_line"]]
         # A Standard category of four places holds two cards at two copies each.
@@ -115,4 +120,5 @@ def build(name: str, spec: dict) -> None:
 
 if __name__ == "__main__":
     for name, spec in DECKS.items():
-        build(name, spec)
+        if len(sys.argv) < 2 or name in sys.argv[1:]:
+            build(name, spec)

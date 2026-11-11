@@ -302,6 +302,13 @@ class Run:
         return data
 
 
+def faces(name: str) -> set[str]:
+    """A card's name and each face's, lowercased: the reader and Arena spell a
+    two-faced card in full, by its front face, or with a shortened face."""
+    parts = [part.strip().lower() for part in name.split("//")]
+    return {name.strip().lower(), *[p for p in parts if p]}
+
+
 def start_cards(run: Run) -> set[str]:
     """The cards of the half-built deck a run began from: chosen before the run, so
     confirmed and already picked."""
@@ -324,8 +331,8 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     results: dict[str, tuple[str, str]] = {}
 
     started = start_cards(run)
-    confirmed = started | {name for c in facts["confirmations"] for name in c["cards"]}
-    unseen = sorted(n for n in cards if n not in BASICS and n not in confirmed)
+    confirmed = {face for name in started | {n for c in facts["confirmations"] for n in c["cards"]} for face in faces(name)}
+    unseen = sorted(n for n in cards if n not in BASICS and not faces(n) & confirmed)
     basics_ok = facts["basic_split_confirmed"] or not any(n in BASICS for n in cards)
     if not cards:
         results["C1"] = ("fail", "no final deck list")
@@ -337,7 +344,8 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     bad, picked = [], set()
     confirmations = sorted(facts["confirmations"], key=lambda c: c["message"])
     for offer in sorted(facts["offers"], key=lambda o: o["message"]):
-        picked_so_far = started | {n for c in confirmations if c["message"] < offer["message"] for n in c["cards"]}
+        picked_so_far = {face for n in started | {n for c in confirmations if c["message"] < offer["message"] for n in c["cards"]}
+                         for face in faces(n)}
         for name in offer["cards"]:
             card = scryfall(name, cache)
             if card is None:
@@ -349,14 +357,15 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
                 bad.append(f"{name}: not on Arena")
             if identity and not set(card["color_identity"]) <= identity:
                 bad.append(f"{name}: off colour")
-            if name in picked_so_far and name not in BASICS:
+            # A Standard card is offered again for more copies; a Brawl card never.
+            if fmt == "brawl" and faces(name) & picked_so_far and name not in BASICS:
                 bad.append(f"{name}: already picked")
     results["C2"] = ("pass" if not bad else "fail", "; ".join(bad[:8]))
 
     unlooked = []
     for offer in facts["offers"]:
         seen = run.tool_results_before(message_to_exchange(run, offer["message"]))
-        unlooked += [n for n in offer["cards"] if n not in seen]
+        unlooked += [n for n in offer["cards"] if not any(face in seen.lower() for face in faces(n))]
     results["C3"] = ("pass" if not unlooked else "fail", f"never looked up: {sorted(set(unlooked))[:8]}")
 
     saves = run.saves_by_exchange()
@@ -366,14 +375,19 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
                      f"{len(saves)} exchanges with a save; picks not saved in their exchange: {len(unsaved)} of {len(pick_exchanges)}")
 
     if facts["review_type_counts"] and cards:
-        actual = Counter()
+        # A two-faced card may be counted by its front face or by every face: a
+        # review is right anywhere between the two counts.
+        front, any_face = Counter(), Counter()
         for name, n in cards.items():
-            card = scryfall(name, cache) or {}
+            type_line = (scryfall(name, cache) or {}).get("type_line") or ""
             for t in TYPES:
-                if t in (card.get("type_line") or ""):
-                    actual[t] += n
-        wrong = [f"{c['card_type']} said {c['count']}, is {actual[c['card_type']]}"
-                 for c in facts["review_type_counts"] if c["count"] != actual[c["card_type"]]]
+                front[t] += n * (t in type_line.split(" // ")[0])
+                any_face[t] += n * (t in type_line)
+
+        def counted(t: str) -> str:
+            return str(front[t]) if front[t] == any_face[t] else f"{front[t]} to {any_face[t]}"
+        wrong = [f"{c['card_type']} said {c['count']}, is {counted(c['card_type'])}"
+                 for c in facts["review_type_counts"] if not front[c["card_type"]] <= c["count"] <= any_face[c["card_type"]]]
         results["C5"] = ("pass" if not wrong else "fail", "; ".join(wrong[:6]) + " (against the final list)")
     else:
         results["C5"] = ("n/a", "no review counts")
@@ -459,7 +473,13 @@ def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> 
         problems.append(f"{len(categories)} categories {[c['name'] for c in categories][:10]}, template has {shape[0]}")
     creature_types = {t.lower() for name in cards for t in ((scryfall(name, cache) or {}).get("type_line") or "").split("—")[-1].split()
                       if "Creature" in ((scryfall(name, cache) or {}).get("type_line") or "")}
-    typal = [c["name"] for c in categories if any(w.rstrip("s").lower() in creature_types for w in c["name"].split())]
+    # Categories a half-built start already had were not Deckwright's to name.
+    inherited = set()
+    if run.summary.get("start"):
+        start = json.loads((pathlib.Path(__file__).resolve().parent / "starts" / run.summary["start"] / "deck.json").read_text())
+        inherited = {c["name"] for c in start["categories"]} | {"Dinosaur payoffs"}  # renamed after round 1
+    typal = [c["name"] for c in categories if c["name"] not in inherited
+             and any(w.rstrip("s").lower() in creature_types for w in c["name"].split())]
     if typal:
         problems.append(f"creature-type categories: {typal}")
     return ("pass" if not problems else "fail", "; ".join(problems))

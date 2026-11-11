@@ -9,7 +9,7 @@
 - 2026-11-09 · category · Card draw (8) · template accepted by the player
 - 2026-11-09 · category · Removal (8) · template accepted by the player
 - 2026-11-09 · category · Personal favourites (8) · template accepted by the player
-- 2026-11-09 · category · Dinosaur payoffs (8) · template accepted by the player
+- 2026-11-09 · category · Enrage payoffs (8) · template accepted by the player
 - 2026-11-09 · category · Big threats (8) · template accepted by the player
 - 2026-11-09 · category · Protection (8) · template accepted by the player
 - 2026-11-09 · category · Board wipes (8) · template accepted by the player
