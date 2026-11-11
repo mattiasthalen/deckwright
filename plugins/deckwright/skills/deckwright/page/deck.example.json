@@ -1,7 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "Vren's Rat Pack",
   "format": "brawl",
+  "hero": "00000000-0000-0000-0000-000000000001",
+  "pitch": "A blue-black Rat deck led by Vren. Every creature the removal kills comes back as a Rat on your side, and the Rats win together.",
+  "curve_note": "Most of the deck costs three or less, so a Rat or a removal spell comes down every turn.",
   "criteria": [
     {"kind": "format", "text": "Brawl on Arena"},
     {"kind": "theme", "text": "Rats"},
@@ -16,25 +19,82 @@
   ],
   "cards": [
     {
-      "scryfall_id": "00000000-0000-0000-0000-000000000000",
+      "scryfall_id": "00000000-0000-0000-0000-000000000001",
       "name": "Vren, the Relentless",
       "count": 1,
       "category": "Commander",
       "tags": ["rat", "removal payoff"],
       "checked": true,
       "bends": null,
-      "copy": {"mana_cost": "{2}{U}{B}", "type_line": "Legendary Creature — Rat Rogue", "text": "…", "taken": "2026-11-10"}
+      "why": "The engine: every creature an opponent loses comes back as a Rat for you.",
+      "copy": {"mana_cost": "{2}{U}{B}", "type_line": "Legendary Creature — Rat Rogue", "text": "…", "rarity": "rare", "taken": "2026-11-10"}
+    },
+    {
+      "scryfall_id": "00000000-0000-0000-0000-000000000002",
+      "name": "Infernal Grasp",
+      "count": 1,
+      "category": "Removal",
+      "tags": ["removal"],
+      "checked": true,
+      "bends": null,
+      "why": "Two mana kills anything, and Vren turns the kill into a Rat.",
+      "copy": {"mana_cost": "{1}{B}", "type_line": "Instant", "text": "Destroy target creature. You lose 2 life.", "rarity": "uncommon", "taken": "2026-11-10"}
+    },
+    {
+      "scryfall_id": "00000000-0000-0000-0000-000000000003",
+      "name": "Swamp",
+      "count": 18,
+      "category": "Lands",
+      "tags": ["land"],
+      "checked": true,
+      "bends": null,
+      "copy": {"mana_cost": "", "type_line": "Basic Land — Swamp", "text": "({T}: Add {B}.)", "rarity": "common", "taken": "2026-11-10"}
     }
   ],
   "maybeboard": [
-    {"scryfall_id": "…", "name": "…", "kind": "later", "why": "…"},
-    {"scryfall_id": "…", "name": "…", "kind": "swap", "out": "…", "why": "…", "bends": null}
+    {"scryfall_id": "00000000-0000-0000-0000-000000000004", "name": "Pack Rat", "kind": "later", "why": "A Rat that copies itself; saved for later."},
+    {"scryfall_id": "00000000-0000-0000-0000-000000000005", "name": "Feed the Swarm", "kind": "swap", "out": "Infernal Grasp", "why": "Also answers enchantments.", "bends": null}
   ],
   "dismissed_findings": [
     {"finding": "Only 6 card draw against a target of 8", "reason": "The rats draw enough", "card": null, "criterion": null}
   ],
   "last_review": {"date": "2026-11-10", "unfinished": false, "findings": ["…"]},
-  "handbook": [{"title": "How it wins", "text": "…"}],
-  "scenes": [{"title": "Every kill is a rat", "svg": "<svg …>…</svg>"}],
+  "tokens": [
+    {"name": "Rat", "scryfall_id": "00000000-0000-0000-0000-000000000006"}
+  ],
+  "scenes": [
+    {
+      "title": "Every kill is a Rat",
+      "lede": "Vren turns each creature the removal kills into a Rat on your side.",
+      "steps": [
+        {"caption": "Vren is out. The opponent has a creature.", "things": [
+          {"card": "Vren, the Relentless"},
+          {"pile": "Their creature", "count": "4/4", "does": "enters"}
+        ]},
+        {"caption": "Pay for Infernal Grasp and kill it. Vren exiles it instead.", "things": [
+          {"card": "Vren, the Relentless", "does": "glows"},
+          {"mana": "{1}{B}", "label": "Pay"},
+          {"card": "Infernal Grasp", "does": "enters"},
+          {"pile": "Their creature", "count": "4/4", "label": "Exiled", "does": "leaves"}
+        ]},
+        {"caption": "At the end of the turn you get a Rat for it.", "things": [
+          {"card": "Vren, the Relentless", "does": "taps"},
+          {"token": "Rat", "does": "copies", "badge": "1/1"},
+          {"chip": "+1", "label": "Rats"}
+        ]}
+      ]
+    }
+  ],
+  "handbook": [
+    {"title": "How it wins", "blocks": [
+      {"text": "Vren, the Relentless makes a Rat for every creature the opponent loses. Infernal Grasp kills one and gives you a Rat.\n\nA blank line starts a new paragraph."},
+      {"list": ["Kill their best blocker first.", "Keep one removal spell for a flyer."]},
+      {"note": "A creature exiled by Vren never reaches the graveyard."}
+    ]},
+    {"title": "Turn by turn", "blocks": [
+      {"turns": [{"turn": "T1", "text": "A land."}, {"turn": "T4", "text": "Vren, the Relentless."}]},
+      {"pairs": [{"cards": ["Vren, the Relentless", "Infernal Grasp"], "text": "Each kill becomes a Rat on your side."}]}
+    ]}
+  ],
   "approved": false
 }
