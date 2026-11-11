@@ -150,7 +150,8 @@ def spells(name: str, real: str) -> bool:
     face of a two-faced card ("Riverglide" for Riverglide Pathway // Lavaglide Pathway).
     Commas and apostrophes are ignored."""
     plain = lambda text: re.sub(r"[,']", "", text).strip()
-    return any(plain(f) == plain(g) or ("//" in real and plain(g).startswith(plain(f)))
+    parts = {plain(part).lower() for g in faces(real) for part in g.split(",")}  # "Lord Skitter, Sewer King"
+    return any(plain(f) == plain(g) or ("//" in real and plain(g).startswith(plain(f))) or plain(f) in parts
                for f in faces(name) for g in faces(real))
 
 
