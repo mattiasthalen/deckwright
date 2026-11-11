@@ -4,7 +4,7 @@
 
 ## Context
 
-The deck page is identical for every deck (ADR-0003), so anything specific to
+The deck page is identical for every deck (ADR-0010), so anything specific to
 a deck reaches the page as data. Until now a scene was an SVG string that
 Deckwright wrote by hand into `deck.json`. The first real deck got line drawings
 with a text label, and the player wanted the scenes to show the cards he picked.
