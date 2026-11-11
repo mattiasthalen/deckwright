@@ -1,6 +1,6 @@
 # ADR-0003 — A deck is a folder of plain files
 
-**Status:** Accepted (2026-11-10)
+**Status:** Superseded by [ADR-0010](0010-a-deck-is-a-folder-of-plain-files-with-its-hero-art-and-tokens.md) (2026-11-11)
 
 ## Context
 
