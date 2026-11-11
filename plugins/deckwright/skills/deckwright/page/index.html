@@ -568,11 +568,13 @@ function drawHandbook() {
 const KIND_WORDS = {in: 'In', out: 'Out', criteria: 'Criteria', category: 'Category', finding: 'Finding'};
 const LEDGER_SHOWN = 8;
 
+const withoutScryfallIds = text => text.replace(/\s*\([0-9a-f-]{36}\)/g, '');
+
 function ledgerEntries(text) {
   return text.split('\n').filter(l => l.startsWith('- ')).map(l => {
     const [date, kind, subject, ...reason] = l.slice(2).split(' · ');
-    if (!reason.length) return {date: '', kind: '', subject: l.slice(2), reason: ''};
-    return {date, kind, subject: subject.replace(/\s*\([0-9a-f-]{36}\)/g, ''), reason: reason.join(' · ')};
+    if (!reason.length) return {date: '', kind: '', subject: withoutScryfallIds(l.slice(2)), reason: ''};
+    return {date, kind, subject: withoutScryfallIds(subject), reason: reason.join(' · ')};
   });
 }
 
