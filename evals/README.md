@@ -10,10 +10,10 @@ python3 evals/run.py evals/briefs/*.md --arm bare --runs 3 -j 3 --resume <stamp>
 ```
 
 A background command in a cloud session is cut off after two hours. Resume the
-round with the same briefs, `--arm` and `--runs`: finished runs (those with
-`run.json`) are skipped, and a run cut off mid-way or stopped by the publish budget
-is cleared and played again from its start. Never resume a round that is still running, because its unfinished runs'
-folders are cleared.
+round with the same briefs, `--arm` and `--runs`: finished runs are skipped, and a
+run cut off mid-way (no `run.json`) or stopped by the publish budget is cleared and
+played again from its start. Never resume a round that is still running, because
+its unfinished runs' folders are cleared.
 
 - **Deckwright** is headless Claude Code on Opus 5.5 in a workspace of its own. It
   may publish real, private pages; sending files into the person's chat is blocked.
@@ -84,10 +84,10 @@ as DIED. A started run copies its start into `start/`, which the checks read.
   midnight UTC. A round stops starting exchanges and runs once its accepted
   publishes reach `--publish-budget` (default 150, leaving the owner 50). A run
   stopped this way ends as `publish budget` in `run.json`, and `--resume` plays it
-  again from its start; one never started has no folder, so `--resume` plays it. The budget is per start of `run.py`, so rounds run
-  side by side or one after another on the same day must split the day's allowance
-  between them by hand. Turns in flight when the budget is reached may publish a
-  few more.
+  again from its start; one never started has no folder, so `--resume` plays it.
+  The budget is per start of `run.py`, so rounds run side by side or one after
+  another on the same day must split the day's allowance between them by hand.
+  Turns in flight when the budget is reached may publish a few more.
 - `run.json` costs before 2026-11-11 summed running totals; they were recalculated
   from the traces.
 - Runs `checks.py` flags as CONTAMINATED reached outside their own folder.
