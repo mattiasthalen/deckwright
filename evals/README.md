@@ -79,3 +79,5 @@ as DIED. A started run copies its start into `start/`, which the checks read.
 - Runs `checks.py` flags as CONTAMINATED reached outside their own folder.
 - Every brief builds one deck, so the checks read one page a run: a run that
   publishes two decks has their files merged. Fix it when a brief builds two.
+- The Arena check searches `!"name"`, which breaks on a name holding a quote
+  mark. Only joke-set cards, none of them on Arena, have one.
