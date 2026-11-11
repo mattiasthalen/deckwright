@@ -17,7 +17,7 @@ show tokens (ADR-0008). Neither picture is in the folder ADR-0003 listed.
 
 Each deck is one artifact holding plain files, by relative path:
 
-- `index.html`, the page template, identical for every deck;
+- `index.html`, the deck page, identical for every deck;
 - `deck.json`, the deck as it is now;
 - `LEDGER.md`, how it got there, only ever added to;
 - `cards/<scryfall id>.jpg`, the picture of each card in the deck and of each

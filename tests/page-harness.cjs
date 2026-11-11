@@ -1,5 +1,5 @@
 // Shared harness for the deck page test: a static server over a temp folder of
-// test decks, each beside a copy of the production template, and a way to open one.
+// test decks, each beside a copy of the production page, and a way to open one.
 
 const fs = require('node:fs');
 const http = require('node:http');
@@ -8,7 +8,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 
 const REPO = path.resolve(__dirname, '..');
-const TEMPLATE = process.env.DECK_PAGE_TEMPLATE
+const PAGE = process.env.DECK_PAGE
   || path.join(REPO, 'plugins/deckwright/skills/deckwright/page/index.html');
 const EXAMPLE = path.join(REPO, 'plugins/deckwright/skills/deckwright/page/deck.example.json');
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
@@ -279,13 +279,13 @@ async function startDeckServer(browser) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'deck-page-'));
   const cardPicture = await jpeg(browser, 488, 680, '#3b5a7a');
   const artCrop = await jpeg(browser, 626, 457, '#7a5a3b');
-  const template = fs.readFileSync(TEMPLATE);
+  const page = fs.readFileSync(PAGE);
   const folders = deckFolders();
   for (const [name, f] of Object.entries(folders)) {
     const dir = path.join(root, name);
     fs.mkdirSync(path.join(dir, 'cards'), { recursive: true });
     fs.mkdirSync(path.join(dir, 'art'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'index.html'), template);
+    fs.writeFileSync(path.join(dir, 'index.html'), page);
     fs.writeFileSync(path.join(dir, 'deck.json'), typeof f.deck === 'string' ? f.deck : JSON.stringify(f.deck, null, 2));
     if (f.ledger !== undefined) fs.writeFileSync(path.join(dir, 'LEDGER.md'), f.ledger);
     for (const id of f.pictures) fs.writeFileSync(path.join(dir, 'cards', `${id}.jpg`), cardPicture);

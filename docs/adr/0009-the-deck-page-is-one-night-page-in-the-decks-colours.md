@@ -7,9 +7,9 @@
 The milestone 1 design agreed that the deck page looks like the page "Vren's Rat
 Pack", with scenes in the style of the page "Bloomburrow Commanders". That
 agreement was recorded only in a design document outside the repository. The
-template that shipped had a system font, tabs and one flat accent, and nothing in
+page that shipped had a system font, tabs and one flat accent, and nothing in
 the repository could show it had drifted. Vren's page is night-coloured with a
-gold accent, made for one blue-black deck; the template serves every deck.
+gold accent, made for one blue-black deck; the deck page serves every deck.
 
 ## Decision
 
@@ -24,7 +24,7 @@ of the deck's cards: one colour gives that colour, several give a blend, none
 gives gold. The curve keeps two fixed colours, so its two parts stay apart in any
 deck.
 
-The template is the statement of this look. A browser test opens it with a test
+`index.html` is the statement of this look. A browser test opens it with a test
 deck and fails when a part above is missing.
 
 Rejected:
@@ -41,5 +41,5 @@ Rejected:
 A deck's page tells its colours at a glance. The accent is computed, so a colour
 combination nobody has looked at can read badly; the curve already needed fixed
 colours for that reason. The fonts come from Google Fonts, with system fonts
-named as fallbacks. A change to the look is a change to the template and to the
+named as fallbacks. A change to the look is a change to `index.html` and to the
 browser test together.

@@ -2,7 +2,7 @@
 //
 // Run: node --test tests/*.test.cjs
 //
-// Hooks the template must keep (everything else is read the way a reader sees it):
+// Hooks the page must keep (everything else is read the way a reader sees it):
 //   #top       the hero
 //   #engine    the scenes section
 //   #cards     the cards section
@@ -768,7 +768,7 @@ describe('Written in the repo', () => {
     }
   });
 
-  test('AC34: deck.example.json is version 2 and the template draws it with no console error', () =>
+  test('AC34: deck.example.json is version 2 and the page draws it with no console error', () =>
     open('example', async ({ page, errors, deck }) => {
       assert.equal(deck.version, 2);
       assert.equal((await page.locator('h1').innerText()).replace(/\s+/g, ' ').trim(), deck.name, 'the example deck\'s name is not drawn');
