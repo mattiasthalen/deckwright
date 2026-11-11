@@ -14,6 +14,7 @@ from collections import Counter
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import checks  # noqa: E402
+import headless  # noqa: E402
 import run as runner  # noqa: E402
 
 FACT_NULL = {"holds": None, "evidence": ""}
@@ -183,7 +184,7 @@ def test_isolated_env_cuts_a_run_off_from_shared_memory():
     shared = {"CLAUDE_MEMORY_STORES": '[{"path": "/v1/code/memory/shared"}]',
               "CLAUDE_COWORK_MEMORY_PATH_OVERRIDE": "/shared/memory"}
     with mock.patch.dict(os.environ, shared):
-        env = runner.isolated_env(pathlib.Path("/runs/one/memory"))
+        env = headless.isolated_env(pathlib.Path("/runs/one/memory"))
     assert "CLAUDE_MEMORY_STORES" not in env, "the run can still reach the project's memory store"
     assert env["CLAUDE_COWORK_MEMORY_PATH_OVERRIDE"] == "/runs/one/memory", env["CLAUDE_COWORK_MEMORY_PATH_OVERRIDE"]
 

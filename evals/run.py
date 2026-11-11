@@ -19,11 +19,11 @@ import os
 import pathlib
 import re
 import shutil
-import subprocess
 import threading
 import uuid
 
 import checks
+import headless
 
 DECKWRIGHT_MODEL = "claude-opus-5-5"
 STAND_IN_MODEL = "claude-sonnet-5-5"
@@ -72,34 +72,10 @@ def read_brief(path: pathlib.Path) -> tuple[str, str, str | None, str | None]:
     return section("Opening"), section("Player"), section("Start"), section("Ends")
 
 
-def isolated_env(memory: pathlib.Path) -> dict:
-    """The parent's environment minus the project's shared memory.
-
-    A run inherits the cloud session's memory store, and the bare runs of
-    2026-11-10 wrote stand-in decks into it as the owner's and read them back in
-    later runs. Each run gets an empty memory folder of its own instead.
-    """
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_MEMORY_STORES"}
-    env["CLAUDE_COWORK_MEMORY_PATH_OVERRIDE"] = str(memory)
-    return env
-
-
 def claude(args: list[str], prompt: str, cwd: pathlib.Path, memory: pathlib.Path) -> list[dict]:
-    """One headless turn; returns its stream-json events.
-
-    The prompt goes on stdin: as an argument, a message opening with "-" is read as
-    an option and the turn fails.
-    """
-    memory.mkdir(parents=True, exist_ok=True)
-    proc = subprocess.run(
-        ["claude", "-p", "--output-format", "stream-json", "--verbose", *args],
-        input=prompt,
-        cwd=cwd,
-        env=isolated_env(memory),
-        capture_output=True,
-        text=True,
-        timeout=3600,
-    )
+    """One headless turn; returns its stream-json events."""
+    proc = headless.claude(["--output-format", "stream-json", "--verbose", *args], prompt, memory,
+                           cwd=cwd, timeout=3600)
     events = []
     for line in proc.stdout.splitlines():
         try:
@@ -132,19 +108,36 @@ def stand_in_turn(message: str, session: str, first: bool, player: str, cwd: pat
 
 
 class PublishBudget:
-    """The publishes a round may make, shared by its runs, which play in threads at once."""
+    """The publishes a round may make, shared by its runs, which play in threads at once.
 
-    def __init__(self, publishes: int):
-        self.publishes, self.published, self.lock = publishes, 0, threading.Lock()
+    The account's limit is per UTC day, so with a `ledger` folder every accepted
+    publish is also recorded in a file for the day, and every start of the runner that
+    day, side by side or later, counts against the same budget.
+    """
+
+    def __init__(self, publishes: int, ledger: pathlib.Path | None = None):
+        self.publishes, self.ledger, self.published, self.lock = publishes, ledger, 0, threading.Lock()
 
     def count(self, events: list[dict]) -> None:
         """Add the publishes one Deckwright turn made that the Artifact tool accepted."""
+        accepted = sum(checks.saves_by_exchange(events).values())
         with self.lock:
-            self.published += sum(checks.saves_by_exchange(events).values())
+            self.published += accepted
+            if self.ledger and accepted:
+                self.ledger.mkdir(parents=True, exist_ok=True)
+                with self._today().open("a") as f:
+                    f.write("publish\n" * accepted)
 
     def used_up(self) -> bool:
         with self.lock:
-            return self.published >= self.publishes
+            if not self.ledger:
+                return self.published >= self.publishes
+            today = self._today()
+            return (len(today.read_text().splitlines()) if today.exists() else 0) >= self.publishes
+
+    def _today(self) -> pathlib.Path:
+        # Worked out on each call: a round can run past midnight UTC.
+        return self.ledger / datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
 
 
 def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int,
@@ -268,7 +261,7 @@ def main() -> None:
             parser.error(f"no round to resume at {round_dir}")
     else:
         round_dir = RUNS_DIR / datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%S")
-    budget = PublishBudget(args.publish_budget)
+    budget = PublishBudget(args.publish_budget, RUNS_DIR / "publishes")
     for summary in play_round(args.briefs, args.arm, args.runs, round_dir, args.jobs, args.max_exchanges, budget):
         print(json.dumps(summary))
 

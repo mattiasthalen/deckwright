@@ -20,7 +20,8 @@ its unfinished runs' folders are cleared.
   The bare arm gets only the brief's opening line; the skill arm loads the plugin.
 - **The stand-in** is Sonnet 5.5 with no tools. It sees only Deckwright's replies.
 - **Each run has its own empty memory.** Runs that shared the project's memory
-  wrote stand-in decks into it as the owner's and read them back (2026-11-10).
+  wrote stand-in decks into it as the owner's and read them back (2026-11-10). The
+  reader and the judge are started the same way, with an empty memory of their own.
 - **Some briefs start half-built** (`## Start`): the runner copies a deck from
   `starts/` into the workspace, so the run skips the interview and the first card
   rounds, which cost most of a run and are exercised by the briefs that start from
@@ -81,13 +82,14 @@ as DIED. A started run copies its start into `start/`, which the checks read.
   characters of a long conversation, which can drop the intent interview.
 - Runs share the account's artifact gallery; `checks.py` flags a run that reads a
   page it did not publish. The account may publish 200 pages a day, reset at
-  midnight UTC. A round stops starting exchanges and runs once its accepted
+  midnight UTC. A round stops starting exchanges and runs once the day's accepted
   publishes reach `--publish-budget` (default 150, leaving the owner 50). A run
   stopped this way ends as `publish budget` in `run.json`, and `--resume` plays it
   again from its start; one never started has no folder, so `--resume` plays it.
-  The budget is per start of `run.py`, so rounds run side by side or one after
-  another on the same day must split the day's allowance between them by hand.
-  Turns in flight when the budget is reached may publish a few more.
+  The budget is for the UTC day and shared by every start of `run.py` on this
+  machine, counted in `evals/runs/publishes/`. Runs started from another machine or
+  session do not see it, and neither does publishing done outside the evals. Turns
+  in flight when the budget is reached may publish a few more.
 - `run.json` costs before 2026-11-11 summed running totals; they were recalculated
   from the traces.
 - Runs `checks.py` flags as CONTAMINATED reached outside their own folder.

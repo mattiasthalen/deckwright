@@ -13,13 +13,14 @@ from __future__ import annotations
 import json
 import pathlib
 import re
-import subprocess
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
+
+import headless
 
 READER_MODEL = "claude-sonnet-5-5"
 CACHE = pathlib.Path(__file__).resolve().parent / "runs" / "scryfall-cache.json"
@@ -344,10 +345,8 @@ class Run:
                 saved[f"published {name}"] = self.published[name].read_text(errors="replace")
         files = [f"--- {name} ---\n{text[:60000]}" for name, text in saved.items()]
         prompt = READER_PROMPT.format(transcript="\n\n".join(lines) + "\n\nSAVED FILES\n" + "\n".join(files))
-        proc = subprocess.run(
-            ["claude", "-p", "--model", READER_MODEL, "--tools", "", "--output-format", "json",
-             "--json-schema", json.dumps(READER_SCHEMA)],
-            input=prompt, capture_output=True, text=True, timeout=1800)
+        proc = headless.claude(["--model", READER_MODEL, "--tools", "", "--output-format", "json",
+                                "--json-schema", json.dumps(READER_SCHEMA)], prompt, timeout=1800)
         try:
             data = json.loads(proc.stdout)["structured_output"]
         except (json.JSONDecodeError, KeyError) as error:
