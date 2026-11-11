@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "Rats (Brawl)",
   "format": "brawl",
   "criteria": [
@@ -48,6 +48,7 @@
   "maybeboard": [],
   "dismissed_findings": [],
   "last_review": null,
+  "tokens": [],
   "handbook": [],
   "scenes": [],
   "approved": false

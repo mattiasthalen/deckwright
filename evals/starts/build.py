@@ -68,10 +68,15 @@ def search(query: str) -> list[dict]:
 
 def copy_of(card: dict) -> dict:
     faces = card.get("card_faces") or [card]
-    return {"mana_cost": card.get("mana_cost") or faces[0].get("mana_cost", ""),
+    copy = {"mana_cost": card.get("mana_cost") or faces[0].get("mana_cost", ""),
             "type_line": card["type_line"],
             "text": "\n//\n".join(f.get("oracle_text", "") for f in faces),
+            "rarity": card["rarity"],
             "taken": TAKEN}
+    # Scryfall's cmc is the mana value; without it the page counts the cost's symbols.
+    if "cmc" in card:
+        copy["mana_value"] = card["cmc"]
+    return copy
 
 
 def build(name: str, spec: dict) -> None:
@@ -108,9 +113,9 @@ def build(name: str, spec: dict) -> None:
         for card in picks[: spec["per"] // copies]:
             take(card, category)
             cards[-1]["count"] = copies
-    deck = {"version": 1, "name": f"{spec['theme']} ({fmt.title()})", "format": fmt, "criteria": criteria,
+    deck = {"version": 2, "name": f"{spec['theme']} ({fmt.title()})", "format": fmt, "criteria": criteria,
             "categories": categories, "cards": cards, "maybeboard": [], "dismissed_findings": [],
-            "last_review": None, "handbook": [], "scenes": [], "approved": False}
+            "last_review": None, "tokens": [], "handbook": [], "scenes": [], "approved": False}
     out = HERE / name
     out.mkdir(exist_ok=True)
     (out / "deck.json").write_text(json.dumps(deck, indent=2, ensure_ascii=False) + "\n")

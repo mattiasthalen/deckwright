@@ -4,128 +4,741 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap">
 <style>
-:root{--bg:#f6f3ee;--fg:#1d1b18;--muted:#6b6459;--card:#fff;--line:#e2dcd2;--accent:#7a3b8f;--bar:#7a3b8f}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15131a;--fg:#ece8f2;--muted:#a49cb3;--card:#1f1c26;--line:#332e3d;--accent:#c89be0;--bar:#c89be0}}
-:root[data-theme="dark"]{--bg:#15131a;--fg:#ece8f2;--muted:#a49cb3;--card:#1f1c26;--line:#332e3d;--accent:#c89be0;--bar:#c89be0}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
-main{max-width:1100px;margin:0 auto;padding:16px}
-h1{margin:.2em 0 0;font-size:1.8em}.sub{color:var(--muted)}
-.scenes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:16px 0}
-.scene{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px}.scene svg{width:100%;height:auto;display:block}
-nav{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:16px 0}
-nav button{background:none;border:0;padding:8px 12px;color:var(--muted);font:inherit;cursor:pointer;border-bottom:2px solid transparent}
-nav button[aria-selected=true]{color:var(--fg);border-color:var(--accent)}
-section[hidden]{display:none}
-.cat h2{font-size:1.1em;margin:20px 0 8px}.cat h2 small{color:var(--muted);font-weight:normal}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
-.c{background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer}
-.c img{width:100%;display:block}.c .t{padding:6px 8px;font-size:.85em}
-.c.text .t{min-height:120px}.c.open{grid-column:span 2}.c .more{display:none;padding:0 8px 8px;font-size:.8em;color:var(--muted);white-space:pre-wrap}.c.open .more{display:block}
-.chart{display:flex;align-items:flex-end;gap:8px;height:220px;padding:8px 0;border-bottom:1px solid var(--line)}
-.bar{flex:1;background:var(--bar);border-radius:4px 4px 0 0;position:relative;min-height:2px}
-.bar span{position:absolute;top:-1.4em;left:0;right:0;text-align:center;font-size:.85em}
-.axis{display:flex;gap:8px}.axis div{flex:1;text-align:center;color:var(--muted);font-size:.85em}
-pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;max-height:60vh}
-.btn{background:var(--accent);color:var(--bg);border:0;border-radius:6px;padding:8px 14px;font:inherit;cursor:pointer}
-.ledger li{margin:4px 0}.status{display:inline-block;padding:2px 8px;border-radius:99px;border:1px solid var(--line);font-size:.85em}
+:root {
+  --night: #11131d; --dusk: #1a1d2c; --dusk-2: #232739; --line: #2f3449;
+  --bone: #ece6d6; --fog: #a9a6b8; --tide: #6fb3c2; --blood: #d0645a; --lantern: #e9b24c;
+  --accent: #e9b24c; --accent-soft: rgba(233, 178, 76, .16); --accent-ink: #11131d;
+  --accent-blend: linear-gradient(90deg, var(--accent), var(--accent));
+  --mana-w: #e8dfc0; --mana-u: #4f8fd1; --mana-b: #5e4f6c; --mana-r: #c9573f; --mana-g: #4f9a5c; --mana-c: #9c978c;
+  --font-display: "IM Fell English SC", "IM Fell English", Georgia, "Times New Roman", serif;
+  --font-serif: "IM Fell English", Georgia, serif;
+  --font-body: "Alegreya Sans", "Gill Sans", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--night); scroll-behavior: smooth; }
+body { margin: 0; background: var(--night); color: var(--bone); font-family: var(--font-body); font-size: 17px; line-height: 1.55; padding: 0 16px 72px; }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 72px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; margin: 0; text-wrap: balance; line-height: 1.05; }
+h2 { font-size: clamp(1.9rem, 4.4vw, 2.8rem); }
+h3 { font-size: 1.35rem; }
+p { margin: 0; max-width: 64ch; }
+a { color: var(--accent); }
+.label { font-size: .78rem; letter-spacing: .14em; text-transform: uppercase; color: var(--fog); font-weight: 500; }
+.lede { color: var(--fog); font-size: 1.08rem; }
+button { font-family: var(--font-body); font-size: .95rem; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.btn { background: var(--dusk-2); color: var(--bone); border: 1px solid var(--line); padding: 9px 14px; border-radius: 999px; text-decoration: none; transition: border-color .2s, transform .15s; }
+.btn:hover { border-color: var(--accent); }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+section { display: grid; gap: 22px; scroll-margin-top: 20px; }
+section[hidden] { display: none; }
+.section-head { display: grid; gap: 8px; }
+.empty { color: var(--fog); }
+.blank-card { aspect-ratio: 488 / 680; border-radius: 4.75% / 3.5%; display: grid; place-content: center; text-align: center; padding: 8px;
+  background: var(--dusk-2); border: 1px solid var(--line); font-family: var(--font-display); overflow-wrap: anywhere; }
+
+/* Hero */
+.hero { position: relative; margin: 0 -16px; overflow: hidden; }
+.hero-art { position: absolute; inset: 0; background-size: cover; background-position: center 30%; transform: scale(1.06); animation: drift 24s ease-in-out infinite alternate; }
+.hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(17,19,29,.25) 0%, rgba(17,19,29,.55) 45%, var(--night) 100%), radial-gradient(ellipse at 20% 80%, rgba(17,19,29,.9), transparent 60%); }
+.hero-in { position: relative; z-index: 1; max-width: 1152px; margin: 0 auto; padding: clamp(110px, 22vw, 220px) 16px 36px; display: grid; gap: 18px; }
+.hero h1 { font-size: clamp(3rem, 11vw, 6.6rem); letter-spacing: -.01em; text-shadow: 0 4px 30px rgba(0,0,0,.6); overflow-wrap: anywhere; }
+.hero h1 em { font-family: var(--font-serif); font-style: italic; text-transform: none; background: var(--accent-blend); -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .08em; }
+.hero .lede { color: var(--bone); max-width: 52ch; opacity: .9; }
+.hero .label b { color: var(--accent); font-weight: 500; }
+.stats { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+.stat { display: grid; }
+.stat b { font-family: var(--font-display); font-weight: 400; font-size: 2rem; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.stat span { font-size: .82rem; color: var(--fog); letter-spacing: .06em; }
+.hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.criteria { display: flex; flex-wrap: wrap; gap: 6px; }
+.criteria span { font-size: .82rem; color: var(--fog); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; background: rgba(17,19,29,.5); }
+@keyframes drift { from { transform: scale(1.06) translate(0, 0); } to { transform: scale(1.12) translate(-1.5%, -1%); } }
+
+/* Scenes */
+.scene { background: var(--dusk); border: 1px solid var(--line); border-radius: 18px; padding: clamp(14px, 3vw, 26px); display: grid; gap: 14px; overflow: hidden; }
+.scene h3 { font-size: 1.25rem; }
+.scene .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: center; min-height: 250px; }
+.thing { position: relative; display: grid; gap: 6px; justify-items: center; width: 160px; --life: 110px; }
+.thing img { width: 100%; aspect-ratio: 488 / 680; border-radius: 4.75% / 3.5%; display: block; box-shadow: 0 6px 22px rgba(0,0,0,.55); }
+.thing .blank-card, .thing .pile { width: 100%; }
+.thing .pile { aspect-ratio: 488 / 680; border-radius: 4.75% / 3.5%; display: grid; place-content: center; text-align: center; padding: 8px;
+  font-family: var(--font-display); font-size: 2.2rem; color: #f3e7c4; border: 3px solid #241911; box-shadow: 0 6px 22px rgba(0,0,0,.55);
+  background: radial-gradient(circle at 50% 50%, #8a5a2b 0 24%, transparent 25%), repeating-linear-gradient(45deg, #3b2a1d 0 6px, #4a3423 6px 12px); }
+.thing .chip { width: 110px; aspect-ratio: 1; border-radius: 14px; border: 2px dashed var(--accent); display: grid; place-content: center; font-family: var(--font-display); font-size: 2rem; color: var(--accent); background: var(--dusk-2); margin-bottom: 40px; }
+.thing .pips { padding: 0 0 70px; }
+.thing .pips .mana i { width: 36px; height: 36px; font-size: 1rem; }
+.thing .thing-label { font-size: .84rem; color: var(--fog); text-align: center; }
+/* Damage and drawn cards: each element's own style is where its motion ends,
+   so that with reduced motion, and no motion, it shows the end still. */
+.thing .life { position: relative; width: var(--life); aspect-ratio: 1; border-radius: 50%; margin-bottom: 40px; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #3a4468, #161b2e 70%); border: 3px solid #56608a; box-shadow: 0 6px 22px rgba(0,0,0,.55); animation: hit .5s .9s both; }
+.thing .life b { grid-area: 1 / 1; font-family: var(--font-serif); font-weight: 400; font-size: 3rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.thing .life .life-before { opacity: 0; animation: shown-until-hit 1s; }
+.thing .life .life-after { color: #ffb4a6; animation: appear .3s 1s both; }
+.thing .life::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; background: radial-gradient(circle, rgba(224,83,63,.85), rgba(224,83,63,0) 65%); opacity: 0; animation: burst .7s .85s both; }
+.thing .life.untouched, .thing .life.untouched::after { animation: none; }
+/* As tall as one back and the lift of the fan, so the +N mark sits on the backs. */
+.thing .fan { position: relative; width: 100%; aspect-ratio: 1 / .95; }
+.thing .fan .back { position: absolute; left: 20%; bottom: 0; width: 60%; border-radius: 4.75% / 3.5%; transform-origin: 50% 120%; transform: rotate(var(--turn));
+  box-shadow: 0 4px 14px rgba(0,0,0,.6); animation: deal .55s cubic-bezier(.3,1.2,.5,1) both; animation-delay: calc(.2s + var(--i) * .3s); }
+.thing .badge { position: absolute; top: -10px; right: -10px; z-index: 2; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: .95rem; border-radius: 99px; padding: 3px 10px; box-shadow: 0 2px 6px rgba(0,0,0,.5); animation: pop .45s .45s cubic-bezier(.3,1.6,.5,1) both; }
+/* On the fan's upper-right back; a margin's percentage is of the thing's width, as the fan's height is. */
+.thing .badge:has(+ .fan) { top: 0; right: 8%; margin-top: 10%; }
+/* The thing is wider than its life total, so the mark is placed from the circle's edge. */
+.thing .badge.life-lost { top: -16px; right: calc(50% - var(--life) / 2 - 16px); background: var(--blood); color: #fff; animation-delay: 1s; }
+/* Every step is inserted anew, and a transition never runs on an element just
+   inserted, so each motion is a keyframe animation. */
+.thing.enters { animation: enter .6s cubic-bezier(.3,1.3,.5,1) both; }
+.thing.glows > :first-child:not(.badge), .thing.glows .badge + * { animation: pulse .9s .25s both; }
+.thing.taps > :first-child:not(.badge), .thing.taps .badge + * { animation: tap .5s .3s both; }
+.thing.leaves > :first-child:not(.badge), .thing.leaves .badge + * { animation: exile 1s .6s both; }
+.thing.copies { animation: ghost .7s cubic-bezier(.3,.7,.2,1) both; }
+.thing.copies img { opacity: .75; outline: 2px dashed var(--accent); outline-offset: 2px; }
+.scene .caption { font-size: 1.15rem; font-weight: 500; text-align: center; min-height: 3.2em; animation: enter .5s both; }
+.scene .dots { display: flex; justify-content: center; gap: 6px; }
+.scene .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.scene .dots i.on { background: var(--accent); }
+.more-scenes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 18px; }
+.more-scenes .thing { width: 104px; --life: 84px; }
+.more-scenes .row { min-height: 176px; gap: 10px; }
+.more-scenes .thing .chip { width: 80px; font-size: 1.5rem; margin-bottom: 24px; }
+.more-scenes .thing .pile { font-size: 1.5rem; }
+.more-scenes .thing .pips { padding-bottom: 44px; }
+.more-scenes .thing .blank-card { font-size: .85rem; }
+.more-scenes .thing .life { margin-bottom: 24px; }
+.more-scenes .thing .life b { font-size: 2.3rem; }
+.more-scenes .caption { font-size: 1rem; }
+@keyframes enter { from { transform: translateY(22px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes tap { to { transform: rotate(90deg) scale(.8); } }
+@keyframes exile { to { transform: scale(.82) rotate(-6deg); filter: grayscale(1) brightness(.7); opacity: .35; } }
+@keyframes pulse { 0% { transform: none; } 35% { transform: translateY(-8px) scale(1.06); box-shadow: 0 0 0 4px var(--accent); } 100% { transform: none; } }
+@keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ghost { from { transform: translateX(-60px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes hit { 25% { transform: translateX(-7px) rotate(-3deg); } 50% { transform: translateX(6px) rotate(2deg); } }
+@keyframes burst { 0% { opacity: 0; transform: scale(.5); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
+@keyframes shown-until-hit { from, to { opacity: 1; } }
+@keyframes appear { from { opacity: 0; } }
+@keyframes deal { from { transform: translate(-90px, -70px) rotate(-40deg) scale(.6); opacity: 0; } }
+
+/* Cards */
+.categories { display: grid; gap: 40px; }
+.category { display: grid; gap: 14px; }
+.category-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.category-head .count-of { color: var(--accent); font-family: var(--font-display); font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.category-head .count-reason { color: var(--fog); font-size: .92rem; }
+#cards h2 { text-transform: capitalize; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px 14px; }
+.card { background: none; border: 0; padding: 0; color: inherit; text-align: left; display: grid; gap: 7px; perspective: 800px; align-content: start; }
+.card .face { display: block; position: relative; border-radius: 4.75% / 3.5%; transform-style: preserve-3d; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .25s ease-out, box-shadow .25s; box-shadow: 0 8px 18px rgba(0,0,0,.45); overflow: hidden; }
+.card .face img { display: block; width: 100%; aspect-ratio: 488 / 680; }
+.card .face .blank-card { padding: 10px; font-size: 1.1rem; border-radius: 0; }
+.card .face::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at var(--gx, 50%) var(--gy, 0%), rgba(255,240,210,.38), transparent 46%), linear-gradient(115deg, transparent 35%, rgba(170,140,255,.14) 48%, rgba(120,220,230,.14) 55%, transparent 68%); opacity: 0; transition: opacity .25s; mix-blend-mode: screen; pointer-events: none; }
+.card:hover .face, .card:focus-visible .face { box-shadow: 0 18px 34px rgba(0,0,0,.6), 0 0 0 1px var(--accent-soft); }
+.card:hover .face::after, .card:focus-visible .face::after { opacity: 1; }
+.card .copies { position: absolute; top: 8%; right: 6%; background: var(--night); border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 0 9px; font-family: var(--font-display); font-size: 1.15rem; }
+.card .caption { display: block; font-size: .86rem; color: var(--fog); line-height: 1.3; overflow-wrap: anywhere; }
+.card .caption b { color: var(--bone); font-weight: 500; display: block; }
+.card .rarity { color: var(--accent); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; }
+.card .flag { color: var(--blood); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; display: block; }
+.card .swap { display: block; }
+.card.rises { animation: rise .45s backwards; animation-delay: calc(var(--i) * 28ms); }
+@keyframes rise { from { transform: translateY(14px); opacity: 0; } }
+
+/* Curve */
+.curve { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; align-items: end; height: 220px; padding: 0 4px; border-bottom: 1px solid var(--line); }
+.bar { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; height: 100%; }
+.bar .column { flex: none; width: 100%; max-width: 64px; border-radius: 6px 6px 0 0; display: flex; flex-direction: column-reverse; overflow: hidden; transform-origin: bottom; animation: grow .9s cubic-bezier(.2,.9,.3,1) backwards; animation-delay: calc(var(--i) * 70ms); }
+.bar .creatures { background: var(--lantern); }
+.bar .other-spells { background: var(--tide); }
+.bar b { font-variant-numeric: tabular-nums; font-weight: 500; }
+@keyframes grow { from { transform: scaleY(.05); } }
+.curve-axis { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; text-align: center; color: var(--fog); font-size: .85rem; padding: 0 4px; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: .9rem; color: var(--fog); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* Handbook */
+.book { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 36px; }
+.chapter-list { position: sticky; top: 16px; align-self: start; display: grid; gap: 4px; font-size: .95rem; overflow-wrap: anywhere; }
+.chapter-list a { color: var(--fog); text-decoration: none; padding: 4px 0 4px 12px; border-left: 1px solid var(--line); }
+.chapter-list a:hover { color: var(--bone); border-color: var(--accent); }
+.chapters { display: grid; gap: 44px; min-width: 0; overflow-wrap: anywhere; }
+.chapter { display: grid; gap: 14px; scroll-margin-top: 20px; }
+.chapter h3 { font-size: 1.7rem; }
+.chapter h3 small { font-family: var(--font-body); font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 6px; }
+.chapter ul { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; max-width: 64ch; }
+.chapter li::marker { color: var(--accent); }
+.card-name { color: var(--accent); border: 0; border-bottom: 1px dotted var(--accent); background: none; padding: 0; font: inherit; cursor: pointer; text-align: inherit; }
+.note { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 0 10px 10px 0; max-width: 64ch; }
+.turn { display: grid; grid-template-columns: 64px 1fr; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.turn b { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; color: var(--accent); }
+.pairs { display: grid; gap: 10px; }
+.pair { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; background: var(--dusk); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.pair-pictures { display: flex; }
+.pair-pictures > * { width: 66px; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,.5); transition: transform .3s; }
+.pair-pictures .blank-card { font-size: .6rem; padding: 3px; }
+.pair-pictures > * + * { margin-left: -26px; transform: rotate(7deg); }
+.pair:hover .pair-pictures > :first-child { transform: rotate(-8deg) translateX(-6px); }
+.pair:hover .pair-pictures > * + * { transform: rotate(10deg) translateX(8px); }
+.pair p { font-size: .98rem; min-width: 0; }
+
+/* Ledger */
+.ledger .day { font-family: var(--font-display); color: var(--accent); font-size: 1.2rem; padding: 14px 0 6px; }
+.entry { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .95rem; overflow-wrap: anywhere; }
+.entry .kind { font-size: .74rem; letter-spacing: .1em; text-transform: uppercase; color: var(--fog); padding-top: 3px; }
+.entry .kind.in { color: var(--tide); } .entry .kind.out { color: var(--blood); }
+.entry b { font-weight: 500; }
+.entry span { color: var(--fog); }
+details.earlier > summary { cursor: pointer; color: var(--accent); padding: 12px 0; list-style: none; }
+details.earlier > summary::-webkit-details-marker { display: none; }
+
+/* Arena list */
+pre { background: var(--dusk); border: 1px solid var(--line); border-radius: 12px; padding: 16px; max-height: 340px; overflow: auto; font-size: .85rem; line-height: 1.45; margin: 0; color: var(--bone); }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 40px); background: var(--accent); color: var(--accent-ink); padding: 10px 18px; border-radius: 999px; font-weight: 700; opacity: 0; transition: .3s; pointer-events: none; z-index: 30; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* Card dialog */
+dialog { border: 0; padding: 0; background: transparent; color: var(--bone); max-width: min(760px, calc(100vw - 32px)); width: 100%; }
+dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); }
+.card-dialog { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 22px; background: var(--dusk); border: 1px solid var(--line); border-radius: 18px; padding: 20px; position: relative; }
+.card-dialog .picture > * { width: 100%; border-radius: 4.75% / 3.5%; box-shadow: 0 16px 40px rgba(0,0,0,.6); animation: flip .6s cubic-bezier(.2,.9,.3,1.1); }
+@keyframes flip { from { transform: perspective(900px) rotateY(-100deg) scale(.8); opacity: 0; } }
+.card-dialog .body { display: grid; gap: 12px; align-content: start; min-width: 0; overflow-wrap: anywhere; }
+.card-dialog h3 { font-size: 1.8rem; padding-right: 36px; }
+.card-dialog .type-line { color: var(--fog); font-size: .95rem; }
+.card-dialog .rules { white-space: pre-line; font-family: var(--font-serif); font-size: 1.02rem; line-height: 1.5; background: var(--night); border-radius: 10px; padding: 12px 14px; }
+.card-dialog .why, .card-dialog .swap { border-left: 3px solid var(--accent); padding-left: 12px; }
+.card-dialog .bends { color: var(--blood); font-size: .92rem; }
+.card-dialog .close { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border-radius: 50%; padding: 0; }
+[hidden] { display: none !important; }
+.mana { display: inline-flex; gap: 3px; vertical-align: middle; }
+.mana i { font-style: normal; width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: .72rem; font-weight: 700; background: var(--mana-c); color: var(--night); }
+.mana i.w { background: var(--mana-w); } .mana i.u { background: var(--mana-u); color: #fff; } .mana i.b { background: var(--mana-b); color: #fff; }
+.mana i.r { background: var(--mana-r); color: #fff; } .mana i.g { background: var(--mana-g); color: #fff; }
+.rules .mana i { width: 17px; height: 17px; font-size: .62rem; font-family: var(--font-body); }
+
+@media (max-width: 760px) {
+  .book { grid-template-columns: minmax(0, 1fr); }
+  .chapter-list { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card-dialog { grid-template-columns: minmax(0, 1fr); }
+  .card-dialog .picture { max-width: 240px; width: 100%; justify-self: center; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 10px; }
+  .card .caption { font-size: .78rem; }
+  .curve { height: 170px; gap: 6px; } .curve-axis { gap: 6px; }
+  .thing, .more-scenes .thing { width: 88px; --life: 72px; } .scene .row, .more-scenes .row { gap: 8px; min-height: 150px; }
+  .thing .chip, .more-scenes .thing .chip { width: 72px; font-size: 1.3rem; margin-bottom: 18px; }
+  .thing .pips .mana i { width: 26px; height: 26px; font-size: .8rem; } .thing .pips { padding-bottom: 36px; }
+  .thing .blank-card { font-size: .8rem; }
+  .thing .life, .more-scenes .thing .life { margin-bottom: 18px; }
+  .thing .life b, .more-scenes .thing .life b { font-size: 1.9rem; }
+  .entry { grid-template-columns: 70px minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
 </style>
 </head>
 <body>
-<main>
-<header><h1 id="name">Deck</h1><div class="sub" id="sub"></div></header>
-<div class="scenes" id="scenes"></div>
-<nav id="tabs"></nav>
-<section id="cards"></section>
-<section id="handbook" hidden></section>
-<section id="curve" hidden></section>
-<section id="ledger" hidden></section>
-<section id="arena" hidden></section>
+<header class="hero" id="top">
+  <div class="hero-art" id="hero-art"></div>
+  <div class="hero-in">
+    <span class="label" id="hero-line"></span>
+    <h1 id="deck-name">Deck</h1>
+    <p class="lede" id="pitch"></p>
+    <div class="criteria" id="criteria"></div>
+    <div class="stats" id="stats"></div>
+    <div class="hero-actions"><a class="btn primary" href="#handbook" id="to-handbook">Read the handbook</a><button class="btn" type="button" id="copy-top">Copy for Arena</button></div>
+  </div>
+</header>
+<main class="wrap">
+  <section id="engine" hidden></section>
+  <section id="cards"></section>
+  <section id="curve"></section>
+  <section id="handbook"></section>
+  <section id="ledger"></section>
+  <section id="import"></section>
 </main>
+<dialog id="card-dialog" aria-labelledby="dialog-name">
+  <div class="card-dialog">
+    <div class="picture" id="dialog-picture"></div>
+    <div class="body">
+      <div class="label" id="dialog-category"></div>
+      <h3 id="dialog-name"></h3>
+      <div id="dialog-cost"></div>
+      <div class="type-line" id="dialog-type-line"></div>
+      <div class="rules" id="dialog-rules"></div>
+      <p class="why" id="dialog-why"></p>
+      <p class="swap" id="dialog-swap"></p>
+      <p class="bends" id="dialog-bends"></p>
+      <a id="dialog-scryfall" target="_blank" rel="noopener">Open on Scryfall</a>
+    </div>
+    <button class="btn close" type="button" id="dialog-close" aria-label="Close" autofocus>✕</button>
+  </div>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
 <script>
-const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); Object.assign(e, attrs); e.append(...kids); return e; };
-const cmc = cost => (cost || '').match(/\{[^}]+\}/g)?.reduce((n, s) => n + (/^\{\d+\}$/.test(s) ? +s.slice(1, -1) : /X/.test(s) ? 0 : 1), 0) ?? 0;
+// Every file of the deck folder is reached through url and read, by its path
+// relative to the page. A deck page packed into a single file sets
+// window.DECK_FILES in a script before this one: a map from each such path to
+// the file's text (deck.json, LEDGER.md) or a data URL (pictures and art).
+const PACKED = window.DECK_FILES || {};
+const url = path => PACKED[path] || path;
+// A file that is missing or cannot be fetched reads as empty.
+const read = async path => path in PACKED ? PACKED[path] : fetch(path, {cache: 'no-store'}).then(r => r.ok ? r.text() : '', () => '');
 
-function tabs(names) {
-  const nav = document.getElementById('tabs');
-  names.forEach(([id, label], i) => {
-    const b = el('button', {textContent: label}); b.setAttribute('aria-selected', i === 0);
-    b.onclick = () => { names.forEach(([o]) => document.getElementById(o).hidden = o !== id);
-      nav.querySelectorAll('button').forEach(x => x.setAttribute('aria-selected', x === b)); };
-    nav.append(b);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen'];
+const inWords = k => NUMBER_WORDS[k - 1] || String(k);
+const BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'];
+const COLOUR_WORDS = {W: 'white', U: 'blue', B: 'black', R: 'red', G: 'green', C: 'colourless', T: 'tap', X: 'X'};
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let deck;
+// A deck's format is read whatever its case; one that is not Brawl is drawn as Standard.
+const FORMATS = new Map([['brawl', {name: 'Brawl', size: 100, startingLife: 25}], ['standard', {name: 'Standard', size: 60, startingLife: 20}]]);
+const format = () => FORMATS.get(String(deck.format).toLowerCase()) || FORMATS.get('standard');
+// The deck's cards by name, for scenes, the handbook and the ledger; the
+// maybeboard is not in the deck, but its tiles open from the grid.
+const cardsInDeck = new Map(), cardsToOpen = new Map();
+let cardNamePattern = null;
+
+// ---------- reading cards ----------
+
+const copiesOf = c => c.count ?? 1;
+const total = list => list.reduce((sum, c) => sum + copiesOf(c), 0);
+// A two-faced card is what its front face is, as Arena counts it.
+const frontType = c => (c.copy?.type_line || '').split(' // ')[0];
+const isLand = c => /\bLand\b/.test(frontType(c));
+const isCreature = c => /\bCreature\b/.test(frontType(c));
+const isRareOrMythic = c => ['rare', 'mythic'].includes(c.copy?.rarity);
+const creatureTypes = c => (frontType(c).split('—')[1] || '').trim().split(/\s+/).filter(Boolean);
+
+const symbols = text => (text || '').match(/\{[^}]+\}/g) || [];
+const symbolValue = s => { const number = s.slice(1, -1).split('/').find(part => /^\d+$/.test(part)); return number !== undefined ? +number : /X/.test(s) ? 0 : 1; };
+// mana_value is Scryfall's cmc. A copy saved without it falls back to its
+// symbols, which overstates an adventure: its mana_cost holds both costs.
+const manaValue = c => c.copy?.mana_value ?? symbols(c.copy?.mana_cost).reduce((sum, s) => sum + symbolValue(s), 0);
+
+function plural(type) {
+  const irregular = {Mouse: 'Mice', Fungus: 'Fungi', Ox: 'Oxen', Homunculus: 'Homunculi', Cyclops: 'Cyclopes', Child: 'Children',
+    Sheep: 'Sheep', Kithkin: 'Kithkin', Kor: 'Kor', Djinn: 'Djinn', Efreet: 'Efreet', Samurai: 'Samurai', Elk: 'Elk', Squid: 'Squid',
+    Eldrazi: 'Eldrazi', Myr: 'Myr', Vedalken: 'Vedalken', Aetherborn: 'Aetherborn', Deer: 'Deer'};
+  if (irregular[type]) return irregular[type];
+  if (/(folk|fish)$/.test(type)) return type;
+  if (/[lr]f$/.test(type)) return type.slice(0, -1) + 'ves';
+  if (/(s|x|ch|sh)$/.test(type)) return type + 'es';
+  if (/[^aeiou]y$/.test(type)) return type.slice(0, -1) + 'ies';
+  return type + 's';
+}
+
+// ---------- drawing small things ----------
+
+function manaSymbols(cost) {
+  return symbols(cost).map(s => {
+    const value = s.slice(1, -1), colour = (value.match(/[WUBRG]/) || [''])[0];
+    return `<i class="${colour.toLowerCase()}">${esc(value === 'T' ? '↷' : value)}</i>`;
+  }).join('');
+}
+function spokenMana(cost) {
+  return symbols(cost).map(s => s.slice(1, -1).split('/').map(v => COLOUR_WORDS[v] || v).join(' or ')).join(', ');
+}
+const manaRun = cost => `<span class="mana" role="img" aria-label="${esc(spokenMana(cost))}">${manaSymbols(cost)}</span>`;
+// A card of two parts (an adventure, a split card) has both costs in mana_cost.
+const manaCost = cost => cost.split(' // ').map(manaRun).join(' // ');
+const withManaDrawn = text => esc(text).replace(/(\{[^}]+\})+/g, manaRun);
+
+// A picture that fails to load is swapped for a blank card with its alt text,
+// and drawn as one from then on: a scene redraws its pictures at every step.
+const missingPictures = new Set();
+const blankCard = name => `<div class="blank-card">${esc(name)}</div>`;
+const picture = (id, alt) => {
+  const src = url(`cards/${id}.jpg`);
+  return missingPictures.has(src) ? blankCard(alt) : `<img loading="lazy" src="${esc(src)}" alt="${esc(alt)}">`;
+};
+const cardPicture = name => cardsInDeck.has(name) ? picture(cardsInDeck.get(name).scryfall_id, name) : blankCard(name);
+
+document.addEventListener('error', e => {
+  const img = e.target;
+  if (img.tagName !== 'IMG') return;
+  missingPictures.add(img.getAttribute('src'));
+  img.outerHTML = blankCard(img.alt);
+}, true);
+
+function toast(message) {
+  const t = $('toast');
+  t.textContent = message;
+  t.classList.add('on');
+  setTimeout(() => t.classList.remove('on'), 1800);
+}
+
+// ---------- Arena list ----------
+
+function arenaList() {
+  const line = c => `${copiesOf(c)} ${c.name}`;
+  const commander = deck.cards.filter(c => c.category === 'Commander'), rest = deck.cards.filter(c => c.category !== 'Commander');
+  return (commander.length ? `Commander\n${commander.map(line).join('\n')}\n\n` : '') + `Deck\n${rest.map(line).join('\n')}`;
+}
+async function copyArenaList() {
+  try { await navigator.clipboard.writeText(arenaList()); toast('Copied. Paste it into Arena.'); }
+  catch { toast('Select the list at the bottom and copy it'); $('import').scrollIntoView(); }
+}
+
+// ---------- colours ----------
+
+// The colours the deck's cards ask for, in WUBRG order.
+function deckColours() {
+  const seen = new Set(deck.cards.flatMap(c => symbols(c.copy?.mana_cost).concat(symbols(c.copy?.text))).join('').match(/[WUBRG]/g) || []);
+  return [...'WUBRG'].filter(c => seen.has(c));
+}
+// Black is too dark to read as an accent on night, so it leads only a mono-black deck.
+function paintAccent() {
+  const glow = {W: '#e8dfc0', U: '#6aa9e0', B: '#a58bd0', R: '#e0705a', G: '#78bf7c'};
+  const colours = deckColours();
+  if (!colours.length) return;
+  const accent = glow[colours.find(c => c !== 'B') || 'B'];
+  const root = document.documentElement.style;
+  root.setProperty('--accent', accent);
+  root.setProperty('--accent-soft', accent + '29');
+  root.setProperty('--accent-blend', `linear-gradient(90deg, ${colours.map(c => glow[c]).join(', ')}${colours.length === 1 ? ', ' + accent : ''})`);
+}
+
+// ---------- hero ----------
+
+// Rares and mythics, and the shared creature type, count copies, as the
+// player counts them; the shared type is headlined when more than three
+// creature copies share it and they are at least a third of the creatures.
+function headlineNumbers() {
+  const spells = deck.cards.filter(c => !isLand(c)), creatures = deck.cards.filter(isCreature);
+  const shared = new Map();
+  creatures.forEach(c => creatureTypes(c).forEach(t => shared.set(t, (shared.get(t) || 0) + copiesOf(c))));
+  const [type, sharing = 0] = [...shared].sort((a, b) => b[1] - a[1])[0] || [];
+  const rares = total(deck.cards.filter(isRareOrMythic));
+  const average = total(spells) ? spells.reduce((sum, c) => sum + manaValue(c) * copiesOf(c), 0) / total(spells) : 0;
+  return [
+    [total(deck.cards), 'cards'],
+    sharing > 3 && sharing * 3 >= total(creatures) ? [sharing, plural(type)] : [total(creatures), 'creatures'],
+    [total(deck.cards.filter(isLand)), 'lands'],
+    [average.toFixed(1), 'average mana value'],
+    rares ? [rares, 'rares and mythics'] : null,
+  ].filter(Boolean);
+}
+
+function drawHero() {
+  const size = total(deck.cards);
+  const words = String(deck.name || '').match(/\S+/g) || ['Deck'];
+  document.title = words.join(' ');
+  $('deck-name').innerHTML = `${words.length > 1 ? esc(words.slice(0, -1).join(' ')) + ' ' : ''}<em>${esc(words.at(-1))}</em>`;
+  $('hero-line').innerHTML = `${format().name} · ${size} of ${format().size} cards · <b>${deck.approved ? 'Approved' : 'In progress'}</b>`;
+  $('pitch').textContent = deck.pitch || '';
+  $('pitch').hidden = !deck.pitch;
+  $('criteria').innerHTML = (deck.criteria || []).map(c => `<span>${esc(c.text)}</span>`).join('');
+  const heroCard = deck.hero && deck.cards.find(c => c.scryfall_id === deck.hero);
+  if (deck.hero) {
+    const art = $('hero-art'), src = url(`art/${deck.hero}.jpg`), probe = new Image();
+    probe.onload = () => {
+      art.style.backgroundImage = `url("${src}")`;
+      art.setAttribute('role', 'img');
+      art.setAttribute('aria-label', heroCard ? `Artwork of ${heroCard.name}` : 'Artwork of the hero card');
+    };
+    probe.src = src;
+  }
+  $('stats').innerHTML = headlineNumbers().map(([number, label]) => `<div class="stat"><b>${esc(number)}</b><span>${esc(label)}</span></div>`).join('');
+  $('copy-top').onclick = copyArenaList;
+}
+
+// ---------- scenes ----------
+
+// The number a damage or draw amount gives; null for one written otherwise, such
+// as X, which the page shows as written.
+const numberIn = amount => typeof amount === 'number' ? amount : /^\s*\d+\s*$/.test(amount) ? Number(amount) : null;
+
+// The opponent's life total takes the hit: the format's starting life, then that
+// life less the damage. Damage of no number leaves the starting life untouched.
+function lifeTotal(damage) {
+  const before = format().startingLife, lost = numberIn(damage), mark = `<span class="badge life-lost">−${esc(damage)}</span>`;
+  if (lost === null) return mark + `<div class="life untouched" role="img" aria-label="${esc(`${before} life, less ${damage}`)}"><b>${esc(before)}</b></div>`;
+  const after = before - lost;
+  return mark + `<div class="life" role="img" aria-label="${esc(`${before} life, less ${lost}: ${after}`)}"><b class="life-before">${esc(before)}</b><b class="life-after">${esc(after)}</b></div>`;
+}
+
+const MOST_BACKS_DEALT = 5;
+// Drawn cards are dealt in as Magic card backs, fanned out to either side by at
+// most 12 degrees; a draw of no number deals one.
+function dealtCards(drawn) {
+  const counted = numberIn(drawn), dealt = counted === null ? 1 : Math.min(Math.max(counted, 0), MOST_BACKS_DEALT);
+  const backs = Array.from({length: dealt}, (_, i) => `<div class="back" style="--i:${i};--turn:${dealt > 1 ? i * 24 / (dealt - 1) - 12 : 0}deg">${picture('back', '')}</div>`);
+  return `<span class="badge">+${esc(drawn)}</span><div class="fan" role="img" aria-label="${esc(`${drawn} cards drawn`)}">${backs.join('')}</div>`;
+}
+
+// A damage or draw thing takes no badge: its −N or +N mark is its badge.
+function drawThing(t) {
+  const token = t.token && (deck.tokens || []).find(k => k.name === t.token);
+  const marked = t.damage !== undefined || t.draw !== undefined;
+  const body = t.card ? cardPicture(t.card)
+    : t.token ? (token ? picture(token.scryfall_id, `${t.token} token`) : blankCard(`${t.token} token`))
+    : t.pile ? `<div class="pile">${esc(t.count ?? '')}</div>`
+    : t.mana ? `<div class="pips">${manaRun(t.mana)}</div>`
+    : t.damage !== undefined ? lifeTotal(t.damage)
+    : t.draw !== undefined ? dealtCards(t.draw)
+    : `<div class="chip">${esc(t.chip ?? '')}</div>`;
+  const label = t.label || t.pile || (t.damage !== undefined ? 'Opponent' : t.draw !== undefined ? `You draw ${t.draw}` : '');
+  const motion = ['enters', 'glows', 'taps', 'leaves', 'copies'].includes(t.does) ? t.does : '';
+  return `<div class="thing ${motion}">${t.badge && !marked ? `<span class="badge">${esc(t.badge)}</span>` : ''}${body}${label ? `<div class="thing-label">${esc(label)}</div>` : ''}</div>`;
+}
+
+const SCENE_STEP_MS = 2600;
+function playScene(box, scene) {
+  const stage = document.createElement('div');
+  box.append(stage);
+  let at = 0;
+  const stepHtml = i => `<div class="row">${(scene.steps[i].things || []).map(drawThing).join('')}</div><div class="caption">${esc(scene.steps[i].caption)}</div>`
+    + `<div class="dots" aria-hidden="true">${scene.steps.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>`;
+  // Each step is drawn again when its turn comes, so that a picture found
+  // missing meanwhile is drawn blank; drawing every step once now makes a step
+  // that cannot be drawn fail the scenes section here rather than mid-play.
+  scene.steps.forEach((_, i) => stepHtml(i));
+  const drawStep = () => { stage.innerHTML = stepHtml(at); };
+  if (reducedMotion()) { at = scene.steps.length - 1; drawStep(); return; }
+  drawStep();
+  let onScreen = false;
+  new IntersectionObserver(entries => { onScreen = entries.at(-1).isIntersecting; }).observe(box);
+  setInterval(() => { if (!onScreen) return; at = (at + 1) % scene.steps.length; drawStep(); }, SCENE_STEP_MS);
+}
+
+function drawScenes() {
+  const scenes = (deck.scenes || []).filter(s => (s.steps || []).length);
+  if (!scenes.length) return;
+  const [main, ...rest] = scenes, section = $('engine');
+  section.hidden = false;
+  section.innerHTML = `<div class="section-head"><span class="label">The engine</span><h2>${esc(main.title)}</h2>${main.lede ? `<p class="lede">${esc(main.lede)}</p>` : ''}</div>`
+    + `<div class="scene" id="main-scene"></div>${rest.length ? '<div class="more-scenes" id="more-scenes"></div>' : ''}`;
+  playScene($('main-scene'), main);
+  for (const scene of rest) {
+    const box = document.createElement('div');
+    box.className = 'scene';
+    box.innerHTML = `<h3>${esc(scene.title)}</h3>${scene.lede ? `<p class="lede">${esc(scene.lede)}</p>` : ''}`;
+    $('more-scenes').append(box);
+    playScene(box, scene);
+  }
+}
+
+// ---------- cards ----------
+
+// A swap suggestion on the maybeboard names the card it would replace.
+const swapFor = c => c.kind === 'swap' && c.out ? c.out : '';
+
+function drawTile(c, i) {
+  return `<button class="card rises" type="button" style="--i:${i % 12}" data-card="${esc(c.name)}"><span class="face">${picture(c.scryfall_id, c.name)}${copiesOf(c) > 1 ? `<span class="copies">${esc(copiesOf(c))}×</span>` : ''}</span>`
+    + `<span class="caption"><b>${esc(c.name)}</b>${isRareOrMythic(c) ? `<span class="rarity">${esc(c.copy.rarity)}</span>` : ''}`
+    + `${swapFor(c) ? `<span class="swap">In for ${esc(swapFor(c))}</span>` : ''}`
+    + `${c.checked === false ? '<span class="flag">not checked</span>' : ''}${c.bends ? '<span class="flag">bends a criterion</span>' : ''}</span></button>`;
+}
+
+function drawCategory(name, members, category = {}) {
+  const countOf = category.target ? `${total(members)} of ${category.target}` : `${total(members)}`;
+  return `<div class="category"><div class="category-head"><h3>${esc(name)}</h3><span class="count-of">${esc(countOf)}</span>${category.count_reason ? `<span class="count-reason">${esc(category.count_reason)}</span>` : ''}</div>`
+    + (members.length ? `<div class="grid">${members.map(drawTile).join('')}</div>` : '<p class="empty">Nothing picked yet.</p>') + '</div>';
+}
+
+function drawCards() {
+  const categories = deck.categories || [];
+  const members = new Map(categories.map(c => [c.name, []]));
+  deck.cards.forEach(c => { if (!members.has(c.category)) members.set(c.category, []); members.get(c.category).push(c); });
+  const jobs = categories.filter(c => !['Commander', 'Lands'].includes(c.name)).length;
+  const maybeboard = deck.maybeboard || [];
+  $('cards').innerHTML = `<div class="section-head"><span class="label">The cards</span><h2>${jobs ? `${inWords(jobs)} ${jobs === 1 ? 'category' : 'categories'}` : 'The cards'}</h2>`
+    + '<p class="lede">Each category is a job the cards in it do. Tap a card to read its rules text and why it is in the deck. Rares and mythics are marked.</p></div>'
+    + `<div class="categories">${[...members].map(([name, list]) => drawCategory(name, list, categories.find(c => c.name === name))).join('')}`
+    + `${maybeboard.length ? drawCategory('Maybeboard', maybeboard) : ''}</div>`;
+}
+
+// ---------- curve ----------
+
+function drawCurve() {
+  const columns = Array.from({length: 8}, () => ({creatures: 0, others: 0}));
+  deck.cards.filter(c => !isLand(c)).forEach(c => { columns[Math.min(Math.floor(manaValue(c)), 7)][isCreature(c) ? 'creatures' : 'others'] += copiesOf(c); });
+  const tallest = Math.max(1, ...columns.map(b => b.creatures + b.others));
+  $('curve').innerHTML = `<div class="section-head"><span class="label">Mana curve</span><h2>What it costs</h2>${deck.curve_note ? `<p class="lede">${esc(deck.curve_note)}</p>` : ''}</div>`
+    + `<div class="curve">${columns.map((b, i) => `<div class="bar" style="--i:${i}"><b>${b.creatures + b.others}</b><div class="column" style="height:${(b.creatures + b.others) / tallest * 82}%">`
+      + `<div class="creatures" style="flex:${b.creatures}"></div><div class="other-spells" style="flex:${b.others}"></div></div></div>`).join('')}</div>`
+    + `<div class="curve-axis">${columns.map((_, i) => `<span>${i === 7 ? '7+' : i}</span>`).join('')}</div>`
+    + '<div class="legend"><span><i style="background:var(--lantern)"></i>Creatures</span><span><i style="background:var(--tide)"></i>Other spells</span></div>';
+}
+
+// ---------- handbook ----------
+
+// Only full names of cards in the deck open a card; the handbook text carries
+// no markup. A basic land's name never does: it is an ordinary word in
+// handbook prose ("play a Swamp"). The prefix is captured rather than looked
+// behind for, as Safari before 16.4 cannot parse a lookbehind.
+function matchCardNames() {
+  const names = [...cardsInDeck.keys()].filter(k => !BASIC_LANDS.includes(k)).sort((a, b) => b.length - a.length);
+  cardNamePattern = names.length
+    ? new RegExp(`(^|[^\\w-])(${names.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![\\w-])`, 'g')
+    : null;
+}
+
+function withCardNames(text) {
+  if (!cardNamePattern) return esc(text);
+  let out = '', last = 0;
+  for (const m of text.matchAll(cardNamePattern)) {
+    const [, prefix, name] = m, at = m.index + prefix.length;
+    out += esc(text.slice(last, at)) + `<button class="card-name" type="button" data-card="${esc(name)}">${esc(name)}</button>`;
+    last = at + name.length;
+  }
+  return out + esc(text.slice(last));
+}
+
+function drawBlock(b) {
+  if (b.text) return b.text.split(/\n\s*\n/).map(p => `<p>${withCardNames(p.trim())}</p>`).join('');
+  if (b.list) return `<ul>${b.list.map(item => `<li>${withCardNames(item)}</li>`).join('')}</ul>`;
+  if (b.note) return `<div class="note">${withCardNames(b.note)}</div>`;
+  if (b.turns) return `<div class="timeline">${b.turns.map(t => `<div class="turn"><b>${esc(t.turn)}</b><p>${withCardNames(t.text)}</p></div>`).join('')}</div>`;
+  if (b.pairs) return `<div class="pairs">${b.pairs.map(p => `<div class="pair"><div class="pair-pictures">${(p.cards || []).map(cardPicture).join('')}</div>`
+    + `<p>${(p.cards || []).map(withCardNames).join(' + ')}. ${withCardNames(p.text || '')}</p></div>`).join('')}</div>`;
+  return '';
+}
+
+// A version 1 chapter is one text string; nothing reads version 1, so it is not a chapter.
+const chapters = () => (deck.handbook || []).filter(c => Array.isArray(c.blocks));
+
+function drawHandbook() {
+  const list = chapters();
+  $('handbook').innerHTML = '<div class="section-head"><span class="label">Handbook</span><h2>How to play it</h2></div>' + (list.length
+    ? `<div class="book"><nav class="chapter-list" aria-label="Handbook chapters">${list.map((c, i) => `<a href="#chapter-${i + 1}">${esc(c.title)}</a>`).join('')}</nav>`
+      + `<div class="chapters">${list.map((c, i) => `<article class="chapter" id="chapter-${i + 1}"><h3><small>Chapter ${inWords(i + 1)}</small>${esc(c.title)}</h3>${c.blocks.map(drawBlock).join('')}</article>`).join('')}</div></div>`
+    : '<p class="empty">The handbook is written once the deck is complete.</p>');
+}
+
+// ---------- ledger ----------
+
+const KIND_WORDS = {in: 'In', out: 'Out', criteria: 'Criteria', category: 'Category', finding: 'Finding'};
+const LEDGER_SHOWN = 8;
+
+const withoutScryfallIds = text => text.replace(/\s*\([0-9a-f-]{36}\)/g, '');
+
+function ledgerEntries(text) {
+  return text.split('\n').filter(l => l.startsWith('- ')).map(l => {
+    const [date, kind, subject, ...reason] = l.slice(2).split(' · ');
+    if (!reason.length) return {date: '', kind: '', subject: withoutScryfallIds(l.slice(2)), reason: ''};
+    return {date, kind, subject: withoutScryfallIds(subject), reason: reason.join(' · ')};
   });
 }
 
-function card(c) {
-  const box = el('div', {className: 'c'});
-  const img = el('img', {src: `cards/${c.scryfall_id}.jpg`, alt: c.name, loading: 'lazy'});
-  img.onerror = () => { img.remove(); box.classList.add('text'); };
-  box.append(img, el('div', {className: 't', textContent: `${c.count > 1 ? c.count + '× ' : ''}${c.name}${c.checked === false ? ' (not checked)' : ''}`}),
-    el('div', {className: 'more', textContent: [c.copy?.mana_cost, c.copy?.type_line, c.copy?.text, c.bends ? 'Bends: ' + c.bends : ''].filter(Boolean).join('\n')}));
-  box.onclick = () => box.classList.toggle('open');
-  return box;
+function drawEntries(entries) {
+  let day = '';
+  return entries.map(e => {
+    const dayHead = e.date && e.date !== day ? `<div class="day">${esc(day = e.date)}</div>` : '';
+    return dayHead + `<div class="entry"><span class="kind ${esc(e.kind)}">${esc(KIND_WORDS[e.kind] || e.kind)}</span><div><b>${withCardNames(e.subject)}</b> <span>${esc(e.reason)}</span></div></div>`;
+  }).join('');
 }
 
-function arenaList(deck) {
-  const line = c => `${c.count ?? 1} ${c.name}`;
-  const commander = deck.cards.filter(c => c.category === 'Commander');
-  const rest = deck.cards.filter(c => c.category !== 'Commander');
-  return (commander.length ? `Commander\n${commander.map(line).join('\n')}\n\n` : '') + `Deck\n${rest.map(line).join('\n')}`;
+function drawLedger(text) {
+  const newest = ledgerEntries(text).reverse(), shown = newest.slice(0, LEDGER_SHOWN), earlier = newest.slice(LEDGER_SHOWN);
+  $('ledger').innerHTML = `<div class="section-head"><span class="label">Ledger</span><h2>How the deck got here</h2><p class="lede">${newest.length} ${newest.length === 1 ? 'decision' : 'decisions'}, newest first. Every card in, card out and change of mind, with its reason.</p></div>`
+    + (newest.length ? `<div class="ledger">${drawEntries(shown)}${earlier.length ? `<details class="earlier"><summary>Show the ${earlier.length} earlier ${earlier.length === 1 ? 'decision' : 'decisions'}</summary>${drawEntries(earlier)}</details>` : ''}</div>`
+      : '<p class="empty">Nothing logged yet.</p>');
+}
+
+// ---------- Arena import ----------
+
+function drawImport() {
+  $('import').innerHTML = `<div class="section-head"><span class="label">Arena import</span><h2>Paste it into Arena</h2><p class="lede">In Arena, go to Decks, then Import.${format().name === 'Brawl' ? ' The Commander section comes first, so Brawl picks up the commander.' : ''}</p></div>`
+    + '<div><button class="btn primary" type="button" id="copy-bottom">Copy for Arena</button></div><pre id="arena-list"></pre>';
+  $('arena-list').textContent = arenaList();
+  $('copy-bottom').onclick = copyArenaList;
+}
+
+// ---------- card dialog ----------
+
+function openCard(name) {
+  const c = cardsToOpen.get(name);
+  if (!c) return;
+  const show = (id, value) => { $(id).hidden = !value; return $(id); };
+  $('dialog-picture').innerHTML = picture(c.scryfall_id, c.name);
+  $('dialog-name').textContent = c.name;
+  $('dialog-category').textContent = [c.category || 'Maybeboard', isRareOrMythic(c) ? c.copy.rarity : ''].filter(Boolean).join(' · ');
+  show('dialog-cost', c.copy?.mana_cost).innerHTML = manaCost(c.copy?.mana_cost || '');
+  show('dialog-type-line', c.copy?.type_line).textContent = c.copy?.type_line || '';
+  show('dialog-rules', c.copy?.text).innerHTML = withManaDrawn(c.copy?.text || '');
+  show('dialog-why', c.why && !swapFor(c)).textContent = c.why || '';
+  show('dialog-swap', swapFor(c)).textContent = swapFor(c) ? `In for ${swapFor(c)}.${c.why ? ' ' + c.why : ''}` : '';
+  show('dialog-bends', c.bends).textContent = c.bends ? `Bends a criterion: ${c.bends}` : '';
+  $('dialog-scryfall').href = `https://scryfall.com/card/${encodeURIComponent(c.scryfall_id)}`;
+  $('card-dialog').showModal();
+}
+
+function listenForCards() {
+  document.addEventListener('click', e => { const opener = e.target.closest('[data-card]'); if (opener) openCard(opener.dataset.card); });
+  $('dialog-close').onclick = () => $('card-dialog').close();
+  $('card-dialog').addEventListener('click', e => { if (e.target === $('card-dialog')) $('card-dialog').close(); });
+}
+
+function tiltCardsUnderPointer() {
+  if (!matchMedia('(hover: hover) and (pointer: fine)').matches || reducedMotion()) return;
+  $('cards').addEventListener('pointermove', e => {
+    const face = e.target.closest('.card')?.querySelector('.face');
+    if (!face) return;
+    const r = face.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    face.style.setProperty('--ry', (x - .5) * 18 + 'deg'); face.style.setProperty('--rx', (.5 - y) * 18 + 'deg');
+    face.style.setProperty('--gx', x * 100 + '%'); face.style.setProperty('--gy', y * 100 + '%');
+  });
+  $('cards').addEventListener('pointerout', e => {
+    const card = e.target.closest('.card');
+    if (!card || card.contains(e.relatedTarget)) return;
+    const face = card.querySelector('.face');
+    face.style.setProperty('--rx', '0deg'); face.style.setProperty('--ry', '0deg');
+  });
+}
+
+// A section that cannot be drawn, such as a scene or chapter written in a shape
+// the page does not know, is left out; the rest of the page is still drawn.
+function drawSection(id, draw) {
+  try {
+    draw();
+  } catch (e) {
+    $(id).innerHTML = '';
+    $(id).hidden = true;
+    console.error(`The #${id} section could not be drawn:`, e);
+  }
 }
 
 async function main() {
-  const [scenes, cards, handbook, curve, arena] = ['scenes', 'cards', 'handbook', 'curve', 'arena'].map(id => document.getElementById(id));
-  const deck = await (await fetch('deck.json', {cache: 'no-store'})).json();
-  deck.cards = deck.cards.filter(c => (c.count ?? 1) > 0);  // a card at count 0 was taken out
-  const ledger = await fetch('LEDGER.md', {cache: 'no-store'}).then(r => r.ok ? r.text() : '').catch(() => '');
-  const size = deck.cards.reduce((n, c) => n + (c.count ?? 1), 0);
-  const want = deck.format === 'brawl' ? 100 : 60;
-  document.title = deck.name || 'Deck';
-  document.getElementById('name').textContent = deck.name || 'Deck';
-  document.getElementById('sub').append(`${deck.format === 'brawl' ? 'Brawl' : 'Standard'} · ${size} of ${want} cards · `,
-    el('span', {className: 'status', textContent: deck.approved ? 'Approved' : 'Not approved'}),
-    ' · ', (deck.criteria || []).map(c => c.text).join(' · '));
-  for (const s of deck.scenes || []) {
-    const box = el('div', {className: 'scene'}); box.innerHTML = s.svg; box.append(el('div', {className: 'sub', textContent: s.title})); scenes.append(box);
+  try {
+    deck = JSON.parse(await read('deck.json'));
+    if (!deck || typeof deck !== 'object' || Array.isArray(deck)) throw new Error('it holds no deck');
+  } catch (e) {
+    $('to-handbook').hidden = $('copy-top').hidden = true;
+    $('pitch').textContent = `Could not read deck.json: ${e.message}`;
+    return;
   }
-  tabs([['cards', 'Cards'], ['handbook', 'Handbook'], ['curve', 'Mana curve'], ['ledger', 'Ledger'], ['arena', 'Arena list']]);
-
-  const byCat = new Map((deck.categories || []).map(c => [c.name, []]));
-  for (const c of deck.cards) { if (!byCat.has(c.category)) byCat.set(c.category, []); byCat.get(c.category).push(c); }
-  for (const [name, list] of byCat) {
-    const meta = (deck.categories || []).find(c => c.name === name) || {};
-    const count = list.reduce((n, c) => n + (c.count ?? 1), 0);
-    const h = el('h2', {textContent: name + ' '}, el('small', {textContent: `${count}${meta.target ? ' of ' + meta.target : ''}${meta.count_reason ? ' — ' + meta.count_reason : ''}`}));
-    const grid = el('div', {className: 'grid'}); list.forEach(c => grid.append(card(c)));
-    cards.append(el('div', {className: 'cat'}, h, grid));
-  }
-  if ((deck.maybeboard || []).length) {
-    const grid = el('div', {className: 'grid'});
-    deck.maybeboard.forEach(m => grid.append(card({...m, count: 1, copy: {text: (m.out ? `In for ${m.out}. ` : '') + (m.why || '')}})));
-    cards.append(el('div', {className: 'cat'}, el('h2', {textContent: 'Maybeboard'}), grid));
-  }
-
-  (deck.handbook || []).forEach(ch => handbook.append(el('h2', {textContent: ch.title}), el('p', {textContent: ch.text})));
-  if (!(deck.handbook || []).length) handbook.append(el('p', {className: 'sub', textContent: 'The handbook is written once the deck is complete.'}));
-
-  const counts = Array(8).fill(0);
-  deck.cards.filter(c => !/Land/.test(c.copy?.type_line || '')).forEach(c => counts[Math.min(cmc(c.copy?.mana_cost), 7)] += c.count ?? 1);
-  const max = Math.max(1, ...counts);
-  const chart = el('div', {className: 'chart'}), axis = el('div', {className: 'axis'});
-  counts.forEach((n, i) => { const b = el('div', {className: 'bar'}, el('span', {textContent: n})); b.style.height = `${n / max * 100}%`;
-    chart.append(b); axis.append(el('div', {textContent: i === 7 ? '7+' : i})); });
-  curve.append(chart, axis);
-
-  const items = ledger.split('\n').filter(l => l.startsWith('- '));
-  const ledger_list = el('ol', {className: 'ledger'}); items.forEach(l => ledger_list.append(el('li', {textContent: l.slice(2)})));
-  document.getElementById('ledger').append(items.length ? ledger_list : el('p', {className: 'sub', textContent: 'Nothing logged yet.'}));
-
-  const text = arenaList(deck);
-  const copy = el('button', {className: 'btn', textContent: 'Copy for Arena'});
-  copy.onclick = async () => { try { await navigator.clipboard.writeText(text); copy.textContent = 'Copied'; } catch { copy.textContent = 'Select the list and copy it'; } };
-  arena.append(copy, el('pre', {textContent: text}));
+  // A card at count 0 was taken out of the deck.
+  deck.cards = (deck.cards || []).filter(c => copiesOf(c) > 0);
+  deck.cards.forEach(c => cardsInDeck.set(c.name, c));
+  [...(deck.maybeboard || []), ...deck.cards].forEach(c => cardsToOpen.set(c.name, c));
+  matchCardNames();
+  paintAccent();
+  drawSection('top', drawHero);
+  drawSection('engine', drawScenes);
+  drawSection('cards', drawCards);
+  drawSection('curve', drawCurve);
+  drawSection('handbook', drawHandbook);
+  drawSection('import', drawImport);
+  $('to-handbook').hidden = $('handbook').hidden || !chapters().length;
+  listenForCards();
+  tiltCardsUnderPointer();
+  const ledger = await read('LEDGER.md');
+  drawSection('ledger', () => drawLedger(ledger));
 }
-main().catch(e => document.getElementById('sub').textContent = 'Could not read deck.json: ' + e.message);
+main();
 </script>
 </body>
 </html>
