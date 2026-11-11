@@ -14,9 +14,9 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import subprocess
 from collections import Counter
 
+import headless
 from checks import Run
 
 JUDGE_MODEL = "claude-sonnet-5-5"
@@ -60,10 +60,9 @@ def transcript(path: pathlib.Path) -> str:
 
 def ask(a: str, b: str) -> dict:
     questions = "\n".join(f"- {key}: {q}" for key, q in QUESTIONS.items())
-    proc = subprocess.run(["claude", "-p", "--model", JUDGE_MODEL, "--tools", "", "--output-format", "json",
-                           "--json-schema", json.dumps(SCHEMA)],
-                          input=PROMPT.format(questions=questions, a=a, b=b), capture_output=True, text=True,
-                          timeout=1800)
+    proc = headless.claude(["--model", JUDGE_MODEL, "--tools", "", "--output-format", "json",
+                            "--json-schema", json.dumps(SCHEMA)],
+                           PROMPT.format(questions=questions, a=a, b=b), timeout=1800)
     return json.loads(proc.stdout)["structured_output"]
 
 

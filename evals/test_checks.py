@@ -14,6 +14,7 @@ from collections import Counter
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import checks  # noqa: E402
+import headless  # noqa: E402
 import run as runner  # noqa: E402
 
 FACT_NULL = {"holds": None, "evidence": ""}
@@ -175,6 +176,310 @@ def test_a_crashed_run_still_writes_run_json():
     finally:
         runner.deckwright_turn = real
     assert summary["ended"] == "runner error: TimeoutError", summary
+
+
+def test_isolated_env_cuts_a_run_off_from_shared_memory():
+    import os
+    from unittest import mock
+    shared = {"CLAUDE_MEMORY_STORES": '[{"path": "/v1/code/memory/shared"}]',
+              "CLAUDE_COWORK_MEMORY_PATH_OVERRIDE": "/shared/memory"}
+    with mock.patch.dict(os.environ, shared):
+        env = headless.isolated_env(pathlib.Path("/runs/one/memory"))
+    assert "CLAUDE_MEMORY_STORES" not in env, "the run can still reach the project's memory store"
+    assert env["CLAUDE_COWORK_MEMORY_PATH_OVERRIDE"] == "/runs/one/memory", env["CLAUDE_COWORK_MEMORY_PATH_OVERRIDE"]
+
+
+def test_every_turn_of_a_run_starts_from_its_own_empty_memory():
+    import json
+    import os
+    import subprocess
+    import tempfile
+    from unittest import mock
+    turns, found = [], []
+    # The stand-in breaks the conversation off once, so Deckwright opens a second one.
+    stand_in_says = [runner.NEW_CONVERSATION + "\nHi again", runner.END]
+    shared = {"CLAUDE_MEMORY_STORES": '[{"path": "/v1/code/memory/shared"}]',
+              "CLAUDE_COWORK_MEMORY_PATH_OVERRIDE": "/shared/memory"}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = pathlib.Path(tmp) / "out"
+
+        class Turn:
+            """Stands in for the process behind every subprocess call, however the runner makes it."""
+
+            def __init__(self, args, env=None, **_):
+                self.args, self.returncode = args, 0
+                who = "stand-in" if "--system-prompt" in args else "deckwright"
+                turns.append((who, env))
+                self.said = stand_in_says.pop(0) if who == "stand-in" else "Which colours?"
+                memory = pathlib.Path((env or {}).get("CLAUDE_COWORK_MEMORY_PATH_OVERRIDE", "/"))
+                if out in memory.parents:
+                    # The runner swallows an error raised in here, so what is found is kept for the end.
+                    if "--session-id" in args and any(memory.iterdir()):
+                        found.append(f"a new {who} conversation found memories in {memory}")
+                    (memory / "remembered.md").write_text("the player's deck")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def communicate(self, *_, **__):
+                return json.dumps({"type": "result", "result": self.said}), ""
+
+            def poll(self):
+                return 0
+
+        brief = pathlib.Path(tmp) / "b.md"
+        brief.write_text("## Opening\n\nHi\n\n## Player\n\nYou want a deck.\n")
+        with mock.patch.dict(os.environ, shared), mock.patch.object(subprocess, "Popen", Turn):
+            summary = runner.run(brief, "bare", out, 5)
+    for who, env in turns:
+        assert env is not None, f"a {who} turn ran in the parent's environment, shared memory and all"
+        assert "CLAUDE_MEMORY_STORES" not in env, f"a {who} turn can reach the project's memory store"
+        memory = pathlib.Path(env["CLAUDE_COWORK_MEMORY_PATH_OVERRIDE"])
+        assert out in memory.parents, f"a {who} turn keeps its memory outside the run, in {memory}"
+    assert not found, found
+    assert summary["ended"] == "player ended", summary
+    assert [who for who, _ in turns] == ["deckwright", "stand-in"] * 2, turns
+
+
+def play(deckwright_events, stand_in_says, **run_args):
+    """Play one run offline: Deckwright's turns and the stand-in's replies come from the lists, in order."""
+    import tempfile
+    events, replies = iter(deckwright_events), iter(stand_in_says)
+    real = runner.deckwright_turn, runner.stand_in_turn
+    runner.deckwright_turn = lambda *a: next(events)
+    runner.stand_in_turn = lambda *a: {"type": "result", "result": next(replies)}
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            brief = pathlib.Path(tmp) / "b.md"
+            brief.write_text("## Opening\n\nHi\n\n## Player\n\nYou want a deck.\n")
+            return runner.run(brief, "bare", pathlib.Path(tmp) / "out", 20, **run_args)
+    finally:
+        runner.deckwright_turn, runner.stand_in_turn = real
+
+
+def test_a_run_costs_the_last_total_of_each_conversation():
+    # Claude Code reports a resumed session's whole running total on every turn.
+    running_totals = [0.10, 0.25, 0.40, 0.05, 0.20]
+    turns = [[{"type": "result", "result": "Next?", "total_cost_usd": total}] for total in running_totals]
+    summary = play(turns, ["ok", "ok", runner.NEW_CONVERSATION + "\nHi again", "ok", runner.END])
+    assert summary["exchanges"] == 5, summary
+    assert summary["deckwright_cost_usd"] == 0.60, f"0.40 and 0.20 are what the two conversations cost: {summary}"
+
+
+def artifact_call(call_id, refused=False, action="publish"):
+    """One Deckwright turn's trace of an Artifact call and the answer it got."""
+    answer = {"type": "tool_result", "tool_use_id": call_id, "content": "published"}
+    if refused:
+        answer |= {"is_error": True, "content": "publish 429: daily publish limit for your plan reached (200)"}
+    return [{"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": call_id, "name": "Artifact", "input": {"file_path": "index.html", "action": action}}]}},
+            {"type": "user", "message": {"content": [answer]}}]
+
+
+def test_the_budget_counts_only_publishes_the_artifact_tool_accepted():
+    budget = runner.PublishBudget(2)
+    budget.count(artifact_call("t1") + artifact_call("t2", refused=True) + artifact_call("t3", action="read"))
+    assert not budget.used_up(), "a refused publish or a read was counted against the budget"
+    budget.count(artifact_call("t4"))
+    assert budget.used_up(), "two accepted publishes did not use up a budget of two"
+    assert 0 < runner.DEFAULT_PUBLISH_BUDGET < 200, "the default leaves the owner nothing of the day's 200 publishes"
+
+
+def test_a_run_stops_once_the_round_has_published_its_budget():
+    turns = [artifact_call(f"t{n}") + [{"type": "result", "result": "Saved. Next?"}] for n in range(6)]
+    summary = play(turns, ["ok"] * 6, budget=runner.PublishBudget(2))
+    assert summary["ended"] == "publish budget", summary
+    assert summary["exchanges"] == 2, f"the run went on publishing past its budget: {summary}"
+
+
+def test_a_round_out_of_budget_starts_no_more_runs():
+    import tempfile
+    budget = runner.PublishBudget(1)
+    budget.count(artifact_call("t1"))
+    real, started = runner.run, []
+    runner.run = lambda brief, arm, out, *rest: started.append(out.name)
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            round_dir = pathlib.Path(tmp) / "20261111T120000"
+            summaries = list(runner.play_round([pathlib.Path(tmp) / "a.md"], "bare", 2, round_dir, 2, 5, budget))
+            left = list(round_dir.glob("*"))
+    finally:
+        runner.run = real
+    assert not started, started
+    # No folder and no run.json: a later --resume takes these runs as never played.
+    assert not left, left
+    assert [s["ended"] for s in summaries] == ["not started: publish budget"] * 2, summaries
+
+
+def test_a_round_out_of_budget_keeps_what_a_cut_off_run_left():
+    import tempfile
+    budget = runner.PublishBudget(1)
+    budget.count(artifact_call("t1"))
+    with tempfile.TemporaryDirectory() as tmp:
+        cut_off = pathlib.Path(tmp) / "20261111T120000" / "a--bare--1"
+        cut_off.mkdir(parents=True)
+        (cut_off / "trace.jsonl").write_text("{}\n")
+        list(runner.play_round([pathlib.Path(tmp) / "a.md"], "bare", 1, cut_off.parent, 2, 5, budget))
+        assert (cut_off / "trace.jsonl").exists(), "the run was cleared though it could not be played again"
+
+
+def test_a_resumed_round_plays_only_its_unfinished_runs():
+    import json
+    import tempfile
+    real, played, leftovers = runner.run, [], []
+
+    def fake_run(brief, arm, out, max_exchanges, budget):
+        played.append(out.name)
+        leftovers.extend(out.rglob("*"))
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "run.json").write_text(json.dumps({"ended": "player ended"}))
+        return {"brief": brief.stem, "arm": arm, "ended": "player ended"}
+    runner.run = fake_run
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            round_dir = pathlib.Path(tmp) / "20261111T120000"
+            finished, cut_off = round_dir / "a--bare--1", round_dir / "a--bare--2"
+            (cut_off / "workspace").mkdir(parents=True)
+            (cut_off / "trace.jsonl").write_text("{}\n")
+            finished.mkdir()
+            (finished / "run.json").write_text('{"ended": "turn cap"}')
+            summaries = list(runner.play_round([pathlib.Path(tmp) / "a.md"], "bare", 3, round_dir, 2, 5,
+                                               runner.PublishBudget(10)))
+            kept = (finished / "run.json").read_text()
+    finally:
+        runner.run = real
+    assert sorted(played) == ["a--bare--2", "a--bare--3"], f"played {played}"
+    assert kept == '{"ended": "turn cap"}', "the finished run was played again"
+    assert not leftovers, f"the cut-off run began on what its first try left behind: {leftovers}"
+    assert len(summaries) == 2, summaries
+
+
+def test_a_resumed_round_plays_a_run_the_budget_stopped_again():
+    import tempfile
+    real, played, leftovers = runner.run, [], []
+
+    def fake_run(brief, arm, out, max_exchanges, budget):
+        played.append(out.name)
+        leftovers.extend(out.rglob("*"))
+        return {"brief": brief.stem, "arm": arm, "ended": "player ended"}
+    runner.run = fake_run
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            stopped = pathlib.Path(tmp) / "20261111T120000" / "a--bare--1"
+            stopped.mkdir(parents=True)
+            (stopped / "trace.jsonl").write_text("{}\n")
+            (stopped / "run.json").write_text('{"ended": "publish budget"}')
+            list(runner.play_round([pathlib.Path(tmp) / "a.md"], "bare", 1, stopped.parent, 2, 5, runner.PublishBudget(10)))
+    finally:
+        runner.run = real
+    assert played == ["a--bare--1"], "a run the budget stopped short was taken as finished"
+    assert not leftovers, f"the run began on what its first try left behind: {leftovers}"
+
+
+def test_resume_continues_in_the_rounds_own_folder():
+    import tempfile
+    from unittest import mock
+    real = runner.RUNS_DIR, runner.play_round
+    rounds = []
+    runner.play_round = lambda briefs, arm, runs, round_dir, *rest: rounds.append((arm, runs, round_dir)) or []
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            runner.RUNS_DIR = pathlib.Path(tmp)
+            (runner.RUNS_DIR / "20261111T120000").mkdir()
+            with mock.patch.object(sys, "argv", ["run.py", "a.md", "--arm", "skill", "--runs", "2",
+                                                 "--resume", "20261111T120000"]):
+                runner.main()
+            with mock.patch.object(sys, "argv", ["run.py", "a.md", "--arm", "skill", "--resume", "20250101T000000"]), \
+                    mock.patch.object(sys, "stderr"):
+                try:
+                    runner.main()
+                    unknown = "played"
+                except SystemExit:
+                    unknown = "refused"
+            assert rounds == [("skill", 2, runner.RUNS_DIR / "20261111T120000")], rounds
+            assert unknown == "refused", "resuming a round that does not exist started a new one under its name"
+    finally:
+        runner.RUNS_DIR, runner.play_round = real
+
+
+def test_the_reader_and_the_judge_start_claude_cut_off_from_shared_memory():
+    import json
+    import os
+    import subprocess
+    import tempfile
+    from unittest import mock
+    import judge
+    starts = []
+
+    class Claude:
+        """Stands in for the process behind every subprocess call."""
+
+        def __init__(self, args, env=None, **_):
+            self.args, self.returncode = args, 0
+            starts.append(env)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def communicate(self, *_, **__):
+            return json.dumps({"structured_output": facts()}), ""
+
+        def poll(self):
+            return 0
+
+    shared = {"CLAUDE_MEMORY_STORES": '[{"path": "/v1/code/memory/shared"}]',
+              "CLAUDE_COWORK_MEMORY_PATH_OVERRIDE": "/shared/memory"}
+    with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, shared), \
+            mock.patch.object(subprocess, "Popen", Claude):
+        r = fake_run([{"role": "player", "text": "hi"}], [])
+        r.path = pathlib.Path(tmp)
+        checks.Run.read(r)
+        judge.ask("one conversation", "another")
+    assert len(starts) == 2, starts
+    for who, env in zip(("reader", "judge"), starts):
+        assert env is not None, f"the {who} ran in the parent's environment, shared memory and all"
+        assert "CLAUDE_MEMORY_STORES" not in env, f"the {who} can reach the project's memory store"
+        assert env.get("CLAUDE_COWORK_MEMORY_PATH_OVERRIDE") not in (None, "/shared/memory"), \
+            f"the {who} was shown the project's memory folder"
+
+
+def test_starts_on_the_same_day_share_one_publish_budget():
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        ledger = pathlib.Path(tmp) / "publishes"
+        ledger.mkdir()
+        (ledger / "2020-01-01").write_text("publish\n" * 5)
+        one_round, beside_it = runner.PublishBudget(2, ledger), runner.PublishBudget(2, ledger)
+        assert not one_round.used_up(), "another day's publishes were counted against today's budget"
+        one_round.count(artifact_call("t1"))
+        beside_it.count(artifact_call("t2"))
+        assert one_round.used_up() and beside_it.used_up(), "two rounds side by side each kept a budget of their own"
+        assert runner.PublishBudget(2, ledger).used_up(), "a start later the same day began a new count"
+
+
+def test_every_start_of_the_runner_counts_against_the_days_budget():
+    import tempfile
+    from unittest import mock
+    real = runner.RUNS_DIR, runner.play_round
+    budgets = []
+    runner.play_round = lambda *args: budgets.append(args[-1]) or []
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            runner.RUNS_DIR = pathlib.Path(tmp)
+            for _ in range(2):
+                with mock.patch.object(sys, "argv", ["run.py", "a.md", "--arm", "bare", "--publish-budget", "1"]):
+                    runner.main()
+            budgets[0].count(artifact_call("t1"))
+            assert budgets[1].used_up(), "a second start of run.py did not see the first one's publish"
+    finally:
+        runner.RUNS_DIR, runner.play_round = real
 
 
 if __name__ == "__main__":

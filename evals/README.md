@@ -6,14 +6,22 @@ one whole conversation between Deckwright and a stand-in player playing a brief.
 ```sh
 python3 evals/run.py evals/briefs/*.md --arm bare --runs 3 -j 3   # or --arm skill
 python3 evals/checks.py evals/runs/<stamp>/*
+python3 evals/run.py evals/briefs/*.md --arm bare --runs 3 -j 3 --resume <stamp>
 ```
+
+A background command in a cloud session is cut off after two hours. Resume the
+round with the same briefs, `--arm` and `--runs`: finished runs are skipped, and a
+run cut off mid-way (no `run.json`) or stopped by the publish budget is cleared and
+played again from its start. Never resume a round that is still running, because
+its unfinished runs' folders are cleared.
 
 - **Deckwright** is headless Claude Code on Opus 5.5 in a workspace of its own. It
   may publish real, private pages; sending files into the person's chat is blocked.
   The bare arm gets only the brief's opening line; the skill arm loads the plugin.
 - **The stand-in** is Sonnet 5.5 with no tools. It sees only Deckwright's replies.
 - **Each run has its own empty memory.** Runs that shared the project's memory
-  wrote stand-in decks into it as the owner's and read them back (2026-11-10).
+  wrote stand-in decks into it as the owner's and read them back (2026-11-10). The
+  reader and the judge are started the same way, with an empty memory of their own.
 - **Some briefs start half-built** (`## Start`): the runner copies a deck from
   `starts/` into the workspace, so the run skips the interview and the first card
   rounds, which cost most of a run and are exercised by the briefs that start from
@@ -49,7 +57,8 @@ extracted once per run by a reader model into `reader.json`, and code decides C1
 C8 and C12. C9 to C11 are the reader's yes or no on a stated fact, with quoted
 evidence. Read a failing run's conversation before believing a check.
 
-`python3 evals/test_checks.py` tests the checks and the runner offline. The blind
+`python3 evals/test_checks.py` tests the checks and the runner offline, and CI runs
+it on every push and pull request. The blind
 judge (`python3 evals/judge.py --bare <stamps> --skill <stamps>`) pairs runs of
 the same brief and asks fixed teaching questions in both orders; the skill wins a
 question only when picked both times (AC17, AC41, AC45).
@@ -72,8 +81,16 @@ as DIED. A started run copies its start into `start/`, which the checks read.
 - The judge is blind by label only: the skill arm's saved page files show which
   arm is which, so "page explains" cannot be blind. It reads the last 150,000
   characters of a long conversation, which can drop the intent interview.
-- Runs share the account's artifact gallery and its limit of 200 publishes a day;
-  `checks.py` flags a run that reads a page it did not publish.
+- Runs share the account's artifact gallery; `checks.py` flags a run that reads a
+  page it did not publish. The account may publish 200 pages a day, reset at
+  midnight UTC. A round stops starting exchanges and runs once the day's accepted
+  publishes reach `--publish-budget` (default 150, leaving the owner 50). A run
+  stopped this way ends as `publish budget` in `run.json`, and `--resume` plays it
+  again from its start; one never started has no folder, so `--resume` plays it.
+  The budget is for the UTC day and shared by every start of `run.py` on this
+  machine, counted in `evals/runs/publishes/`. Runs started from another machine or
+  session do not see it, and neither does publishing done outside the evals. Turns
+  in flight when the budget is reached may publish a few more.
 - `run.json` costs before 2026-11-11 summed running totals; they were recalculated
   from the traces.
 - Runs `checks.py` flags as CONTAMINATED reached outside their own folder.
