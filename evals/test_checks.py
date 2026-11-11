@@ -315,6 +315,18 @@ def test_a_round_out_of_budget_starts_no_more_runs():
     assert [s["ended"] for s in summaries] == ["not started: publish budget"] * 2, summaries
 
 
+def test_a_round_out_of_budget_keeps_what_a_cut_off_run_left():
+    import tempfile
+    budget = runner.PublishBudget(1)
+    budget.count(artifact_call("t1"))
+    with tempfile.TemporaryDirectory() as tmp:
+        cut_off = pathlib.Path(tmp) / "20261111T120000" / "a--bare--1"
+        cut_off.mkdir(parents=True)
+        (cut_off / "trace.jsonl").write_text("{}\n")
+        list(runner.play_round([pathlib.Path(tmp) / "a.md"], "bare", 1, cut_off.parent, 2, 5, budget))
+        assert (cut_off / "trace.jsonl").exists(), "the run was cleared though it could not be played again"
+
+
 def test_a_resumed_round_plays_only_its_unfinished_runs():
     import json
     import tempfile
