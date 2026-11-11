@@ -57,7 +57,8 @@ extracted once per run by a reader model into `reader.json`, and code decides C1
 C8 and C12. C9 to C11 are the reader's yes or no on a stated fact, with quoted
 evidence. Read a failing run's conversation before believing a check.
 
-`python3 evals/test_checks.py` tests the checks and the runner offline. The blind
+`python3 evals/test_checks.py` tests the checks and the runner offline, and CI runs
+it on every push and pull request. The blind
 judge (`python3 evals/judge.py --bare <stamps> --skill <stamps>`) pairs runs of
 the same brief and asks fixed teaching questions in both orders; the skill wins a
 question only when picked both times (AC17, AC41, AC45).
