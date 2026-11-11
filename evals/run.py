@@ -36,6 +36,7 @@ NEW_CONVERSATION = "<<NEW_CONVERSATION>>"
 # a run is one publish. 2026-11-11's rounds used the lot, which stopped publishing in
 # every thread on the account; 150 leaves the owner 50.
 DEFAULT_PUBLISH_BUDGET = 150
+STOPPED_BY_BUDGET = "publish budget"
 
 # File and lookup tools Deckwright needs, granted up front because a headless run
 # cannot stop to ask; a compound shell command needs every part allowed. Files never go into the person's chat (decided
@@ -211,7 +212,7 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int,
                 message = message[len(NEW_CONVERSATION):].strip()
                 deckwright_session, conversation_no, first_deckwright = str(uuid.uuid4()), conversation_no + 1, True
             if budget.used_up():
-                ended = "publish budget"
+                ended = STOPPED_BY_BUDGET
                 break
     except Exception as error:  # a timeout or a crash still leaves the run on record
         ended = f"runner error: {type(error).__name__}"
@@ -221,12 +222,20 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int,
     return summary
 
 
+def finished(out: pathlib.Path) -> bool:
+    """The run wrote its `run.json` and the publish budget did not stop it short."""
+    try:
+        return json.loads((out / "run.json").read_text()).get("ended") != STOPPED_BY_BUDGET
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+        return False
+
+
 def play_round(briefs: list[pathlib.Path], arm: str, runs: int, round_dir: pathlib.Path, jobs: int,
                max_exchanges: int, budget: PublishBudget):
     """Play the round's runs, yielding their summaries in order.
 
-    A run with a `run.json` already finished and is skipped. A run folder without one
-    was cut off mid-run and is cleared, so the run plays again from its start. Once the
+    A finished run is skipped. Any other run folder, cut off mid-run or stopped by the
+    budget, is cleared, so the run plays again from its start. Once the
     budget is used up no further run starts, and a run not started gets no folder, so
     `--resume` takes it as never played.
     """
@@ -234,11 +243,11 @@ def play_round(briefs: list[pathlib.Path], arm: str, runs: int, round_dir: pathl
         if out.exists():
             shutil.rmtree(out)
         if budget.used_up():
-            return {"brief": brief.stem, "arm": arm, "ended": "not started: publish budget"}
+            return {"brief": brief.stem, "arm": arm, "ended": f"not started: {STOPPED_BY_BUDGET}"}
         return run(brief, arm, out, max_exchanges, budget)
 
     unfinished = [(b, round_dir / f"{b.stem}--{arm}--{n}") for b in briefs for n in range(1, runs + 1)]
-    unfinished = [(b, out) for b, out in unfinished if not (out / "run.json").exists()]
+    unfinished = [(b, out) for b, out in unfinished if not finished(out)]
     with concurrent.futures.ThreadPoolExecutor(jobs) as pool:
         yield from pool.map(lambda job: play(*job), unfinished)
 
