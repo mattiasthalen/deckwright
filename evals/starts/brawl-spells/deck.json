@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "Instants and sorceries (Brawl)",
   "format": "brawl",
   "criteria": [
@@ -1172,6 +1172,7 @@
   "maybeboard": [],
   "dismissed_findings": [],
   "last_review": null,
+  "tokens": [],
   "handbook": [],
   "scenes": [],
   "approved": false
