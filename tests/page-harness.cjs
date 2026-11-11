@@ -19,9 +19,10 @@ const scryfallId = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 // ---------- test decks ----------
 
 function card(n, name, category, cost, type, extra = {}) {
-  const { count = 1, rarity, text = '', why, bends = null, checked = true } = extra;
+  const { count = 1, rarity, text = '', why, bends = null, checked = true, manaValue } = extra;
   const copy = { mana_cost: cost, type_line: type, text, taken: '2026-11-10' };
   if (rarity) copy.rarity = rarity;
+  if (manaValue !== undefined) copy.mana_value = manaValue;
   const c = { scryfall_id: scryfallId(n), name, count, category, tags: [], checked, bends, copy };
   if (why) c.why = why;
   return c;
@@ -30,22 +31,25 @@ function card(n, name, category, cost, type, extra = {}) {
 const RICH_CARDS = [
   card(1, 'Vesk, the Burrow Mind', 'Commander', '{3}{B}', 'Legendary Creature — Rat Warlock',
     { rarity: 'mythic', text: 'Whenever another Rat you control enters, put a +1/+1 counter on a Snail you control.', why: 'The engine: every Rat that enters grows the Snail.' }),
-  card(2, 'Gutter Scout', 'Ramp', '{B}', 'Creature — Rat Scout', { rarity: 'common', text: 'Menace.', why: 'A Rat on the first turn.' }),
+  card(2, 'Gutter Scout', 'Ramp', '{B}', 'Creature — Rat Scout', { count: 3, rarity: 'common', text: 'Menace.', why: 'A Rat on the first turn.' }),
   card(3, 'Sewer Captain', 'Ramp', '{1}{B}', 'Creature — Rat Soldier', { rarity: 'uncommon', text: 'Other Rats you control get +1/+0.', why: 'Makes every Rat hit harder.' }),
-  card(4, 'Plague Herald', 'Ramp', '{2}{B}', 'Creature — Rat Cleric', { rarity: 'rare', text: 'When this creature enters, each opponent loses 2 life.', why: 'Drains the opponent as the swarm grows.' }),
-  card(5, 'Tunnel Brute', 'Removal', '{3}{R}', 'Creature — Rat Berserker', { rarity: 'common', text: 'Trample.', why: 'A big Rat to close the game.' }),
-  card(6, 'Ash Drake', 'Removal', '{4}{R}{R}', 'Creature — Dragon', { rarity: 'rare', text: 'Flying.', why: 'A flyer the opponent must answer.' }),
+  card(4, 'Plague Herald', 'Ramp', '{2}{B}', 'Creature — Human Cleric', { rarity: 'rare', text: 'When this creature enters, each opponent loses 2 life.', why: 'Drains the opponent as the swarm grows.' }),
+  card(5, 'Tunnel Brute', 'Removal', '{3}{R}', 'Creature — Ogre Berserker', { rarity: 'common', text: 'Trample.', why: 'A big body to close the game.' }),
+  card(6, 'Ash Drake', 'Removal', '{4}{R}{R}', 'Creature — Dragon', { count: 2, rarity: 'rare', text: 'Flying.', why: 'A flyer the opponent must answer.' }),
   card(7, 'Clockwork Beetle', 'Ramp', '{0}', 'Artifact Creature — Insect', { rarity: 'common', text: 'Defender.', why: 'A free body for the sacrifice outlets.' }),
   card(8, 'Ember Hound', 'Removal', '{1}{R}', 'Creature — Dog', { rarity: 'common', text: 'Haste.', why: 'Early pressure.' }),
   card(9, 'Burrow Signet', 'Ramp', '{2}', 'Artifact', { rarity: 'common', text: 'Tap: add one mana of any colour in your commander\'s colour identity.', why: 'Puts Vesk out a turn early.' }),
-  card(10, 'Grim Bargain', 'Removal', '{1}{B}', 'Instant', { rarity: 'uncommon', text: 'Destroy target creature with power 2 or less.', why: 'Cheap removal for early blockers.' }),
+  card(10, 'Grim Bargain', 'Removal', '{2/B}', 'Instant', { rarity: 'uncommon', text: 'Destroy target creature with power 2 or less.', why: 'Cheap removal for early blockers.' }),
   card(11, 'Fire Lash', 'Removal', '{R}', 'Instant', { rarity: 'common', text: 'Fire Lash deals 2 damage to any target.' }),
   card(12, 'Cinder Pact', 'Removal', '{3}{B}{R}', 'Sorcery', { rarity: 'rare', text: 'Destroy all creatures that are not Rats.', why: 'A sweeper that spares the swarm.', bends: 'Not a Bloomburrow card, kept on the player\'s word' }),
   card(13, 'Doom of Ages', 'Removal', '{8}{B}', 'Sorcery', { rarity: 'mythic', text: 'Each opponent sacrifices three creatures.', why: 'A late finisher.' }),
   card(14, 'Prism Totem', 'Ramp', '{2}{W}{U}{B}{R}{G}', 'Artifact', { rarity: 'uncommon', text: '{T}: Add {B}.', why: 'Shows every colour of mana.' }),
-  card(15, 'Swamp', 'Lands', '', 'Basic Land — Swamp', { count: 8, rarity: 'common' }),
+  card(15, 'Swamp', 'Lands', '', 'Basic Land — Swamp', { count: 4, rarity: 'common' }),
   card(16, 'Mountain', 'Lands', '', 'Basic Land — Mountain', { count: 6, rarity: 'common' }),
   card(17, 'Smoldering Tunnels', 'Lands', '', 'Land', { rarity: 'uncommon', text: '{T}: Add {B} or {R}.' }),
+  // Scryfall gives an adventure card both costs in mana_cost and the creature's alone as its cmc.
+  card(18, 'Ember Giant', 'Removal', '{2}{R}{R} // {2}{R}', 'Creature — Giant // Instant — Adventure',
+    { rarity: 'uncommon', manaValue: 4, text: 'Trample.\n//\nEmber Giant deals 2 damage to target creature.', why: 'A body and a removal spell in one.' }),
 ];
 
 const RICH_LEDGER = [
@@ -239,6 +243,71 @@ const versionOne = {
   approved: false,
 };
 
+const secondThoughts = {
+  version: 2,
+  name: 'Second Thoughts',
+  format: 'brawl',
+  criteria: [{ kind: 'format', text: 'Brawl on Arena' }],
+  categories: [{ name: 'Commander', target: 1 }, { name: 'Removal', target: '<b>8</b>' }, { name: 'Lands', target: 35 }],
+  cards: [
+    card(601, 'Marsh Warden', 'Commander', '{2}{B}', 'Legendary Creature — Rat', { why: 'Leads the deck.' }),
+    card(602, 'Grim Snare', 'Removal', '{1}{B}', 'Instant', { text: 'Destroy target creature.', why: 'Kills a blocker.' }),
+    card(603, 'Swamp', 'Lands', '', 'Basic Land — Swamp', { count: 9 }),
+  ],
+  maybeboard: [
+    { scryfall_id: scryfallId(604), name: 'Maybe Rat', kind: 'later', why: 'Saved for later.' },
+    { scryfall_id: scryfallId(605), name: 'Feed the Swarm', kind: 'swap', out: 'Grim Snare', why: 'Also answers enchantments.', bends: null },
+  ],
+  tokens: [],
+  scenes: [{
+    title: 'A card that is not in the deck',
+    steps: [{ caption: 'Marsh Warden and a maybeboard card.', things: [{ card: 'Marsh Warden' }, { card: 'Maybe Rat' }] }],
+  }],
+  handbook: [{ title: 'Notes', blocks: [
+    { text: 'Marsh Warden leads, and Maybe Rat waits on the maybeboard.' },
+    { pairs: [{ cards: ['Marsh Warden', 'Maybe Rat'], text: 'A pair with a card that is not in the deck.' }] },
+  ] }],
+  approved: false,
+};
+
+// A hero whose art file was never saved, and pictures missing from a scene and a pair.
+const lostFiles = {
+  version: 2,
+  name: 'Lost Files',
+  format: 'brawl',
+  hero: scryfallId(701),
+  criteria: [{ kind: 'format', text: 'Brawl on Arena' }],
+  categories: [{ name: 'Commander', target: 1 }, { name: 'Lands', target: 35 }],
+  cards: [
+    card(701, 'Faded Rat', 'Commander', '{2}{B}', 'Legendary Creature — Rat'),
+    card(702, 'Swamp', 'Lands', '', 'Basic Land — Swamp', { count: 9 }),
+  ],
+  tokens: [],
+  scenes: [{
+    title: 'A picture that was never saved',
+    steps: [
+      { caption: 'Faded Rat waits.', things: [{ card: 'Faded Rat' }] },
+      { caption: 'Faded Rat attacks.', things: [{ card: 'Faded Rat', does: 'taps' }] },
+    ],
+  }],
+  handbook: [{ title: 'Pairs', blocks: [{ pairs: [{ cards: ['Faded Rat', 'Swamp'], text: 'One picture is missing.' }] }] }],
+  approved: false,
+};
+
+const LINE_THE_PAGE_CANNOT_SPLIT = 'Rebuilt the mana base by hand';
+
+// A deck whose shared creature type is the only one it has, at four copies.
+const tribe = (n, type) => ({
+  version: 2,
+  name: `${type} Test Deck`,
+  format: 'standard',
+  criteria: [{ kind: 'format', text: 'Standard on Arena' }],
+  categories: [{ name: 'Creatures', target: 4 }, { name: 'Lands', target: 24 }],
+  cards: [card(n, `${type} Test Creature`, 'Creatures', '{1}{U}', `Creature — ${type}`, { count: 4 }), card(n + 1, 'Island', 'Lands', '', 'Basic Land — Island', { count: 20 })],
+  approved: false,
+});
+const TRIBES = { Merfolk: 'Merfolk', Kithkin: 'Kithkin', Kor: 'Kor', Elf: 'Elves' };
+
 const ledgerFile = entries => '# Ledger\n\n' + entries.map(([date, kind, subject, why]) => `- ${date} · ${kind} · ${subject} · ${why}`).join('\n') + '\n';
 
 function pictureIds(deck) {
@@ -259,6 +328,16 @@ function deckFolders() {
     stray: { deck: stray, pictures: new Set([scryfallId(402)]), art: [] },
     'version-one': { deck: versionOne, ledger: '', ...all(versionOne) },
     unreadable: { deck: '{ "version": 2, "name": ', ledger: '', pictures: new Set(), art: [] },
+    'deck-null': { deck: 'null', ledger: '', pictures: new Set(), art: [] },
+    'deck-number': { deck: '42', ledger: '', pictures: new Set(), art: [] },
+    'deck-array': { deck: '[]', ledger: '', pictures: new Set(), art: [] },
+    'second-thoughts': { deck: secondThoughts, ...all(secondThoughts),
+      ledger: ledgerFile([['2026-11-06', 'in', `Marsh Warden (${scryfallId(601)})`, 'the commander'], ['2026-11-06', 'out', `Maybe Rat (${scryfallId(604)})`, 'moved to the maybeboard']]) },
+    'lost-files': { deck: lostFiles, pictures: new Set([scryfallId(702)]), art: [],
+      ledger: ledgerFile([['2026-11-07', 'in', `Faded Rat (${scryfallId(701)})`, 'the commander']]) + `- ${LINE_THE_PAGE_CANNOT_SPLIT}\n` },
+    ...Object.fromEntries(Object.keys(TRIBES).map((type, i) => [`tribe-${type.toLowerCase()}`, { deck: tribe(800 + 10 * i, type), ...all(tribe(800 + 10 * i, type)) }])),
+    // The rich deck with every file given to the page in window.DECK_FILES and none in the folder.
+    packed: { deck: rich, packedFrom: 'rich', pictures: new Set(), art: [] },
     example: { deck: example, ledger: ledgerFile([['2026-11-10', 'in', 'An example card', 'the example ledger']]), ...all(example) },
   };
 }
@@ -275,6 +354,20 @@ async function jpeg(browser, width, height, colour) {
   return bytes;
 }
 
+// The page with the deck folder's files set in window.DECK_FILES by a script
+// before the page's own: text files as text, pictures as data URLs.
+function packedPage(page, folder, cardPicture, artCrop) {
+  const dataUrl = bytes => `data:image/jpeg;base64,${Buffer.from(bytes).toString('base64')}`;
+  const files = { 'deck.json': JSON.stringify(folder.deck) };
+  if (folder.ledger !== undefined) files['LEDGER.md'] = folder.ledger;
+  for (const id of folder.pictures) files[`cards/${id}.jpg`] = dataUrl(cardPicture);
+  for (const id of folder.art) files[`art/${id}.jpg`] = dataUrl(artCrop);
+  const script = `<script>window.DECK_FILES = ${JSON.stringify(files).replace(/</g, '\\u003c')};</script>\n`;
+  const at = page.indexOf('<script>');
+  if (at < 0) throw new Error('the page has no inline script to put DECK_FILES before');
+  return page.slice(0, at) + script + page.slice(at);
+}
+
 async function startDeckServer(browser) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'deck-page-'));
   const cardPicture = await jpeg(browser, 488, 680, '#3b5a7a');
@@ -285,6 +378,10 @@ async function startDeckServer(browser) {
     const dir = path.join(root, name);
     fs.mkdirSync(path.join(dir, 'cards'), { recursive: true });
     fs.mkdirSync(path.join(dir, 'art'), { recursive: true });
+    if (f.packedFrom) {
+      fs.writeFileSync(path.join(dir, 'index.html'), packedPage(page.toString('utf8'), folders[f.packedFrom], cardPicture, artCrop));
+      continue;
+    }
     fs.writeFileSync(path.join(dir, 'index.html'), page);
     fs.writeFileSync(path.join(dir, 'deck.json'), typeof f.deck === 'string' ? f.deck : JSON.stringify(f.deck, null, 2));
     if (f.ledger !== undefined) fs.writeFileSync(path.join(dir, 'LEDGER.md'), f.ledger);
@@ -314,13 +411,17 @@ async function startDeckServer(browser) {
 // with nothing so the test stays offline; any other request off the served origin
 // is refused and recorded.
 async function openDeck(browser, server, name, options = {}) {
-  const { viewport = { width: 1280, height: 800 }, reducedMotion = 'no-preference', clock = false } = options;
+  const { viewport = { width: 1280, height: 800 }, reducedMotion = 'no-preference', clock = false, clipboard = true, refuse = [] } = options;
   const context = await browser.newContext({ viewport, reducedMotion });
-  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: server.origin });
-  const outside = [], fonts = [], errors = [];
+  if (clipboard) await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: server.origin });
+  const outside = [], fonts = [], errors = [], requested = [], missing = [];
   await context.route('**/*', route => {
     const url = new URL(route.request().url());
-    if (url.origin === server.origin) return route.continue();
+    if (url.origin === server.origin) {
+      requested.push(url.pathname);
+      // A refused path fails as a network error does, not as a 404.
+      return refuse.some(p => url.pathname.endsWith(p)) ? route.abort('failed') : route.continue();
+    }
     if (FONT_HOSTS.includes(url.hostname)) {
       fonts.push(url.href);
       return route.fulfill({ status: 200, contentType: url.hostname === 'fonts.googleapis.com' ? 'text/css' : 'font/woff2', body: '' });
@@ -332,9 +433,10 @@ async function openDeck(browser, server, name, options = {}) {
   page.setDefaultTimeout(4000);
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', e => errors.push(String(e)));
+  page.on('response', r => { if (r.status() === 404) missing.push(new URL(r.url()).pathname); });
   if (clock) await page.clock.install();
   await page.goto(`${server.origin}/${name}/`, { waitUntil: 'networkidle' });
-  return { page, context, outside, fonts, errors, deck: server.folders[name].deck, close: () => context.close() };
+  return { page, context, outside, fonts, errors, requested, missing, deck: server.folders[name].deck, close: () => context.close() };
 }
 
 async function withDeck(browser, server, name, options, use) {
@@ -400,6 +502,6 @@ const until = async (check, ms = 4000, every = 50) => {
 };
 
 module.exports = {
-  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER,
+  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, LINE_THE_PAGE_CANNOT_SPLIT,
   startDeckServer, openDeck, withDeck, arenaList, rgb, hsl, resolveColour, settlePictures, pictures, until,
 };

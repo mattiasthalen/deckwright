@@ -22,7 +22,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const {
-  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER,
+  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, LINE_THE_PAGE_CANNOT_SPLIT,
   startDeckServer, withDeck, arenaList, rgb, hsl, resolveColour, settlePictures, pictures, until,
 } = require('./page-harness.cjs');
 
@@ -35,9 +35,13 @@ const deckOf = name => server.folders[name].deck;
 const picturePath = (deckName, id) => `/${deckName}/cards/${id}.jpg`;
 const byName = (deck, name) => deck.cards.find(c => c.name === name);
 const count = c => c.count ?? 1;
-const isLand = c => /\bLand\b/.test(c.copy?.type_line || '');
-const isCreature = c => /\bCreature\b/.test(c.copy?.type_line || '');
-const manaValue = cost => (cost.match(/\{[^}]+\}/g) || []).reduce((n, s) => n + (/^\{\d+\}$/.test(s) ? +s.slice(1, -1) : /X/.test(s) ? 0 : 1), 0);
+const frontType = c => (c.copy?.type_line || '').split(' // ')[0];
+const isLand = c => /\bLand\b/.test(frontType(c));
+const isCreature = c => /\bCreature\b/.test(frontType(c));
+// Scryfall's cmc when the copy has it; otherwise each symbol: a number its value,
+// X nothing, a hybrid with a number ({2/W}) that number, any other symbol one.
+const symbolValue = s => { const n = s.slice(1, -1).split('/').find(p => /^\d+$/.test(p)); return n !== undefined ? +n : /X/.test(s) ? 0 : 1; };
+const manaValue = c => c.copy?.mana_value ?? ((c.copy?.mana_cost || '').match(/\{[^}]+\}/g) || []).reduce((n, s) => n + symbolValue(s), 0);
 const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
 
 async function visible(locator) {
@@ -70,8 +74,8 @@ const deckStats = deck => {
     cards: total(live),
     creatures: total(live.filter(isCreature)),
     lands: total(live.filter(isLand)),
-    average: spells.reduce((s, c) => s + manaValue(c.copy.mana_cost) * count(c), 0) / total(spells),
-    rares: live.filter(c => ['rare', 'mythic'].includes(c.copy?.rarity)).length,
+    average: spells.reduce((s, c) => s + manaValue(c) * count(c), 0) / total(spells),
+    rares: total(live.filter(c => ['rare', 'mythic'].includes(c.copy?.rarity))),
   };
 };
 
@@ -110,6 +114,12 @@ async function openCard(page, deckName, cardName) {
 }
 
 const closeDialog = page => page.keyboard.press('Escape');
+
+// A name drawn on its own, not as a control: the blank card standing in for a picture.
+const blankCardNamed = (scope, name) => scope.evaluate((root, name) => [...root.querySelectorAll('*')]
+  .some(e => e.children.length === 0 && e.textContent.trim() === name && e.checkVisibility() && !e.closest('button, a, [role="button"]')), name);
+const controlsNamed = (scope, name) => scope.locator('button, a, [role="button"], [role="link"]').filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) }).count();
+const heroArt = hero => hero.evaluate(h => [h, ...h.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundImage).find(b => b.includes('/art/') || b.includes('data:image')) || null);
 
 // Advances the fake clock in small steps until the caption leaves the scope.
 async function nextStep(page, scope, caption, limit = 4000) {
@@ -162,7 +172,7 @@ async function steadyCurve(page) {
 
 const curveBuckets = deck => {
   const buckets = Array.from({ length: 8 }, () => ({ creature: 0, other: 0 }));
-  deck.cards.filter(c => !isLand(c)).forEach(c => { buckets[Math.min(manaValue(c.copy.mana_cost), 7)][isCreature(c) ? 'creature' : 'other'] += count(c); });
+  deck.cards.filter(c => !isLand(c)).forEach(c => { buckets[Math.min(manaValue(c), 7)][isCreature(c) ? 'creature' : 'other'] += count(c); });
   return buckets;
 };
 
@@ -327,6 +337,33 @@ describe('The look', () => {
       assert.equal(found.lands, want.lands, 'lands');
       assert.deepEqual(outside, []);
     }));
+
+  test('The headline counts copies: a rare at two copies counts twice, and the shared creature type is reached through copies', () =>
+    open('rich', async ({ page, deck }) => {
+      const rats = deck.cards.filter(c => isCreature(c) && /\bRat\b/.test(frontType(c)));
+      assert.ok(rats.length <= 3, 'more than three distinct Rat cards: the deck reaches the shared type without counting copies');
+      assert.ok(deck.cards.some(c => count(c) > 1 && ['rare', 'mythic'].includes(c.copy?.rarity)), 'no rare in the test deck has more than one copy');
+      const { found } = await headline(page, { rats: 'Rats', rares: 'rares and mythics' });
+      assert.equal(found.rats, rats.reduce((n, c) => n + count(c), 0), 'the Rats are not counted by copies');
+      assert.equal(found.rares, deckStats(deck).rares, 'rares and mythics are not counted by copies');
+    }));
+
+  test('The shared creature type is named in the plural Arena uses: Merfolk, Kithkin and Kor take no s', async () => {
+    for (const [type, plural] of Object.entries(TRIBES)) {
+      await open(`tribe-${type.toLowerCase()}`, async ({ page }) => {
+        const { text, found } = await headline(page, { shared: plural });
+        assert.equal(found.shared, 4, `four ${type} creatures are not headlined as 4 ${plural}: ${text.replace(/\s+/g, ' ')}`);
+      });
+    }
+  });
+
+  test('The hero art file is missing: the hero shows no art and announces none', () =>
+    open('lost-files', async ({ page, deck }) => {
+      const hero = page.locator('#top');
+      assert.equal((await hero.locator('h1').innerText()).replace(/\s+/g, ' ').trim(), deck.name);
+      const settled = await until(async () => (await heroArt(hero)) === null && (await hero.getByRole('img').count()) === 0);
+      assert.ok(settled, `the hero keeps art it cannot show (${await heroArt(hero)}) or announces it (${await hero.getByRole('img').count()} images)`);
+    }));
 });
 
 // ======================================================================
@@ -483,6 +520,22 @@ describe('Scenes', () => {
     await open('rich', async ({ page }) => assert.ok(await visible(page.locator('#engine')), 'a deck with scenes shows no scenes section'));
     await open('mono', async ({ page }) => assert.ok(!(await visible(page.locator('#engine'))), 'a deck with no scenes shows a scenes section'));
   });
+
+  test('A picture missing from a scene is asked for once, not again at every step', () =>
+    open('lost-files', { clock: true }, async ({ page, deck, missing }) => {
+      const engine = page.locator('#engine');
+      assert.ok(await visible(engine), 'the scenes section is not on the page');
+      await settlePictures(engine);
+      const src = picturePath('lost-files', byName(deck, 'Faded Rat').scryfall_id);
+      const asked = () => missing.filter(p => p === src).length;
+      const before = asked();
+      assert.ok(before >= 1, 'the missing picture was never asked for, so this test proves nothing');
+      const steps = deck.scenes[0].steps;
+      for (let i = 0; i < 4; i++) await nextStep(page, engine, steps[i % steps.length].caption);
+      await page.waitForTimeout(300);
+      assert.equal(asked(), before, `the missing picture was asked for ${asked() - before} more times over four steps`);
+      assert.ok(await blankCardNamed(engine, 'Faded Rat'), 'the scene does not show the name on a blank card');
+    }));
 });
 
 // ======================================================================
@@ -564,6 +617,63 @@ describe('Cards and dialog', () => {
       assert.match(text, /bends?/i);
       await closeDialog(page);
       assert.match(await (await tile(page, 'rich', bends.name)).innerText(), /bends?/i, 'the tile does not say the card bends a criterion');
+    }));
+
+  test('A maybeboard card is not a card in the deck: its name in the handbook and the ledger is plain text, and a scene or a pair shows it on a blank card', () =>
+    open('second-thoughts', async ({ page, deck }) => {
+      const maybe = deck.maybeboard.find(m => m.name === 'Maybe Rat');
+      const inDeck = deck.cards.find(c => c.name === 'Marsh Warden');
+      for (const id of ['handbook', 'ledger']) {
+        const scope = page.locator(`#${id}`);
+        assert.ok(await controlsNamed(scope, inDeck.name) > 0, `#${id}: a card in the deck does not open, so this test proves nothing`);
+        assert.equal(await controlsNamed(scope, maybe.name), 0, `#${id}: the maybeboard name opens something`);
+      }
+      for (const id of ['engine', 'handbook']) {
+        const scope = page.locator(`#${id}`);
+        await settlePictures(scope);
+        const srcs = (await pictures(scope)).map(p => p.src);
+        assert.ok(srcs.includes(picturePath('second-thoughts', inDeck.scryfall_id)), `#${id}: the deck's card shows no picture`);
+        assert.ok(!srcs.includes(picturePath('second-thoughts', maybe.scryfall_id)), `#${id}: the maybeboard card shows its picture as if it were in the deck`);
+        assert.ok(await blankCardNamed(scope, maybe.name), `#${id}: the maybeboard card is not its name on a blank card`);
+      }
+    }));
+
+  test('A maybeboard card opens from the grid, and a swap says which card it is in for, under its picture and in the dialog with its reason', () =>
+    open('second-thoughts', async ({ page, deck }) => {
+      const later = deck.maybeboard.find(m => m.kind === 'later'), swap = deck.maybeboard.find(m => m.kind === 'swap');
+      let d = await openCard(page, 'second-thoughts', later.name);
+      assert.ok((await d.innerText()).includes(later.why), 'the maybeboard card\'s dialog does not show its why');
+      await closeDialog(page);
+      assert.ok((await (await tile(page, 'second-thoughts', swap.name)).innerText()).includes(`In for ${swap.out}`), 'the tile does not say which card the swap is in for');
+      d = await openCard(page, 'second-thoughts', swap.name);
+      const lines = await d.evaluate((root, { out, why }) => {
+        const shown = [...root.querySelectorAll('*')].filter(e => e.checkVisibility());
+        return {
+          together: shown.some(e => e.textContent.includes(`In for ${out}`) && e.textContent.includes(why) && e.textContent.length < out.length + why.length + 40),
+          alone: shown.some(e => e.textContent.trim() === why),
+        };
+      }, swap);
+      assert.ok(lines.together, 'the dialog does not give the swap\'s reason on the line that says which card it is in for');
+      assert.ok(!lines.alone, 'the dialog shows the swap\'s reason as the card\'s why');
+    }));
+
+  test('A two-part cost is drawn in the dialog as two runs of symbols with // between them', () =>
+    open('rich', async ({ page }) => {
+      const d = await openCard(page, 'rich', 'Ember Giant');
+      const cost = await d.evaluate(root => {
+        const first = root.querySelector('.mana');
+        if (!first) return null;
+        const holder = first.parentElement;
+        return { symbols: [...holder.querySelectorAll('.mana')].map(m => m.children.length), text: holder.textContent.replace(/\s+/g, ' ').trim() };
+      });
+      assert.deepEqual(cost?.symbols, [3, 2], `{2}{R}{R} // {2}{R} is drawn as runs of ${JSON.stringify(cost?.symbols)} symbols`);
+      assert.match(cost.text, /\/\//, `the two parts are not separated by //: "${cost.text}"`);
+    }));
+
+  test('A category target is shown as written, never read as markup', () =>
+    open('second-thoughts', async ({ page, deck }) => {
+      const target = deck.categories.find(c => c.name === 'Removal').target;
+      assert.ok((await sectionText(page, 'cards')).includes(target), `the target ${target} is not shown as written`);
     }));
 });
 
@@ -708,6 +818,14 @@ describe('Handbook', () => {
       const toHandbook = hero.getByRole('link', { name: /handbook/i }).or(hero.getByRole('button', { name: /handbook/i }));
       assert.equal(await toHandbook.filter({ visible: true }).count(), 0, 'the hero has a handbook button for a deck with no handbook');
     }));
+
+  test('A picture missing inside a handbook pair: the card\'s name on a blank card', () =>
+    open('lost-files', async ({ page }) => {
+      const handbook = page.locator('#handbook');
+      await settlePictures(handbook);
+      assert.deepEqual((await pictures(handbook)).filter(p => p.broken).map(p => p.src), [], 'the pair shows a broken image');
+      assert.ok(await blankCardNamed(handbook, 'Faded Rat'), 'the pair does not show the name on a blank card');
+    }));
 });
 
 // ======================================================================
@@ -743,6 +861,25 @@ describe('Ledger', () => {
       await showEarlier(page).first().click();
       positions = order(await page.locator('#ledger').innerText());
       assert.ok(positions.every((p, i, a) => p >= 0 && (i === 0 || p > a[i - 1])), 'after the control, not every entry is shown newest first');
+    }));
+
+  test('A ledger line the page cannot split is shown as written', () =>
+    open('lost-files', async ({ page }) => {
+      const text = await sectionText(page, 'ledger');
+      assert.ok(text.includes(LINE_THE_PAGE_CANNOT_SPLIT), 'the line is not shown');
+      assert.doesNotMatch(text, /\b(undefined|null)\b/, 'the line shows a placeholder');
+    }));
+
+  test('LEDGER.md fails to arrive: the ledger says "Nothing logged yet.", the cards still open and the Arena list is drawn', () =>
+    open('rich', { refuse: ['/LEDGER.md'] }, async ({ page, deck, requested }) => {
+      assert.ok(requested.some(p => p.endsWith('/LEDGER.md')), 'the page never asked for LEDGER.md, so nothing was refused');
+      assert.match(await until(async () => (await page.locator('#ledger').innerText()) || null) || '', /Nothing logged yet\./, 'the ledger does not say nothing is logged');
+      const d = await openCard(page, 'rich', 'Plague Herald');
+      assert.ok((await d.innerText()).includes('Plague Herald'));
+      await closeDialog(page);
+      const pre = page.locator('pre').filter({ visible: true });
+      assert.equal(await pre.count(), 1, 'the Arena list is not drawn');
+      assert.equal((await pre.innerText()).trim(), arenaList(deck));
     }));
 });
 
@@ -841,6 +978,40 @@ print((build.HERE / name / "deck.json").read_text())
 `, path.join(REPO, 'evals/starts/build.py')], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     assert.equal(JSON.parse(written).version, 2);
   });
+
+  test('A card\'s copy gives its mana value: deck.example.json shows it, SKILL.md names it and evals/starts/build.py saves Scryfall\'s cmc as it', () => {
+    assert.ok(example().cards.some(c => typeof c.copy?.mana_value === 'number'), 'no card in deck.example.json has a mana value in its copy');
+    assert.match(skill(), /display copy \([^)]*mana value[^)]*\)/, 'SKILL.md does not name the mana value among the copy\'s fields');
+    // build.py searches Scryfall; this stands a canned search of one adventure card in for it.
+    const written = execFileSync('python3', ['-I', '-c', `
+import json, pathlib, sys, tempfile, importlib.util
+spec = importlib.util.spec_from_file_location("build", sys.argv[1])
+sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent.parent))
+build = importlib.util.module_from_spec(spec); spec.loader.exec_module(build)
+card = lambda i, name, type_line: {"id": f"00000000-0000-4000-8000-{i:012d}", "name": name, "type_line": type_line,
+    "mana_cost": "{2}{R} // {1}{R}", "cmc": 3.0, "oracle_text": "", "rarity": "rare"}
+build.search = lambda query: [card(1, "A Commander", "Legendary Creature — Giant")] + [card(i, f"Card {i}", "Creature — Giant // Instant — Adventure") for i in range(2, 40)]
+build.HERE = pathlib.Path(tempfile.mkdtemp())
+name, deck = next(iter(build.DECKS.items()))
+build.build(name, deck)
+print((build.HERE / name / "deck.json").read_text())
+`, path.join(REPO, 'evals/starts/build.py')], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    for (const c of JSON.parse(written).cards) assert.equal(c.copy.mana_value, 3, `${c.name} is saved with mana value ${c.copy.mana_value}`);
+  });
+
+  test('A page given every file in window.DECK_FILES draws the deck without asking for deck.json, LEDGER.md or any picture', () =>
+    open('packed', async ({ page, deck, requested }) => {
+      assert.equal((await page.locator('h1').innerText()).replace(/\s+/g, ' ').trim(), deck.name, 'the packed deck is not drawn');
+      assert.ok((await heroArt(page.locator('#top')))?.includes('data:image'), 'the hero does not show the packed art');
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      const cards = page.locator('#cards');
+      await settlePictures(cards);
+      const shown = await pictures(cards);
+      assert.ok(shown.length && shown.every(p => p.loaded), 'a card picture in the grid did not load from the packed files');
+      assert.ok((await sectionText(page, 'ledger')).includes(RICH_LEDGER.at(-1)[3]), 'the packed ledger is not drawn');
+      await page.waitForLoadState('networkidle');
+      assert.deepEqual(requested.filter(p => /\/(deck\.json|LEDGER\.md)$|\/(cards|art)\//.test(p)), [], 'the page asked the server for a packed file');
+    }));
 });
 
 // ======================================================================
@@ -885,6 +1056,30 @@ describe('Edge cases', () => {
 
   test('No ledger file: the ledger says "Nothing logged yet."', () =>
     open('mono', async ({ page }) => assert.match(await sectionText(page, 'ledger'), /Nothing logged yet\./)));
+
+  test('deck.json holds no deck (null, a number, a list): the hero says it could not be read and nothing else is drawn', async () => {
+    for (const name of ['deck-null', 'deck-number', 'deck-array']) {
+      await open(name, async ({ page }) => {
+        assert.match(await sectionText(page, 'top'), /Could not read deck\.json/, `${name}: the hero does not say deck.json could not be read`);
+        const rest = await page.evaluate(() => {
+          const hero = document.getElementById('top');
+          return [...document.body.children].filter(e => e !== hero && !e.contains(hero) && e.checkVisibility()).map(e => e.innerText.trim()).join('');
+        });
+        assert.equal(rest, '', `${name}: something besides the hero is drawn`);
+      });
+    }
+  });
+
+  test('The clipboard is refused: the page says to copy the list by hand and brings the Arena list into view', () =>
+    open('rich', { clipboard: false }, async ({ page, deck }) => {
+      await page.locator('#top').getByRole('button', { name: /copy/i }).first().click();
+      const said = await until(async () => (await page.getByRole('status').innerText()).trim() || null);
+      assert.match(said || '', /select the list/i, `the page says "${said}"`);
+      const pre = page.locator('pre').filter({ visible: true });
+      const inView = await until(() => pre.evaluate(e => { const r = e.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }));
+      assert.ok(inView, 'the Arena list is not brought into view');
+      assert.equal((await pre.innerText()).trim(), arenaList(deck));
+    }));
 
   test('No pitch, curve note, why or rarity: that line or mark is absent', () =>
     open('several', async ({ page }) => {
