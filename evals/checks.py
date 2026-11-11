@@ -180,6 +180,30 @@ def scryfall(name: str, cache: dict) -> dict | None:
     return cache[name]
 
 
+def tool_uses(trace: list[dict]):
+    """Every tool call: (exchange, conversation, name, input, refused)."""
+    errors = {block.get("tool_use_id") for event in trace if event.get("type") == "user"
+              for block in event.get("message", {}).get("content", [])
+              if isinstance(block, dict) and block.get("type") == "tool_result" and (
+                  block.get("is_error") or "publish 429" in str(block.get("content"))[:300])}
+    for event in trace:
+        if event.get("type") != "assistant":
+            continue
+        for block in event.get("message", {}).get("content", []):
+            if isinstance(block, dict) and block.get("type") == "tool_use":
+                yield (event.get("exchange", 0), event.get("conversation", 1), block.get("name"),
+                       block.get("input", {}), block.get("id") in errors)
+
+
+def saves_by_exchange(trace: list[dict]) -> Counter:
+    """Publishes the Artifact tool accepted, by exchange."""
+    saves = Counter()
+    for exchange, _, name, given, refused in tool_uses(trace):
+        if name == "Artifact" and given.get("action", "publish") == "publish" and not refused:
+            saves[exchange] += 1
+    return saves
+
+
 class Run:
     def __init__(self, path: pathlib.Path):
         self.path = path
@@ -195,18 +219,7 @@ class Run:
         self.start = json.loads(start.read_text()) if start.exists() else None
 
     def tool_uses(self):
-        """Every tool call: (exchange, conversation, name, input, refused)."""
-        errors = {block.get("tool_use_id") for event in self.trace if event.get("type") == "user"
-                  for block in event.get("message", {}).get("content", [])
-                  if isinstance(block, dict) and block.get("type") == "tool_result" and (
-                      block.get("is_error") or "publish 429" in str(block.get("content"))[:300])}
-        for event in self.trace:
-            if event.get("type") != "assistant":
-                continue
-            for block in event.get("message", {}).get("content", []):
-                if isinstance(block, dict) and block.get("type") == "tool_use":
-                    yield (event.get("exchange", 0), event.get("conversation", 1), block.get("name"),
-                           block.get("input", {}), block.get("id") in errors)
+        return tool_uses(self.trace)
 
     def last_published(self) -> dict[str, pathlib.Path]:
         """The page's files as the publishes left them, by published path, read from disk now.
@@ -289,12 +302,7 @@ class Run:
         return "\n".join(out)
 
     def saves_by_exchange(self) -> Counter:
-        """Publishes the Artifact tool accepted, by exchange."""
-        saves = Counter()
-        for exchange, _, name, given, refused in self.tool_uses():
-            if name == "Artifact" and given.get("action", "publish") == "publish" and not refused:
-                saves[exchange] += 1
-        return saves
+        return saves_by_exchange(self.trace)
 
     def final_list(self) -> tuple[Counter, str | None]:
         """The deck as last published, else the last Arena import list in a reply or a

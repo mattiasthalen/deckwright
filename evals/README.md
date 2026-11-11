@@ -6,7 +6,14 @@ one whole conversation between Deckwright and a stand-in player playing a brief.
 ```sh
 python3 evals/run.py evals/briefs/*.md --arm bare --runs 3 -j 3   # or --arm skill
 python3 evals/checks.py evals/runs/<stamp>/*
+python3 evals/run.py evals/briefs/*.md --arm bare --runs 3 -j 3 --resume <stamp>
 ```
+
+A background command in a cloud session is cut off after two hours. Resume the
+round with the same briefs, `--arm` and `--runs`: finished runs (those with
+`run.json`) are skipped, and a run cut off mid-way is cleared and played again from
+its start. Never resume a round that is still running, because its unfinished runs'
+folders are cleared.
 
 - **Deckwright** is headless Claude Code on Opus 5.5 in a workspace of its own. It
   may publish real, private pages; sending files into the person's chat is blocked.
@@ -72,8 +79,15 @@ as DIED. A started run copies its start into `start/`, which the checks read.
 - The judge is blind by label only: the skill arm's saved page files show which
   arm is which, so "page explains" cannot be blind. It reads the last 150,000
   characters of a long conversation, which can drop the intent interview.
-- Runs share the account's artifact gallery and its limit of 200 publishes a day;
-  `checks.py` flags a run that reads a page it did not publish.
+- Runs share the account's artifact gallery; `checks.py` flags a run that reads a
+  page it did not publish. The account may publish 200 pages a day, reset at
+  midnight UTC. A round stops starting exchanges and runs once its accepted
+  publishes reach `--publish-budget` (default 150, leaving the owner 50). A run
+  stopped this way ends as `publish budget` in `run.json`; one never started has no
+  folder, so `--resume` plays it. The budget is per start of `run.py`, so rounds run
+  side by side or one after another on the same day must split the day's allowance
+  between them by hand. Turns in flight when the budget is reached may publish a
+  few more.
 - `run.json` costs before 2026-11-11 summed running totals; they were recalculated
   from the traces.
 - Runs `checks.py` flags as CONTAMINATED reached outside their own folder.

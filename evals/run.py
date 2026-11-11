@@ -6,6 +6,7 @@ sees Deckwright's replies, as a player in chat would. The bare arm gets nothing
 but the brief's opening line; the skill arm also loads the plugin.
 
     python3 evals/run.py evals/briefs/brawl-rats.md --arm bare --runs 3
+    python3 evals/run.py evals/briefs/brawl-rats.md --arm bare --runs 3 --resume <stamp>
 """
 
 from __future__ import annotations
@@ -19,7 +20,10 @@ import pathlib
 import re
 import shutil
 import subprocess
+import threading
 import uuid
+
+import checks
 
 DECKWRIGHT_MODEL = "claude-opus-5-5"
 STAND_IN_MODEL = "claude-sonnet-5-5"
@@ -28,6 +32,10 @@ STARTS_DIR = pathlib.Path(__file__).resolve().parent / "starts"
 RUNS_DIR = pathlib.Path(__file__).resolve().parent / "runs"
 END = "<<END>>"
 NEW_CONVERSATION = "<<NEW_CONVERSATION>>"
+# The account may publish 200 pages a day, reset at midnight UTC, and every save in
+# a run is one publish. 2026-11-11's rounds used the lot, which stopped publishing in
+# every thread on the account; 150 leaves the owner 50.
+DEFAULT_PUBLISH_BUDGET = 150
 
 # File and lookup tools Deckwright needs, granted up front because a headless run
 # cannot stop to ask; a compound shell command needs every part allowed. Files never go into the person's chat (decided
@@ -122,11 +130,32 @@ def stand_in_turn(message: str, session: str, first: bool, player: str, cwd: pat
     return result_of(claude(args, message, cwd, cwd.parent / "memory" / "stand-in"))
 
 
-def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int) -> dict:
+class PublishBudget:
+    """The publishes a round may make, shared by its runs, which play in threads at once."""
+
+    def __init__(self, publishes: int):
+        self.publishes, self.published, self.lock = publishes, 0, threading.Lock()
+
+    def count(self, events: list[dict]) -> None:
+        """Add the publishes one Deckwright turn made that the Artifact tool accepted."""
+        with self.lock:
+            self.published += sum(checks.saves_by_exchange(events).values())
+
+    def used_up(self) -> bool:
+        with self.lock:
+            return self.published >= self.publishes
+
+
+def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int,
+        budget: PublishBudget | None = None) -> dict:
     """Play one conversation to its end and write it under `out`.
 
     `run.json` is written however the run ends, so a run that dies still counts.
+    Without a `budget` the run is a round of one. The run stops after the exchange in
+    which the round's budget is used up; turns in flight in other runs may still
+    publish a few past it.
     """
+    budget = budget or PublishBudget(DEFAULT_PUBLISH_BUDGET)
     workspace, stand_in_cwd = out / "workspace", out / "stand-in"
     opening, player, start, ends = read_brief(brief)
     conversation = out / "conversation.jsonl"
@@ -154,6 +183,7 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int) ->
             memory = out / "memory" / f"deckwright-{conversation_no}"
             events = deckwright_turn(message, deckwright_session, first_deckwright, arm, workspace, memory)
             first_deckwright = False
+            budget.count(events)
             for event in events:
                 log(trace, {"conversation": conversation_no, "exchange": exchange, **event})
             result = result_of(events)
@@ -180,12 +210,37 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int) ->
             if message.startswith(NEW_CONVERSATION):
                 message = message[len(NEW_CONVERSATION):].strip()
                 deckwright_session, conversation_no, first_deckwright = str(uuid.uuid4()), conversation_no + 1, True
+            if budget.used_up():
+                ended = "publish budget"
+                break
     except Exception as error:  # a timeout or a crash still leaves the run on record
         ended = f"runner error: {type(error).__name__}"
     summary = {"brief": brief.stem, "arm": arm, "start": start, "ends": ends, "ended": ended,
                "exchanges": exchange + 1, "deckwright_cost_usd": round(sum(cost_by_conversation.values()), 2)}
     (out / "run.json").write_text(json.dumps(summary, indent=2))
     return summary
+
+
+def play_round(briefs: list[pathlib.Path], arm: str, runs: int, round_dir: pathlib.Path, jobs: int,
+               max_exchanges: int, budget: PublishBudget):
+    """Play the round's runs, yielding their summaries in order.
+
+    A run with a `run.json` already finished and is skipped. A run folder without one
+    was cut off mid-run and is cleared, so the run plays again from its start. Once the
+    budget is used up no further run starts, and a run not started gets no folder, so
+    `--resume` takes it as never played.
+    """
+    def play(brief: pathlib.Path, out: pathlib.Path) -> dict:
+        if out.exists():
+            shutil.rmtree(out)
+        if budget.used_up():
+            return {"brief": brief.stem, "arm": arm, "ended": "not started: publish budget"}
+        return run(brief, arm, out, max_exchanges, budget)
+
+    unfinished = [(b, round_dir / f"{b.stem}--{arm}--{n}") for b in briefs for n in range(1, runs + 1)]
+    unfinished = [(b, out) for b, out in unfinished if not (out / "run.json").exists()]
+    with concurrent.futures.ThreadPoolExecutor(jobs) as pool:
+        yield from pool.map(lambda job: play(*job), unfinished)
 
 
 def main() -> None:
@@ -195,12 +250,18 @@ def main() -> None:
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("-j", "--jobs", type=int, default=3)
     parser.add_argument("--max-exchanges", type=int, default=120)
+    parser.add_argument("--publish-budget", type=int, default=DEFAULT_PUBLISH_BUDGET)
+    parser.add_argument("--resume", metavar="STAMP", help="play the unfinished runs of the round in runs/STAMP")
     args = parser.parse_args()
-    stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%S")
-    jobs = [(b, RUNS_DIR / stamp / f"{b.stem}--{args.arm}--{n}") for b in args.briefs for n in range(1, args.runs + 1)]
-    with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
-        for summary in pool.map(lambda job: run(job[0], args.arm, job[1], args.max_exchanges), jobs):
-            print(json.dumps(summary))
+    if args.resume:
+        round_dir = RUNS_DIR / args.resume
+        if not round_dir.is_dir():
+            parser.error(f"no round to resume at {round_dir}")
+    else:
+        round_dir = RUNS_DIR / datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%S")
+    budget = PublishBudget(args.publish_budget)
+    for summary in play_round(args.briefs, args.arm, args.runs, round_dir, args.jobs, args.max_exchanges, budget):
+        print(json.dumps(summary))
 
 
 if __name__ == "__main__":
