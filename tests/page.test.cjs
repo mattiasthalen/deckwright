@@ -184,6 +184,61 @@ async function nextStep(page, scope, caption, limit = 4000) {
   assert.fail(`"${caption}" was still shown after ${limit} ms on screen`);
 }
 
+// What a reader sees in one thing of a scene: the text of each element shown at
+// more than half opacity, its pictures, and its blank cards (card-shaped boxes
+// holding no picture and no smaller card shape). At 'start' every motion in the
+// thing is rewound to its beginning first; at 'end' every motion is finished.
+const readThing = (thing, at) => thing.evaluate((t, at) => {
+  const motions = t.getAnimations({ subtree: true });
+  const running = motions.filter(a => a.playState === 'running').length;
+  if (at === 'start') motions.forEach(a => { a.currentTime = 0; });
+  if (at === 'end') motions.forEach(a => { try { a.finish(); } catch {} });
+  const opacity = e => { let o = 1; for (; e && e !== t.parentElement; e = e.parentElement) o *= +getComputedStyle(e).opacity; return o; };
+  const shown = e => e.checkVisibility({ visibilityProperty: true }) && opacity(e) > 0.5;
+  const all = [...t.querySelectorAll('*')].filter(shown);
+  const ownText = e => [...e.childNodes].filter(n => n.nodeType === Node.TEXT_NODE).map(n => n.textContent).join('').trim();
+  const cardShaped = e => e.offsetWidth > 0 && e.offsetHeight / e.offsetWidth > 1.3 && e.offsetHeight / e.offsetWidth < 1.5;
+  return {
+    texts: all.map(ownText).filter(Boolean),
+    pictures: all.filter(e => e.tagName === 'IMG').map(i => ({ src: new URL(i.currentSrc || i.src, location.href).pathname, loaded: i.complete && i.naturalWidth > 0, broken: i.complete && i.naturalWidth === 0 })),
+    blanks: all.filter(e => e.tagName !== 'IMG' && cardShaped(e) && !e.querySelector('img') && ![...e.querySelectorAll('*')].some(cardShaped)).length,
+    running,
+  };
+}, at);
+const numbersIn = seen => seen.texts.filter(s => /^\d+$/.test(s)).map(Number);
+const minusMarkIn = (seen, n) => seen.texts.some(s => new RegExp(`^[−–-]\\s?${n}$`).test(s));
+const plusMarkIn = (seen, n) => seen.texts.some(s => new RegExp(`^\\+\\s?${n}$`).test(s));
+
+// The thing in a scene's step at an index, read at every 100 ms of the fake clock
+// while the step is shown; the last reading is the thing at the end of its step.
+async function atEndOfStep(page, scene, caption, index, limit = 4000) {
+  let last = null;
+  for (let spent = 0; spent <= limit; spent += 100) {
+    if (!(await scene.innerText()).includes(caption)) return last;
+    last = await readThing(scene.locator('.thing').nth(index), 'end');
+    await page.clock.runFor(100);
+  }
+  assert.fail(`"${caption}" was still shown after ${limit} ms on screen`);
+}
+
+// Brings a scene of the drawn decks to its last step, the one with damage and a draw.
+async function toLastStep(page, deckName, sceneIndex) {
+  const scene = page.locator('#engine .scene').nth(sceneIndex);
+  assert.ok(await visible(scene), `scene ${sceneIndex} of ${deckName} is not drawn`);
+  await scene.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(150);
+  const [first, last] = deckOf(deckName).scenes[sceneIndex].steps;
+  for (let spent = 0; !(await scene.innerText()).includes(first.caption); spent += 100) {
+    assert.ok(spent <= 6000, `"${first.caption}" was not shown within ${spent} ms`);
+    await page.clock.runFor(100);
+  }
+  await nextStep(page, scene, first.caption);
+  assert.ok((await scene.innerText()).includes(last.caption), `the scene did not move to "${last.caption}"`);
+  return { scene, step: last };
+}
+
+const STARTING_LIFE = { brawl: 25, standard: 20 };
+
 // What the mana curve draws: the two legend colours and, per column from left to
 // right, the height of the creature part and the other-spells part.
 const readCurve = page => page.evaluate(() => {
@@ -682,6 +737,88 @@ describe('Scenes', () => {
       assert.equal(asked(), before, `the missing picture was asked for ${asked() - before} more times over four steps`);
       assert.ok(await blankCardNamed(engine, 'Faded Rat'), 'the scene does not show the name on a blank card');
     }));
+
+  test('AC40: A damage thing shows the format\'s starting life and, by the end of its step, that life less the damage with a "−N" mark; a Brawl deck starts at 25 and a Standard deck at 20', async () => {
+    for (const name of ['drawn-brawl', 'drawn-standard']) {
+      await open(name, { clock: true }, async ({ page, deck }) => {
+        const life = STARTING_LIFE[deck.format];
+        for (const sceneIndex of deck.scenes.keys()) {
+          const { scene, step } = await toLastStep(page, name, sceneIndex);
+          const index = step.things.findIndex(t => t.damage !== undefined);
+          const { damage, label = 'Opponent' } = step.things[index];
+          const start = await readThing(scene.locator('.thing').nth(index), 'start');
+          assert.deepEqual(numbersIn(start), [life], `${name}: at the start of its step, ${damage} damage shows ${JSON.stringify(start.texts)}, not the starting life ${life}`);
+          const end = await atEndOfStep(page, scene, step.caption, index);
+          assert.deepEqual(numbersIn(end), [life - damage], `${name}: at the end of its step, ${damage} damage shows ${JSON.stringify(end.texts)}, not ${life - damage}`);
+          assert.ok(minusMarkIn(end, damage), `${name}: ${damage} damage shows no "−${damage}" mark: ${JSON.stringify(end.texts)}`);
+          assert.ok(end.texts.includes(label), `${name}: ${damage} damage is not labelled "${label}": ${JSON.stringify(end.texts)}`);
+        }
+      });
+    }
+  });
+
+  test('AC41: A draw thing shows one card back per card drawn, at most five, each an image of cards/back.jpg, with a "+N" mark and a label; a missing cards/back.jpg shows blank cards and no broken image', async () => {
+    const drawIn = step => { const index = step.things.findIndex(t => t.draw !== undefined); return { index, ...step.things[index] }; };
+    await open('drawn-brawl', { clock: true }, async ({ page, deck }) => {
+      for (const sceneIndex of deck.scenes.keys()) {
+        const { scene, step } = await toLastStep(page, 'drawn-brawl', sceneIndex);
+        const { index, draw, label = `You draw ${draw}` } = drawIn(step);
+        await settlePictures(scene);
+        const end = await atEndOfStep(page, scene, step.caption, index);
+        const backs = end.pictures.filter(p => p.src === '/drawn-brawl/cards/back.jpg');
+        assert.equal(backs.length, Math.min(draw, 5), `a draw of ${draw} shows ${backs.length} card backs; its pictures: ${JSON.stringify(end.pictures)}`);
+        assert.equal(end.pictures.length, backs.length, `a draw of ${draw} shows a picture that is not the card back: ${JSON.stringify(end.pictures)}`);
+        for (const b of backs) assert.ok(b.loaded, `a card back in a draw of ${draw} did not load`);
+        assert.ok(plusMarkIn(end, draw), `a draw of ${draw} shows no "+${draw}" mark: ${JSON.stringify(end.texts)}`);
+        assert.ok(end.texts.includes(label), `a draw of ${draw} is not labelled "${label}": ${JSON.stringify(end.texts)}`);
+      }
+    });
+    await open('drawn-no-back', { clock: true }, async ({ page, deck, missing }) => {
+      for (const sceneIndex of deck.scenes.keys()) {
+        const { scene, step } = await toLastStep(page, 'drawn-no-back', sceneIndex);
+        const { index, draw, label = `You draw ${draw}` } = drawIn(step);
+        await settlePictures(scene);
+        const end = await atEndOfStep(page, scene, step.caption, index);
+        assert.equal(end.blanks, Math.min(draw, 5), `with no cards/back.jpg, a draw of ${draw} shows ${end.blanks} blank cards`);
+        assert.deepEqual((await pictures(scene)).filter(p => p.broken).map(p => p.src), [], 'the scene shows a broken image');
+        assert.ok(plusMarkIn(end, draw), `with no cards/back.jpg, a draw of ${draw} shows no "+${draw}" mark: ${JSON.stringify(end.texts)}`);
+        assert.ok(end.texts.includes(label), `with no cards/back.jpg, a draw of ${draw} is not labelled "${label}": ${JSON.stringify(end.texts)}`);
+      }
+      assert.ok(missing.includes('/drawn-no-back/cards/back.jpg'), 'the page never asked for cards/back.jpg, so this test proves nothing');
+    });
+  });
+
+  test('AC42: With reduced motion a damage thing shows the lowered life total and a draw thing shows its whole fan, neither moving', () =>
+    open('drawn-brawl', { clock: true, reducedMotion: 'reduce' }, async ({ page, deck }) => {
+      const life = STARTING_LIFE[deck.format];
+      // Where every element of a thing is drawn, relative to the thing, and how.
+      const layout = thing => thing.evaluate(t => {
+        const at = t.getBoundingClientRect();
+        return [t, ...t.querySelectorAll('*')].map(e => {
+          const r = e.getBoundingClientRect(), s = getComputedStyle(e);
+          return [e.tagName, Math.round(r.left - at.left), Math.round(r.top - at.top), Math.round(r.width), Math.round(r.height), s.opacity, s.transform, s.filter, e.textContent.trim()].join(' ');
+        });
+      });
+      for (const [sceneIndex, s] of deck.scenes.entries()) {
+        const scene = page.locator('#engine .scene').nth(sceneIndex);
+        assert.ok(await visible(scene), `the scene "${s.title}" is not drawn`);
+        await settlePictures(scene);
+        const step = s.steps.at(-1);
+        const di = step.things.findIndex(t => t.damage !== undefined), wi = step.things.findIndex(t => t.draw !== undefined);
+        const { damage } = step.things[di], { draw } = step.things[wi];
+        const hitThing = scene.locator('.thing').nth(di), fanThing = scene.locator('.thing').nth(wi);
+        const hit = await readThing(hitThing, 'now'), fan = await readThing(fanThing, 'now');
+        assert.deepEqual(numbersIn(hit), [life - damage], `with reduced motion, ${damage} damage shows ${JSON.stringify(hit.texts)}, not the lowered life ${life - damage}`);
+        assert.ok(minusMarkIn(hit, damage), `with reduced motion, ${damage} damage shows no "−${damage}" mark: ${JSON.stringify(hit.texts)}`);
+        const backs = fan.pictures.filter(p => p.src === '/drawn-brawl/cards/back.jpg' && p.loaded);
+        assert.equal(backs.length, Math.min(draw, 5), `with reduced motion, a draw of ${draw} shows ${backs.length} card backs`);
+        assert.equal(hit.running + fan.running, 0, `with reduced motion, ${hit.running} motions run in the damage and ${fan.running} in the draw`);
+        const still = [await layout(hitThing), await layout(fanThing)];
+        await page.waitForTimeout(1200);
+        await page.clock.runFor(10000);
+        assert.deepEqual([await layout(hitThing), await layout(fanThing)], still, 'with reduced motion, the damage or the draw moves');
+      }
+    }));
 });
 
 // ======================================================================
@@ -1150,6 +1287,17 @@ build.build(name, deck)
 print((build.HERE / name / "deck.json").read_text())
 `, path.join(REPO, 'evals/starts/build.py')], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     for (const c of JSON.parse(written).cards) assert.equal(c.copy.mana_value, 3, `${c.name} is saved with mana value ${c.copy.mana_value}`);
+  });
+
+  test('AC43: deck.example.json shows a damage and a draw thing, SKILL.md says the card back is saved as cards/back.jpg when a scene draws cards, and ADR-0008 names both kinds', () => {
+    const things = example().scenes.flatMap(s => s.steps.flatMap(st => st.things));
+    for (const kind of ['damage', 'draw']) assert.ok(things.some(t => t[kind] !== undefined), `no thing in deck.example.json is a ${kind}`);
+    const line = skill().split('\n').find(l => l.includes('cards/back.jpg'));
+    assert.ok(line, 'SKILL.md does not name cards/back.jpg');
+    assert.match(line, /\bscenes?\b[^.]*\bdraws?\b|\bdraws?\b[^.]*\bscenes?\b/i, `SKILL.md does not say cards/back.jpg is saved when a scene draws cards: "${line.trim()}"`);
+    const adr = fs.readFileSync(path.join(REPO, 'docs/adr/0008-scenes-are-played-from-data-with-whole-card-pictures.md'), 'utf8');
+    assert.match(adr, /\bdamage\b/i, 'ADR-0008 does not name damage as a kind of thing');
+    assert.match(adr, /\bdraw\b|\bdrawn cards?\b|\bcards? drawn\b/i, 'ADR-0008 does not name drawn cards as a kind of thing');
   });
 
   test('A page given every file in window.DECK_FILES draws the deck without asking for deck.json, LEDGER.md or any picture', () =>

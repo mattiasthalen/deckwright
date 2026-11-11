@@ -346,6 +346,51 @@ const tribe = (n, type) => ({
 const TRIBES = { Merfolk: 'Merfolk', Kithkin: 'Kithkin', Kor: 'Kor', Elf: 'Elves' };
 const TRIBES_WITHOUT_S = ['Eldrazi', 'Myr', 'Vedalken', 'Aetherborn', 'Deer'];
 
+// Scenes with damage and drawn cards: a draw of three and of more than five,
+// damage with a label and without.
+const drawnScenes = name => [
+  { title: 'Damage and cards', steps: [
+    { caption: `${name} waits.`, things: [{ card: name }] },
+    { caption: `${name} deals 3 damage to each opponent and you draw 3 cards.`, things: [{ card: name }, { damage: 3, label: 'Each opponent' }, { draw: 3 }] },
+  ] },
+  { title: 'A big draw', steps: [
+    { caption: 'Before the big draw.', things: [{ card: name }] },
+    { caption: 'You draw seven and the opponent takes 4.', things: [{ draw: 7, label: 'Seven cards' }, { damage: 4 }] },
+  ] },
+];
+
+const drawnBrawl = {
+  version: 2,
+  name: 'Ash Keeper Draws',
+  format: 'brawl',
+  criteria: [{ kind: 'format', text: 'Brawl on Arena' }],
+  categories: [{ name: 'Commander', target: 1 }, { name: 'Lands', target: 35 }],
+  cards: [
+    card(1001, 'Ash Keeper', 'Commander', '{2}{B}{R}', 'Legendary Creature — Snail Warlock'),
+    card(1002, 'Swamp', 'Lands', '', 'Basic Land — Swamp', { count: 9 }),
+  ],
+  tokens: [],
+  scenes: drawnScenes('Ash Keeper'),
+  approved: false,
+};
+
+const drawnStandard = {
+  version: 2,
+  name: 'Blaze Imp Draws',
+  format: 'standard',
+  criteria: [{ kind: 'format', text: 'Standard on Arena' }],
+  categories: [{ name: 'Creatures', target: 4 }, { name: 'Lands', target: 24 }],
+  cards: [
+    card(1101, 'Blaze Imp', 'Creatures', '{1}{R}', 'Creature — Imp', { count: 4 }),
+    card(1102, 'Mountain', 'Lands', '', 'Basic Land — Mountain', { count: 20 }),
+  ],
+  tokens: [],
+  scenes: drawnScenes('Blaze Imp'),
+  approved: false,
+};
+
+const drawsCards = deck => (deck.scenes || []).some(s => (s.steps || []).some(st => Array.isArray(st.things) && st.things.some(t => t.draw !== undefined)));
+
 const ledgerFile = entries => '# Ledger\n\n' + entries.map(([date, kind, subject, why]) => `- ${date} · ${kind} · ${subject} · ${why}`).join('\n') + '\n';
 
 function pictureIds(deck) {
@@ -354,7 +399,8 @@ function pictureIds(deck) {
   return ids;
 }
 
-// name -> {deck (object or raw text), ledger (text or absent), pictures (ids), art (ids)}
+// name -> {deck (object or raw text), ledger (text or absent), pictures (ids), art (ids),
+// back (whether cards/back.jpg is saved; by default when a scene draws cards)}
 function deckFolders() {
   const example = JSON.parse(fs.readFileSync(EXAMPLE, 'utf8'));
   const all = deck => ({ pictures: pictureIds(deck), art: deck.hero ? [deck.hero] : [] });
@@ -380,6 +426,9 @@ function deckFolders() {
     'lost-files': { deck: lostFiles, pictures: new Set([scryfallId(702)]), art: [],
       ledger: ledgerFile([['2026-11-07', 'in', `Faded Rat (${scryfallId(701)})`, 'the commander']]) + `- ${LINE_THE_PAGE_CANNOT_SPLIT}\n- ${LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID}\n` },
     ...Object.fromEntries([...Object.keys(TRIBES), ...TRIBES_WITHOUT_S].map((type, i) => [`tribe-${type.toLowerCase()}`, { deck: tribe(800 + 10 * i, type), ...all(tribe(800 + 10 * i, type)) }])),
+    'drawn-brawl': { deck: drawnBrawl, ...all(drawnBrawl) },
+    'drawn-standard': { deck: drawnStandard, ...all(drawnStandard) },
+    'drawn-no-back': { deck: drawnBrawl, ...all(drawnBrawl), back: false },
     // The rich deck with every file given to the page in window.DECK_FILES and none in the folder.
     packed: { deck: rich, packedFrom: 'rich', pictures: new Set(), art: [] },
     example: { deck: example, ledger: ledgerFile([['2026-11-10', 'in', 'An example card', 'the example ledger']]), ...all(example) },
@@ -416,6 +465,7 @@ async function startDeckServer(browser) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'deck-page-'));
   const cardPicture = await jpeg(browser, 488, 680, '#3b5a7a');
   const artCrop = await jpeg(browser, 626, 457, '#7a5a3b');
+  const cardBack = await jpeg(browser, 488, 680, '#4a2f1c');
   const page = fs.readFileSync(PAGE);
   const folders = deckFolders();
   for (const [name, f] of Object.entries(folders)) {
@@ -431,6 +481,7 @@ async function startDeckServer(browser) {
     if (f.ledger !== undefined) fs.writeFileSync(path.join(dir, 'LEDGER.md'), f.ledger);
     for (const id of f.pictures) fs.writeFileSync(path.join(dir, 'cards', `${id}.jpg`), cardPicture);
     for (const id of f.art) fs.writeFileSync(path.join(dir, 'art', `${id}.jpg`), artCrop);
+    if (f.back ?? (typeof f.deck === 'object' && drawsCards(f.deck))) fs.writeFileSync(path.join(dir, 'cards', 'back.jpg'), cardBack);
   }
   const server = http.createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
