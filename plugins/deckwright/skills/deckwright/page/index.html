@@ -259,7 +259,8 @@ dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); 
 // path, so the folder can be packed into one file that sets window.DECK_FILES.
 const PACKED = window.DECK_FILES || {};
 const url = path => PACKED[path] || path;
-const read = async path => path in PACKED ? PACKED[path] : fetch(path, {cache: 'no-store'}).then(r => r.ok ? r.text() : '');
+// A file that is missing or cannot be fetched reads as empty.
+const read = async path => path in PACKED ? PACKED[path] : fetch(path, {cache: 'no-store'}).then(r => r.ok ? r.text() : '', () => '');
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -316,18 +317,21 @@ const manaRun = cost => `<span class="mana" role="img" aria-label="${esc(spokenM
 const manaCost = cost => cost.split(' // ').map(manaRun).join(' // ');
 const withManaDrawn = text => esc(text).replace(/(\{[^}]+\})+/g, manaRun);
 
-// A picture that fails to load is swapped for a blank card with its alt text.
-const picture = (id, alt) => `<img loading="lazy" src="${esc(url(`cards/${id}.jpg`))}" alt="${esc(alt)}">`;
+// A picture that fails to load is swapped for a blank card with its alt text,
+// and drawn as one from then on: a scene redraws its pictures at every step.
+const missingPictures = new Set();
 const blankCard = name => `<div class="blank-card">${esc(name)}</div>`;
+const picture = (id, alt) => {
+  const src = url(`cards/${id}.jpg`);
+  return missingPictures.has(src) ? blankCard(alt) : `<img loading="lazy" src="${esc(src)}" alt="${esc(alt)}">`;
+};
 const cardPicture = name => cardsInDeck.has(name) ? picture(cardsInDeck.get(name).scryfall_id, name) : blankCard(name);
 
 document.addEventListener('error', e => {
   const img = e.target;
   if (img.tagName !== 'IMG') return;
-  const blank = document.createElement('div');
-  blank.className = 'blank-card';
-  blank.textContent = img.alt;
-  img.replaceWith(blank);
+  missingPictures.add(img.getAttribute('src'));
+  img.outerHTML = blankCard(img.alt);
 }, true);
 
 function toast(message) {
@@ -397,10 +401,13 @@ function drawHero() {
   $('criteria').innerHTML = (deck.criteria || []).map(c => `<span>${esc(c.text)}</span>`).join('');
   const heroCard = deck.hero && deck.cards.find(c => c.scryfall_id === deck.hero);
   if (deck.hero) {
-    const art = $('hero-art');
-    art.style.backgroundImage = `url("${url(`art/${deck.hero}.jpg`)}")`;
-    art.setAttribute('role', 'img');
-    art.setAttribute('aria-label', heroCard ? `Artwork of ${heroCard.name}` : 'Artwork of the hero card');
+    const art = $('hero-art'), src = url(`art/${deck.hero}.jpg`), probe = new Image();
+    probe.onload = () => {
+      art.style.backgroundImage = `url("${src}")`;
+      art.setAttribute('role', 'img');
+      art.setAttribute('aria-label', heroCard ? `Artwork of ${heroCard.name}` : 'Artwork of the hero card');
+    };
+    probe.src = src;
   }
   $('stats').innerHTML = headlineNumbers().map(([number, label]) => `<div class="stat"><b>${number}</b><span>${esc(label)}</span></div>`).join('');
   $('to-handbook').hidden = !chapters().length;
@@ -616,6 +623,7 @@ function tiltCardsUnderPointer() {
 async function main() {
   try {
     deck = JSON.parse(await read('deck.json'));
+    if (!deck || typeof deck !== 'object' || Array.isArray(deck)) throw new Error('it holds no deck');
   } catch (e) {
     $('to-handbook').hidden = $('copy-top').hidden = true;
     $('pitch').textContent = `Could not read deck.json: ${e.message}`;
@@ -626,9 +634,10 @@ async function main() {
   deck.cards.forEach(c => cardsInDeck.set(c.name, c));
   [...(deck.maybeboard || []), ...deck.cards].forEach(c => cardsToOpen.set(c.name, c));
   paintAccent();
-  drawHero(); drawScenes(); drawCards(); drawCurve(); drawHandbook(); drawLedger(await read('LEDGER.md')); drawImport();
+  drawHero(); drawScenes(); drawCards(); drawCurve(); drawHandbook(); drawImport();
   listenForCards();
   tiltCardsUnderPointer();
+  drawLedger(await read('LEDGER.md'));
 }
 main();
 </script>
