@@ -1,0 +1,243 @@
+{
+  "version": 1,
+  "name": "Creatures dying and coming back (Standard)",
+  "format": "standard",
+  "criteria": [
+    {
+      "kind": "format",
+      "text": "Standard on Arena"
+    },
+    {
+      "kind": "theme",
+      "text": "Creatures dying and coming back"
+    },
+    {
+      "kind": "colours",
+      "text": "Black-green"
+    },
+    {
+      "kind": "limit",
+      "text": "None"
+    }
+  ],
+  "categories": [
+    {
+      "name": "Early creatures",
+      "target": 4
+    },
+    {
+      "name": "Sacrifice outlets",
+      "target": 4
+    },
+    {
+      "name": "Death payoffs",
+      "target": 4
+    },
+    {
+      "name": "Recursion",
+      "target": 4
+    },
+    {
+      "name": "Removal",
+      "target": 4
+    },
+    {
+      "name": "Card draw",
+      "target": 4
+    },
+    {
+      "name": "Value creatures",
+      "target": 4
+    },
+    {
+      "name": "Finishers",
+      "target": 4
+    },
+    {
+      "name": "Interaction",
+      "target": 4
+    },
+    {
+      "name": "Lands",
+      "target": 24
+    }
+  ],
+  "cards": [
+    {
+      "scryfall_id": "6a0b230b-d391-4998-a3f7-7b158a0ec2cd",
+      "name": "Llanowar Elves",
+      "count": 2,
+      "category": "Early creatures",
+      "tags": [
+        "early creatures"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{G}",
+        "type_line": "Creature — Elf Druid",
+        "text": "{T}: Add {G}.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "ba86688d-18f0-4b5c-a797-42bf125a6c9f",
+      "name": "Bloom Tender",
+      "count": 2,
+      "category": "Early creatures",
+      "tags": [
+        "early creatures"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{G}",
+        "type_line": "Creature — Elf Druid",
+        "text": "Vivid — {T}: For each color among permanents you control, add one mana of that color.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "8046f892-3317-4ef7-9cf7-97b9060540c8",
+      "name": "Corrupted Conviction",
+      "count": 2,
+      "category": "Sacrifice outlets",
+      "tags": [
+        "sacrifice outlets"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{B}",
+        "type_line": "Instant",
+        "text": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "9ae0b1e0-a481-4a98-b67b-0cf8bac53fdd",
+      "name": "Vampiric Rites",
+      "count": 2,
+      "category": "Sacrifice outlets",
+      "tags": [
+        "sacrifice outlets"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{B}",
+        "type_line": "Enchantment",
+        "text": "{1}{B}, Sacrifice a creature: You gain 1 life and draw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "5383f45e-3da2-40fb-beee-801448bbb60f",
+      "name": "Solemn Simulacrum",
+      "count": 2,
+      "category": "Death payoffs",
+      "tags": [
+        "death payoffs"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{4}",
+        "type_line": "Artifact Creature — Golem",
+        "text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "9d76a30c-0431-4334-892a-9822dda9671a",
+      "name": "Enduring Vitality",
+      "count": 2,
+      "category": "Death payoffs",
+      "tags": [
+        "death payoffs"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{G}{G}",
+        "type_line": "Enchantment Creature — Elk Glimmer",
+        "text": "Vigilance\nCreatures you control have \"{T}: Add one mana of any color.\"\nWhen Enduring Vitality dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment. (It's not a creature.)",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "1c1aa6f8-2d34-4f4b-9184-0eab2e4745f7",
+      "name": "Aftermath Analyst",
+      "count": 2,
+      "category": "Recursion",
+      "tags": [
+        "recursion"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{G}",
+        "type_line": "Creature — Elf Detective",
+        "text": "When this creature enters, mill three cards. (Put the top three cards of your library into your graveyard.)\n{3}{G}, Sacrifice this creature: Return all land cards from your graveyard to the battlefield tapped.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "28e84b1b-1c05-4e1b-93b8-9cc2ca73509d",
+      "name": "Reassembling Skeleton",
+      "count": 2,
+      "category": "Recursion",
+      "tags": [
+        "recursion"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{B}",
+        "type_line": "Creature — Skeleton Warrior",
+        "text": "{1}{B}: Return this card from your graveyard to the battlefield tapped.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "276f5cee-a501-4658-bd4d-7a044bf1ccbc",
+      "name": "Craterhoof Behemoth",
+      "count": 2,
+      "category": "Finishers",
+      "tags": [
+        "finishers"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{5}{G}{G}{G}",
+        "type_line": "Creature — Beast",
+        "text": "Haste\nWhen this creature enters, creatures you control gain trample and get +X/+X until end of turn, where X is the number of creatures you control.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "c25ee47b-d099-4788-9c2b-73d151bf56fb",
+      "name": "Rampaging Baloths",
+      "count": 2,
+      "category": "Finishers",
+      "tags": [
+        "finishers"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{4}{G}{G}",
+        "type_line": "Creature — Beast",
+        "text": "Trample\nLandfall — Whenever a land you control enters, create a 4/4 green Beast creature token.",
+        "taken": "2026-11-09"
+      }
+    }
+  ],
+  "maybeboard": [],
+  "dismissed_findings": [],
+  "last_review": null,
+  "handbook": [],
+  "scenes": [],
+  "approved": false
+}

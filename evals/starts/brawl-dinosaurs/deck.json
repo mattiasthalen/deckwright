@@ -1,0 +1,498 @@
+{
+  "version": 1,
+  "name": "Dinosaurs (Brawl)",
+  "format": "brawl",
+  "criteria": [
+    {
+      "kind": "format",
+      "text": "Brawl on Arena"
+    },
+    {
+      "kind": "theme",
+      "text": "Dinosaurs"
+    },
+    {
+      "kind": "colours",
+      "text": "Red-green"
+    },
+    {
+      "kind": "limit",
+      "text": "None"
+    }
+  ],
+  "categories": [
+    {
+      "name": "Commander",
+      "target": 1
+    },
+    {
+      "name": "Ramp",
+      "target": 8
+    },
+    {
+      "name": "Card draw",
+      "target": 8
+    },
+    {
+      "name": "Removal",
+      "target": 8
+    },
+    {
+      "name": "Personal favourites",
+      "target": 8
+    },
+    {
+      "name": "Enrage payoffs",
+      "target": 8
+    },
+    {
+      "name": "Big threats",
+      "target": 8
+    },
+    {
+      "name": "Protection",
+      "target": 8
+    },
+    {
+      "name": "Board wipes",
+      "target": 8
+    },
+    {
+      "name": "Lands",
+      "target": 35
+    }
+  ],
+  "cards": [
+    {
+      "scryfall_id": "95c14c4d-6c16-4826-8d93-d89ad04aee09",
+      "name": "Etali, Primal Conqueror // Etali, Primal Sickness",
+      "count": 1,
+      "category": "Commander",
+      "tags": [
+        "commander"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{5}{R}{R}",
+        "type_line": "Legendary Creature — Elder Dinosaur // Legendary Creature — Phyrexian Elder Dinosaur",
+        "text": "Trample\nWhen Etali enters, each player exiles cards from the top of their library until they exile a nonland card. You may cast any number of spells from among the nonland cards exiled this way without paying their mana costs.\n{9}{G/P}: Transform Etali. Activate only as a sorcery.\n//\nTrample, indestructible\nWhenever Etali deals combat damage to a player, they get that many poison counters. (A player with ten or more poison counters loses the game.)",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "c6b6117c-faab-4bbb-b851-07bd8061ef03",
+      "name": "Arcane Signet",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}",
+        "type_line": "Artifact",
+        "text": "{T}: Add one mana of any color in your commander's color identity.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "4a433310-3fe2-4156-864d-7a6b2638340b",
+      "name": "Cultivate",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{G}",
+        "type_line": "Sorcery",
+        "text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "598f6334-4baf-4f9a-a70c-0cc1e8af68c9",
+      "name": "Farseek",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{G}",
+        "type_line": "Sorcery",
+        "text": "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "f43fb749-5672-4a5c-ac89-e443195b95bc",
+      "name": "Nature's Lore",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{G}",
+        "type_line": "Sorcery",
+        "text": "Search your library for a Forest card, put that card onto the battlefield, then shuffle.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "ec480124-3f27-416e-b561-3ffcfe496959",
+      "name": "Rampant Growth",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{G}",
+        "type_line": "Sorcery",
+        "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "a92ac7d7-83a3-417e-944f-d7d85c442cf8",
+      "name": "Mind Stone",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}",
+        "type_line": "Artifact",
+        "text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "4c72e177-d95d-41df-91b3-4e489175b6aa",
+      "name": "Birds of Paradise",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{G}",
+        "type_line": "Creature — Bird",
+        "text": "Flying\n{T}: Add one mana of any color.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "5383f45e-3da2-40fb-beee-801448bbb60f",
+      "name": "Solemn Simulacrum",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{4}",
+        "type_line": "Artifact Creature — Golem",
+        "text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "4805c303-e73b-443b-a09f-49d2c2c88bb5",
+      "name": "Garruk's Uprising",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{G}",
+        "type_line": "Enchantment",
+        "text": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card.\nCreatures you control have trample. (Each of those creatures can deal excess combat damage to the player or planeswalker it's attacking.)\nWhenever a creature you control with power 4 or greater enters, draw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "d5806e68-1054-458e-866d-1f2470f682b2",
+      "name": "The One Ring",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{4}",
+        "type_line": "Legendary Artifact",
+        "text": "Indestructible\nWhen The One Ring enters, if you cast it, you gain protection from everything until your next turn.\nAt the beginning of your upkeep, you lose 1 life for each burden counter on The One Ring.\n{T}: Put a burden counter on The One Ring, then draw a card for each burden counter on The One Ring.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "0415df8a-078f-4c12-84e5-b9af7b3e7739",
+      "name": "Faithless Looting",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{R}",
+        "type_line": "Sorcery",
+        "text": "Draw two cards, then discard two cards.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "aa1e5db0-4cd8-4d42-bde1-3e3d0041339f",
+      "name": "Jeska's Will",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{R}",
+        "type_line": "Sorcery",
+        "text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n• Add {R} for each card in target opponent's hand.\n• Exile the top three cards of your library. You may play them this turn.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "05c1ce9a-2d66-4815-aead-91257fe1ff74",
+      "name": "Eternal Witness",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{G}{G}",
+        "type_line": "Creature — Human Shaman",
+        "text": "When this creature enters, you may return target card from your graveyard to your hand.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "3383a939-4ab3-4546-9995-6c65cd3f4441",
+      "name": "Big Score",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}{R}",
+        "type_line": "Instant",
+        "text": "As an additional cost to cast this spell, discard a card.\nDraw two cards and create two Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "e64d51b3-20a2-4cc3-bd70-7f165940c157",
+      "name": "Herald's Horn",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}",
+        "type_line": "Artifact",
+        "text": "As this artifact enters, choose a creature type.\nCreature spells you cast of the chosen type cost {1} less to cast.\nAt the beginning of your upkeep, look at the top card of your library. If it's a creature card of the chosen type, you may reveal it and put it into your hand.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "b88a4943-bd1b-4d10-9cd3-b2ab91b25c10",
+      "name": "Return of the Wildspeaker",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{4}{G}",
+        "type_line": "Instant",
+        "text": "Choose one —\n• Draw cards equal to the greatest power among non-Human creatures you control.\n• Non-Human creatures you control get +3/+3 until end of turn.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "9af44900-0afe-4409-8bad-0db4a915be92",
+      "name": "Blasphemous Act",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{8}{R}",
+        "type_line": "Sorcery",
+        "text": "This spell costs {1} less to cast for each creature on the battlefield.\nBlasphemous Act deals 13 damage to each creature.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "b6b6c66f-e3e0-4904-ae41-2ecc786f70c5",
+      "name": "Beast Within",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{G}",
+        "type_line": "Instant",
+        "text": "Destroy target permanent. Its controller creates a 3/3 green Beast creature token.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "2a6c3d3b-93ec-43df-a0cd-ea12ab047d51",
+      "name": "Chaos Warp",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{R}",
+        "type_line": "Instant",
+        "text": "The owner of target permanent shuffles it into their library, then reveals the top card of their library. If it's a permanent card, they put it onto the battlefield.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "548947dc-a5ca-43b5-9531-bcef20fa4ae5",
+      "name": "Abrade",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "text": "Choose one —\n• Abrade deals 3 damage to target creature.\n• Destroy target artifact.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "7673784e-db4b-43a1-8d55-1bb9fc1e284f",
+      "name": "Lightning Bolt",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{R}",
+        "type_line": "Instant",
+        "text": "Lightning Bolt deals 3 damage to any target.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "857bfb0e-17dc-4dda-bc37-3df927a9eae6",
+      "name": "Untimely Malfunction",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "text": "Choose one —\n• Destroy target artifact.\n• Change the target of target spell or ability with a single target.\n• One or two target creatures can't block this turn.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "1918ea65-ab7f-4d40-97fd-a656c892a2a1",
+      "name": "Reclamation Sage",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{G}",
+        "type_line": "Creature — Elf Shaman",
+        "text": "When this creature enters, you may destroy target artifact or enchantment.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "7f5342d5-b8a6-46ee-afd7-b333bb836a7c",
+      "name": "Aetherflux Reservoir",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{4}",
+        "type_line": "Artifact",
+        "text": "Whenever you cast a spell, you gain 1 life for each spell you've cast this turn.\nPay 50 life: This artifact deals 50 damage to any target.",
+        "taken": "2026-11-09"
+      }
+    }
+  ],
+  "maybeboard": [],
+  "dismissed_findings": [],
+  "last_review": null,
+  "handbook": [],
+  "scenes": [],
+  "approved": false
+}

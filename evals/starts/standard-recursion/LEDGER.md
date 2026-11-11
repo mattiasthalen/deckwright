@@ -1,0 +1,25 @@
+# Ledger
+
+- 2026-11-09 · criteria · Standard on Arena · the player's answer
+- 2026-11-09 · criteria · Creatures dying and coming back · the player's answer
+- 2026-11-09 · criteria · Black-green · the player's answer
+- 2026-11-09 · criteria · None · the player's answer
+- 2026-11-09 · category · Early creatures (4) · template accepted by the player
+- 2026-11-09 · category · Sacrifice outlets (4) · template accepted by the player
+- 2026-11-09 · category · Death payoffs (4) · template accepted by the player
+- 2026-11-09 · category · Recursion (4) · template accepted by the player
+- 2026-11-09 · category · Removal (4) · template accepted by the player
+- 2026-11-09 · category · Card draw (4) · template accepted by the player
+- 2026-11-09 · category · Value creatures (4) · template accepted by the player
+- 2026-11-09 · category · Finishers (4) · template accepted by the player
+- 2026-11-09 · category · Interaction (4) · template accepted by the player
+- 2026-11-09 · in · Llanowar Elves (6a0b230b-d391-4998-a3f7-7b158a0ec2cd) · the player chose it for Early creatures
+- 2026-11-09 · in · Bloom Tender (ba86688d-18f0-4b5c-a797-42bf125a6c9f) · the player chose it for Early creatures
+- 2026-11-09 · in · Corrupted Conviction (8046f892-3317-4ef7-9cf7-97b9060540c8) · the player chose it for Sacrifice outlets
+- 2026-11-09 · in · Vampiric Rites (9ae0b1e0-a481-4a98-b67b-0cf8bac53fdd) · the player chose it for Sacrifice outlets
+- 2026-11-09 · in · Solemn Simulacrum (5383f45e-3da2-40fb-beee-801448bbb60f) · the player chose it for Death payoffs
+- 2026-11-09 · in · Enduring Vitality (9d76a30c-0431-4334-892a-9822dda9671a) · the player chose it for Death payoffs
+- 2026-11-09 · in · Aftermath Analyst (1c1aa6f8-2d34-4f4b-9184-0eab2e4745f7) · the player chose it for Recursion
+- 2026-11-09 · in · Reassembling Skeleton (28e84b1b-1c05-4e1b-93b8-9cc2ca73509d) · the player chose it for Recursion
+- 2026-11-09 · in · Craterhoof Behemoth (276f5cee-a501-4658-bd4d-7a044bf1ccbc) · the player chose it for Finishers
+- 2026-11-09 · in · Rampaging Baloths (c25ee47b-d099-4788-9c2b-73d151bf56fb) · the player chose it for Finishers

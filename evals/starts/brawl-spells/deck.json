@@ -1,0 +1,1178 @@
+{
+  "version": 1,
+  "name": "Instants and sorceries (Brawl)",
+  "format": "brawl",
+  "criteria": [
+    {
+      "kind": "format",
+      "text": "Brawl on Arena"
+    },
+    {
+      "kind": "theme",
+      "text": "Instants and sorceries"
+    },
+    {
+      "kind": "colours",
+      "text": "Blue-red"
+    },
+    {
+      "kind": "limit",
+      "text": "None"
+    }
+  ],
+  "categories": [
+    {
+      "name": "Commander",
+      "target": 1
+    },
+    {
+      "name": "Ramp",
+      "target": 8
+    },
+    {
+      "name": "Card draw",
+      "target": 8
+    },
+    {
+      "name": "Removal",
+      "target": 8
+    },
+    {
+      "name": "Personal favourites",
+      "target": 8
+    },
+    {
+      "name": "Spell payoffs",
+      "target": 8
+    },
+    {
+      "name": "Counterspells",
+      "target": 8
+    },
+    {
+      "name": "Burn",
+      "target": 8
+    },
+    {
+      "name": "Copy effects",
+      "target": 8
+    },
+    {
+      "name": "Lands",
+      "target": 35
+    }
+  ],
+  "cards": [
+    {
+      "scryfall_id": "6f3d2dc5-7b9d-4af6-9f3b-4de90fbf63c9",
+      "name": "Niv-Mizzet, Parun",
+      "count": 1,
+      "category": "Commander",
+      "tags": [
+        "commander"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}{U}{U}{R}{R}{R}",
+        "type_line": "Legendary Creature — Dragon Wizard",
+        "text": "This spell can't be countered.\nFlying\nWhenever you draw a card, Niv-Mizzet deals 1 damage to any target.\nWhenever a player casts an instant or sorcery spell, you draw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "c6b6117c-faab-4bbb-b851-07bd8061ef03",
+      "name": "Arcane Signet",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}",
+        "type_line": "Artifact",
+        "text": "{T}: Add one mana of any color in your commander's color identity.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "a92ac7d7-83a3-417e-944f-d7d85c442cf8",
+      "name": "Mind Stone",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}",
+        "type_line": "Artifact",
+        "text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "5383f45e-3da2-40fb-beee-801448bbb60f",
+      "name": "Solemn Simulacrum",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{4}",
+        "type_line": "Artifact Creature — Golem",
+        "text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "e8c3839e-eb11-48ce-91e0-7ae2aecb6157",
+      "name": "Chromatic Lantern",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}",
+        "type_line": "Artifact",
+        "text": "Lands you control have \"{T}: Add one mana of any color.\"\n{T}: Add one mana of any color.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "aa1e5db0-4cd8-4d42-bde1-3e3d0041339f",
+      "name": "Jeska's Will",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{R}",
+        "type_line": "Sorcery",
+        "text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n• Add {R} for each card in target opponent's hand.\n• Exile the top three cards of your library. You may play them this turn.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "248189cc-6177-43c1-9886-a4fa910b9353",
+      "name": "Talisman of Creativity",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}",
+        "type_line": "Artifact",
+        "text": "{T}: Add {C}.\n{T}: Add {U} or {R}. This artifact deals 1 damage to you.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "b279f268-c37e-4a2d-8195-74f4881226fc",
+      "name": "Wayfarer's Bauble",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}",
+        "type_line": "Artifact",
+        "text": "{2}, {T}, Sacrifice this artifact: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "0f2d0ee5-3173-4a03-be45-2fe9ea49cdc3",
+      "name": "Ashnod's Altar",
+      "count": 1,
+      "category": "Ramp",
+      "tags": [
+        "ramp"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}",
+        "type_line": "Artifact",
+        "text": "Sacrifice a creature: Add {C}{C}.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "cd212de7-25f6-4b3b-a35b-df7d87fe205b",
+      "name": "Rhystic Study",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{U}",
+        "type_line": "Enchantment",
+        "text": "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "b5545882-6963-4729-b2c6-fb4bdc75ffcc",
+      "name": "Brainstorm",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Instant",
+        "text": "Draw three cards, then put two cards from your hand on top of your library in any order.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "d5806e68-1054-458e-866d-1f2470f682b2",
+      "name": "The One Ring",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{4}",
+        "type_line": "Legendary Artifact",
+        "text": "Indestructible\nWhen The One Ring enters, if you cast it, you gain protection from everything until your next turn.\nAt the beginning of your upkeep, you lose 1 life for each burden counter on The One Ring.\n{T}: Put a burden counter on The One Ring, then draw a card for each burden counter on The One Ring.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "d8c5e52d-57ae-464b-8860-7dd39ebfef64",
+      "name": "Frantic Search",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{U}",
+        "type_line": "Instant",
+        "text": "Draw two cards, then discard two cards. Untap up to three lands.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "0415df8a-078f-4c12-84e5-b9af7b3e7739",
+      "name": "Faithless Looting",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{R}",
+        "type_line": "Sorcery",
+        "text": "Draw two cards, then discard two cards.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "fce23be6-787a-43bb-8bfd-c6672fad9105",
+      "name": "Mystic Remora",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Enchantment",
+        "text": "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhenever an opponent casts a noncreature spell, you may draw a card unless that player pays {4}.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "3383a939-4ab3-4546-9995-6c65cd3f4441",
+      "name": "Big Score",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}{R}",
+        "type_line": "Instant",
+        "text": "As an additional cost to cast this spell, discard a card.\nDraw two cards and create two Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "ba6b6fc5-5077-4812-b8e9-906783dbaf67",
+      "name": "Ponder",
+      "count": 1,
+      "category": "Card draw",
+      "tags": [
+        "card draw"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Sorcery",
+        "text": "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "9af44900-0afe-4409-8bad-0db4a915be92",
+      "name": "Blasphemous Act",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{8}{R}",
+        "type_line": "Sorcery",
+        "text": "This spell costs {1} less to cast for each creature on the battlefield.\nBlasphemous Act deals 13 damage to each creature.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "2a6c3d3b-93ec-43df-a0cd-ea12ab047d51",
+      "name": "Chaos Warp",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{R}",
+        "type_line": "Instant",
+        "text": "The owner of target permanent shuffles it into their library, then reveals the top card of their library. If it's a permanent card, they put it onto the battlefield.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "7037f57a-ca89-41bd-bf7f-2f54593c0f48",
+      "name": "Cyclonic Rift",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "text": "Return target nonland permanent you don't control to its owner's hand.\nOverload {6}{U} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "548947dc-a5ca-43b5-9531-bcef20fa4ae5",
+      "name": "Abrade",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "text": "Choose one —\n• Abrade deals 3 damage to target creature.\n• Destroy target artifact.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "5780936e-629d-4737-9005-651234f5426d",
+      "name": "Pongify",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Instant",
+        "text": "Destroy target creature. It can't be regenerated. Its controller creates a 3/3 green Ape creature token.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "7673784e-db4b-43a1-8d55-1bb9fc1e284f",
+      "name": "Lightning Bolt",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{R}",
+        "type_line": "Instant",
+        "text": "Lightning Bolt deals 3 damage to any target.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "49420431-0595-4525-b751-3d119fcaca22",
+      "name": "Rapid Hybridization",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Instant",
+        "text": "Destroy target creature. It can't be regenerated. That creature's controller creates a 3/3 green Frog Lizard creature token.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "857bfb0e-17dc-4dda-bc37-3df927a9eae6",
+      "name": "Untimely Malfunction",
+      "count": 1,
+      "category": "Removal",
+      "tags": [
+        "removal"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "text": "Choose one —\n• Destroy target artifact.\n• Change the target of target spell or ability with a single target.\n• One or two target creatures can't block this turn.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "379f4020-a58c-484d-9b44-72b200884079",
+      "name": "Counterspell",
+      "count": 1,
+      "category": "Personal favourites",
+      "tags": [
+        "personal favourites"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}{U}",
+        "type_line": "Instant",
+        "text": "Counter target spell.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "a829747f-cf9b-4d81-ba66-9f0630ed4565",
+      "name": "An Offer You Can't Refuse",
+      "count": 1,
+      "category": "Personal favourites",
+      "tags": [
+        "personal favourites"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Instant",
+        "text": "Counter target noncreature spell. Its controller creates two Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "52d58fe4-6070-4022-9cd7-c35a11b44525",
+      "name": "Negate",
+      "count": 1,
+      "category": "Personal favourites",
+      "tags": [
+        "personal favourites"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "text": "Counter target noncreature spell.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "8a12d781-c48f-4d19-bc71-78b4adcdf0af",
+      "name": "Swan Song",
+      "count": 1,
+      "category": "Personal favourites",
+      "tags": [
+        "personal favourites"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Instant",
+        "text": "Counter target enchantment, instant, or sorcery spell. Its controller creates a 2/2 blue Bird creature token with flying.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "5d98101f-e32a-4a4a-a649-faa920d111ee",
+      "name": "Mystical Tutor",
+      "count": 1,
+      "category": "Personal favourites",
+      "tags": [
+        "personal favourites"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Instant",
+        "text": "Search your library for an instant or sorcery card, reveal it, then shuffle and put that card on top.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "e3868c3d-4fcd-444b-866f-0f8e50ce7b67",
+      "name": "Preordain",
+      "count": 1,
+      "category": "Personal favourites",
+      "tags": [
+        "personal favourites"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Sorcery",
+        "text": "Scry 2, then draw a card. (To scry 2, look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "882b348c-076b-41d8-b505-063480636669",
+      "name": "Thrill of Possibility",
+      "count": 1,
+      "category": "Personal favourites",
+      "tags": [
+        "personal favourites"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "text": "As an additional cost to cast this spell, discard a card.\nDraw two cards.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "58d26b54-0093-4e90-a2b1-b57c64340f9c",
+      "name": "Opt",
+      "count": 1,
+      "category": "Personal favourites",
+      "tags": [
+        "personal favourites"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Instant",
+        "text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "fa96b8dc-233a-4884-ab84-235cbc7df0b6",
+      "name": "Storm-Kiln Artist",
+      "count": 1,
+      "category": "Spell payoffs",
+      "tags": [
+        "spell payoffs"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}{R}",
+        "type_line": "Creature — Dwarf Shaman",
+        "text": "This creature gets +1/+0 for each artifact you control.\nMagecraft — Whenever you cast or copy an instant or sorcery spell, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "761df6cd-0928-4167-8902-58fdb50181a0",
+      "name": "Archmage Emeritus",
+      "count": 1,
+      "category": "Spell payoffs",
+      "tags": [
+        "spell payoffs"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{U}{U}",
+        "type_line": "Creature — Human Wizard",
+        "text": "Magecraft — Whenever you cast or copy an instant or sorcery spell, draw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "f6bb1ffc-2251-4655-b8f9-4c8047dd5d5f",
+      "name": "Guttersnipe",
+      "count": 1,
+      "category": "Spell payoffs",
+      "tags": [
+        "spell payoffs"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature — Goblin Shaman",
+        "text": "Whenever you cast an instant or sorcery spell, this creature deals 2 damage to each opponent.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "32d294e8-ed96-4584-b4f2-1b03ae6d1314",
+      "name": "Dualcaster Mage",
+      "count": 1,
+      "category": "Spell payoffs",
+      "tags": [
+        "spell payoffs"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}{R}",
+        "type_line": "Creature — Human Wizard",
+        "text": "Flash\nWhen this creature enters, copy target instant or sorcery spell. You may choose new targets for the copy.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "3d89c1a1-1896-4360-b123-52d82a6871d4",
+      "name": "Talrand, Sky Summoner",
+      "count": 1,
+      "category": "Spell payoffs",
+      "tags": [
+        "spell payoffs"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{U}{U}",
+        "type_line": "Legendary Creature — Merfolk Wizard",
+        "text": "Whenever you cast an instant or sorcery spell, create a 2/2 blue Drake creature token with flying.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "8afb19df-b96a-4736-81ab-3561e2767d2d",
+      "name": "Young Pyromancer",
+      "count": 1,
+      "category": "Spell payoffs",
+      "tags": [
+        "spell payoffs"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}",
+        "type_line": "Creature — Human Shaman",
+        "text": "Whenever you cast an instant or sorcery spell, create a 1/1 red Elemental creature token.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "334b5018-2da9-49f1-9d09-83d312ecfb02",
+      "name": "Archmage of Runes",
+      "count": 1,
+      "category": "Spell payoffs",
+      "tags": [
+        "spell payoffs"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}{U}{U}",
+        "type_line": "Creature — Giant Wizard",
+        "text": "Instant and sorcery spells you cast cost {1} less to cast.\nWhenever you cast an instant or sorcery spell, draw a card.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "d672cfad-e656-47f8-bf93-64f262aff33e",
+      "name": "Electro, Assaulting Battery",
+      "count": 1,
+      "category": "Spell payoffs",
+      "tags": [
+        "spell payoffs"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}{R}",
+        "type_line": "Legendary Creature — Human Villain",
+        "text": "Flying\nYou don't lose unspent red mana as steps and phases end.\nWhenever you cast an instant or sorcery spell, add {R}.\nWhen Electro leaves the battlefield, you may pay {X}. When you do, he deals X damage to target player.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "e9be371c-c688-44ad-ab71-bd4c9f242d58",
+      "name": "Force of Negation",
+      "count": 1,
+      "category": "Counterspells",
+      "tags": [
+        "counterspells"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{U}{U}",
+        "type_line": "Instant",
+        "text": "If it's not your turn, you may exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "4b546bcf-2e86-42af-bf32-81c7fd36ef8c",
+      "name": "Hullbreaker Horror",
+      "count": 1,
+      "category": "Counterspells",
+      "tags": [
+        "counterspells"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{5}{U}{U}",
+        "type_line": "Creature — Kraken Horror",
+        "text": "Flash\nThis spell can't be countered.\nWhenever you cast a spell, choose up to one —\n• Return target spell you don't control to its owner's hand.\n• Return target nonland permanent to its owner's hand.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "ba8fa9db-f24f-46d4-add1-71b7f77636e2",
+      "name": "Flusterstorm",
+      "count": 1,
+      "category": "Counterspells",
+      "tags": [
+        "counterspells"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Instant",
+        "text": "Counter target instant or sorcery spell unless its controller pays {1}.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "101af164-2b8e-4904-8edd-2433210d3c54",
+      "name": "Pact of Negation",
+      "count": 1,
+      "category": "Counterspells",
+      "tags": [
+        "counterspells"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{0}",
+        "type_line": "Instant",
+        "text": "Counter target spell.\nAt the beginning of your next upkeep, pay {3}{U}{U}. If you don't, you lose the game.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "75b75aaf-499d-47b0-ab6d-873240b641b2",
+      "name": "Mindbreak Trap",
+      "count": 1,
+      "category": "Counterspells",
+      "tags": [
+        "counterspells"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{U}{U}",
+        "type_line": "Instant — Trap",
+        "text": "If an opponent cast three or more spells this turn, you may pay {0} rather than pay this spell's mana cost.\nExile any number of target spells.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "dd921e27-3e08-438c-bec2-723226d35175",
+      "name": "Tibalt's Trickery",
+      "count": 1,
+      "category": "Counterspells",
+      "tags": [
+        "counterspells"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "63754036-d51e-47bb-925b-564d9dc922ff",
+      "name": "Narset's Reversal",
+      "count": 1,
+      "category": "Counterspells",
+      "tags": [
+        "counterspells"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}{U}",
+        "type_line": "Instant",
+        "text": "Copy target instant or sorcery spell, then return it to its owner's hand. You may choose new targets for the copy.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "8dd4374f-0301-4b2e-bc99-2cd19568cb3b",
+      "name": "Spell Pierce",
+      "count": 1,
+      "category": "Counterspells",
+      "tags": [
+        "counterspells"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U}",
+        "type_line": "Instant",
+        "text": "Counter target noncreature spell unless its controller pays {2}.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "d0b7cecf-b51b-4d30-b7e9-cd7976271e07",
+      "name": "Impact Tremors",
+      "count": 1,
+      "category": "Burn",
+      "tags": [
+        "burn"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}",
+        "type_line": "Enchantment",
+        "text": "Whenever a creature you control enters, this enchantment deals 1 damage to each opponent.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "7f5342d5-b8a6-46ee-afd7-b333bb836a7c",
+      "name": "Aetherflux Reservoir",
+      "count": 1,
+      "category": "Burn",
+      "tags": [
+        "burn"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{4}",
+        "type_line": "Artifact",
+        "text": "Whenever you cast a spell, you gain 1 life for each spell you've cast this turn.\nPay 50 life: This artifact deals 50 damage to any target.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "7ebd1f51-2db6-4c3f-95cb-8035a410a8e8",
+      "name": "Goblin Bombardment",
+      "count": 1,
+      "category": "Burn",
+      "tags": [
+        "burn"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}",
+        "type_line": "Enchantment",
+        "text": "Sacrifice a creature: This enchantment deals 1 damage to any target.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "d6c144f5-37ec-41d7-8acd-6e7b94f12701",
+      "name": "Chandra's Ignition",
+      "count": 1,
+      "category": "Burn",
+      "tags": [
+        "burn"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}{R}{R}",
+        "type_line": "Sorcery",
+        "text": "Target creature you control deals damage equal to its power to each other creature and each opponent.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "904ff94a-4db4-44a6-8593-89c32905b3fc",
+      "name": "Terror of the Peaks",
+      "count": 1,
+      "category": "Burn",
+      "tags": [
+        "burn"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}{R}{R}",
+        "type_line": "Creature — Dragon",
+        "text": "Flying\nSpells your opponents cast that target this creature cost an additional 3 life to cast.\nWhenever another creature you control enters, this creature deals damage equal to that creature's power to any target.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "8e166c5b-8991-4738-be78-caaac116b0ec",
+      "name": "Reckless Fireweaver",
+      "count": 1,
+      "category": "Burn",
+      "tags": [
+        "burn"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}",
+        "type_line": "Creature — Human Artificer",
+        "text": "Whenever an artifact you control enters, this creature deals 1 damage to each opponent.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "fbd25e79-d29b-4b51-9653-3932c980b931",
+      "name": "Purphoros, God of the Forge",
+      "count": 1,
+      "category": "Burn",
+      "tags": [
+        "burn"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}{R}",
+        "type_line": "Legendary Enchantment Creature — God",
+        "text": "Indestructible\nAs long as your devotion to red is less than five, Purphoros isn't a creature.\nWhenever another creature you control enters, Purphoros deals 2 damage to each opponent.\n{2}{R}: Creatures you control get +1/+0 until end of turn.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "b2a3a642-3471-4d93-9f05-829f29a9cbf3",
+      "name": "Warstorm Surge",
+      "count": 1,
+      "category": "Burn",
+      "tags": [
+        "burn"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{5}{R}",
+        "type_line": "Enchantment",
+        "text": "Whenever a creature you control enters, it deals damage equal to its power to any target.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "497a10c6-131b-464e-95e4-e47708a24d48",
+      "name": "Flare of Duplication",
+      "count": 1,
+      "category": "Copy effects",
+      "tags": [
+        "copy effects"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{R}{R}",
+        "type_line": "Instant",
+        "text": "You may sacrifice a nontoken red creature rather than pay this spell's mana cost.\nCopy target instant or sorcery spell. You may choose new targets for the copy.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "6683416a-5820-4cd0-b28a-60a53239e9ef",
+      "name": "Lithoform Engine",
+      "count": 1,
+      "category": "Copy effects",
+      "tags": [
+        "copy effects"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{4}",
+        "type_line": "Legendary Artifact",
+        "text": "{2}, {T}: Copy target activated or triggered ability you control. You may choose new targets for the copy.\n{3}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n{4}, {T}: Copy target permanent spell you control. (The copy becomes a token.)",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "c8ff751a-ec64-41d5-b22c-2a483ad9a9b2",
+      "name": "Kitsa, Otterball Elite",
+      "count": 1,
+      "category": "Copy effects",
+      "tags": [
+        "copy effects"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{U}",
+        "type_line": "Legendary Creature — Otter Wizard",
+        "text": "Vigilance\nProwess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\n{T}: Draw a card, then discard a card.\n{2}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy. Activate only if Kitsa's power is 3 or greater.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "6ef32c03-14f5-4ee2-af3a-4cbee45cd152",
+      "name": "Increasing Vengeance",
+      "count": 1,
+      "category": "Copy effects",
+      "tags": [
+        "copy effects"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{R}{R}",
+        "type_line": "Instant",
+        "text": "Copy target instant or sorcery spell you control. If this spell was cast from a graveyard, copy that spell twice instead. You may choose new targets for the copies.\nFlashback {3}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "e0644c92-4d67-475e-8c8e-0e2c493682fb",
+      "name": "Expansion // Explosion",
+      "count": 1,
+      "category": "Copy effects",
+      "tags": [
+        "copy effects"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{U/R}{U/R} // {X}{U}{U}{R}{R}",
+        "type_line": "Instant // Instant",
+        "text": "Copy target instant or sorcery spell with mana value 4 or less. You may choose new targets for the copy.\n//\nExplosion deals X damage to any target. Target player draws X cards.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "2a8a7696-b5d9-4378-9d5c-2c9007e4df63",
+      "name": "Stella Lee, Wild Card",
+      "count": 1,
+      "category": "Copy effects",
+      "tags": [
+        "copy effects"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{1}{U}{R}",
+        "type_line": "Legendary Creature — Human Rogue",
+        "text": "Whenever you cast your second spell each turn, exile the top card of your library. Until the end of your next turn, you may play that card.\n{T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy. Activate only if you've cast three or more spells this turn.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "57168712-73dc-411c-9d13-f0c43202cb9a",
+      "name": "Naru Meha, Master Wizard",
+      "count": 1,
+      "category": "Copy effects",
+      "tags": [
+        "copy effects"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{2}{U}{U}",
+        "type_line": "Legendary Creature — Human Wizard",
+        "text": "Flash\nWhen Naru Meha enters, copy target instant or sorcery spell you control. You may choose new targets for the copy.\nOther Wizards you control get +1/+1.",
+        "taken": "2026-11-09"
+      }
+    },
+    {
+      "scryfall_id": "e2b975e6-e709-481f-bfbc-41a832508283",
+      "name": "Gandalf the Grey",
+      "count": 1,
+      "category": "Copy effects",
+      "tags": [
+        "copy effects"
+      ],
+      "checked": true,
+      "bends": null,
+      "copy": {
+        "mana_cost": "{3}{U}{R}",
+        "type_line": "Legendary Creature — Avatar Wizard",
+        "text": "Whenever you cast an instant or sorcery spell, choose one that hasn't been chosen —\n• You may tap or untap target permanent.\n• Gandalf deals 3 damage to each opponent.\n• Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n• Put Gandalf on top of its owner's library.",
+        "taken": "2026-11-09"
+      }
+    }
+  ],
+  "maybeboard": [],
+  "dismissed_findings": [],
+  "last_review": null,
+  "handbook": [],
+  "scenes": [],
+  "approved": false
+}
