@@ -255,8 +255,10 @@ dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); 
 </dialog>
 <div class="toast" id="toast" role="status"></div>
 <script>
-// Every file of the deck folder is reached through these two, by its relative
-// path, so the folder can be packed into one file that sets window.DECK_FILES.
+// Every file of the deck folder is reached through url and read, by its path
+// relative to the page. A deck page packed into a single file sets
+// window.DECK_FILES in a script before this one: a map from each such path to
+// the file's text (deck.json, LEDGER.md) or a data URL (pictures and art).
 const PACKED = window.DECK_FILES || {};
 const url = path => PACKED[path] || path;
 // A file that is missing or cannot be fetched reads as empty.
@@ -274,6 +276,7 @@ let deck;
 // The deck's cards by name, for scenes, the handbook and the ledger; the
 // maybeboard is not in the deck, but its tiles open from the grid.
 const cardsInDeck = new Map(), cardsToOpen = new Map();
+let cardNamePattern = null;
 
 // ---------- reading cards ----------
 
@@ -376,6 +379,9 @@ function paintAccent() {
 
 // ---------- hero ----------
 
+// Rares and mythics, and the shared creature type, count copies, as the
+// player counts them; the shared type is headlined when more than three
+// creature copies share it and they are at least a third of the creatures.
 function headlineNumbers() {
   const spells = deck.cards.filter(c => !isLand(c)), creatures = deck.cards.filter(isCreature);
   const shared = new Map();
@@ -443,7 +449,7 @@ function playScene(box, scene) {
   if (reducedMotion()) { at = scene.steps.length - 1; drawStep(); return; }
   drawStep();
   let onScreen = false;
-  new IntersectionObserver(entries => { onScreen = entries[0].isIntersecting; }).observe(box);
+  new IntersectionObserver(entries => { onScreen = entries.at(-1).isIntersecting; }).observe(box);
   setInterval(() => { if (!onScreen) return; at = (at + 1) % scene.steps.length; drawStep(); }, SCENE_STEP_MS);
 }
 
@@ -509,15 +515,24 @@ function drawCurve() {
 
 // ---------- handbook ----------
 
-// Only full names of cards in the deck open a card; the handbook text carries no markup.
-function withCardNames(text) {
+// Only full names of cards in the deck open a card; the handbook text carries
+// no markup. A basic land's name never does: it is an ordinary word in
+// handbook prose ("play a Swamp"). The prefix is captured rather than looked
+// behind for, as Safari before 16.4 cannot parse a lookbehind.
+function matchCardNames() {
   const names = [...cardsInDeck.keys()].filter(k => !BASIC_LANDS.includes(k)).sort((a, b) => b.length - a.length);
-  if (!names.length) return esc(text);
-  const pattern = new RegExp(`(?<![\\w-])(?:${names.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![\\w-])`, 'g');
+  cardNamePattern = names.length
+    ? new RegExp(`(^|[^\\w-])(${names.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![\\w-])`, 'g')
+    : null;
+}
+
+function withCardNames(text) {
+  if (!cardNamePattern) return esc(text);
   let out = '', last = 0;
-  for (const m of text.matchAll(pattern)) {
-    out += esc(text.slice(last, m.index)) + `<button class="card-name" type="button" data-card="${esc(m[0])}">${esc(m[0])}</button>`;
-    last = m.index + m[0].length;
+  for (const m of text.matchAll(cardNamePattern)) {
+    const [, prefix, name] = m, at = m.index + prefix.length;
+    out += esc(text.slice(last, at)) + `<button class="card-name" type="button" data-card="${esc(name)}">${esc(name)}</button>`;
+    last = at + name.length;
   }
   return out + esc(text.slice(last));
 }
@@ -635,6 +650,7 @@ async function main() {
   deck.cards = (deck.cards || []).filter(c => copiesOf(c) > 0);
   deck.cards.forEach(c => cardsInDeck.set(c.name, c));
   [...(deck.maybeboard || []), ...deck.cards].forEach(c => cardsToOpen.set(c.name, c));
+  matchCardNames();
   paintAccent();
   drawHero(); drawScenes(); drawCards(); drawCurve(); drawHandbook(); drawImport();
   listenForCards();
