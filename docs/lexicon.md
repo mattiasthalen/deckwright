@@ -16,8 +16,8 @@ creature type, a colour pair, a set limit. Distinct from a *category*.
 **finding** — One thing the review reports: a fact from Scryfall plus Deckwright's
 judgement with a reason.
 
-**ledger** — The deck's history: every card in, card out and *criteria* change,
-each with a reason, only ever added to. Distinct from the deck's current state.
+**ledger** — The deck's history: every card in, card out, *criteria* change,
+*category* change and dismissed *finding*, each with a reason, only ever added to. Distinct from the deck's current state.
 Not used: change log. See [ADR-0003](adr/0003-a-deck-is-a-folder-of-plain-files.md).
 
 **maybeboard** — Cards not in the deck that might go in: ones the player saved for
