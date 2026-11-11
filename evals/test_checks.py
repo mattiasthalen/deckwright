@@ -177,6 +177,98 @@ def test_a_crashed_run_still_writes_run_json():
     assert summary["ended"] == "runner error: TimeoutError", summary
 
 
+def test_isolated_env_cuts_a_run_off_from_shared_memory():
+    import os
+    from unittest import mock
+    shared = {"CLAUDE_MEMORY_STORES": '[{"path": "/v1/code/memory/shared"}]',
+              "CLAUDE_COWORK_MEMORY_PATH_OVERRIDE": "/shared/memory"}
+    with mock.patch.dict(os.environ, shared):
+        env = runner.isolated_env(pathlib.Path("/runs/one/memory"))
+    assert "CLAUDE_MEMORY_STORES" not in env, "the run can still reach the project's memory store"
+    assert env["CLAUDE_COWORK_MEMORY_PATH_OVERRIDE"] == "/runs/one/memory", env["CLAUDE_COWORK_MEMORY_PATH_OVERRIDE"]
+
+
+def test_every_turn_of_a_run_starts_from_its_own_empty_memory():
+    import json
+    import os
+    import subprocess
+    import tempfile
+    from unittest import mock
+    turns, found = [], []
+    # The stand-in breaks the conversation off once, so Deckwright opens a second one.
+    stand_in_says = [runner.NEW_CONVERSATION + "\nHi again", runner.END]
+    shared = {"CLAUDE_MEMORY_STORES": '[{"path": "/v1/code/memory/shared"}]',
+              "CLAUDE_COWORK_MEMORY_PATH_OVERRIDE": "/shared/memory"}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = pathlib.Path(tmp) / "out"
+
+        class Turn:
+            """Stands in for the process behind every subprocess call, however the runner makes it."""
+
+            def __init__(self, args, env=None, **_):
+                self.args, self.returncode = args, 0
+                who = "stand-in" if "--system-prompt" in args else "deckwright"
+                turns.append((who, env))
+                self.said = stand_in_says.pop(0) if who == "stand-in" else "Which colours?"
+                memory = pathlib.Path((env or {}).get("CLAUDE_COWORK_MEMORY_PATH_OVERRIDE", "/"))
+                if out in memory.parents:
+                    # The runner swallows an error raised in here, so what is found is kept for the end.
+                    if "--session-id" in args and any(memory.iterdir()):
+                        found.append(f"a new {who} conversation found memories in {memory}")
+                    (memory / "remembered.md").write_text("the player's deck")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def communicate(self, *_, **__):
+                return json.dumps({"type": "result", "result": self.said}), ""
+
+            def poll(self):
+                return 0
+
+        brief = pathlib.Path(tmp) / "b.md"
+        brief.write_text("## Opening\n\nHi\n\n## Player\n\nYou want a deck.\n")
+        with mock.patch.dict(os.environ, shared), mock.patch.object(subprocess, "Popen", Turn):
+            summary = runner.run(brief, "bare", out, 5)
+    for who, env in turns:
+        assert env is not None, f"a {who} turn ran in the parent's environment, shared memory and all"
+        assert "CLAUDE_MEMORY_STORES" not in env, f"a {who} turn can reach the project's memory store"
+        memory = pathlib.Path(env["CLAUDE_COWORK_MEMORY_PATH_OVERRIDE"])
+        assert out in memory.parents, f"a {who} turn keeps its memory outside the run, in {memory}"
+    assert not found, found
+    assert summary["ended"] == "player ended", summary
+    assert [who for who, _ in turns] == ["deckwright", "stand-in"] * 2, turns
+
+
+def play(deckwright_events, stand_in_says, **run_args):
+    """Play one run offline: Deckwright's turns and the stand-in's replies come from the lists, in order."""
+    import tempfile
+    events, replies = iter(deckwright_events), iter(stand_in_says)
+    real = runner.deckwright_turn, runner.stand_in_turn
+    runner.deckwright_turn = lambda *a: next(events)
+    runner.stand_in_turn = lambda *a: {"type": "result", "result": next(replies)}
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            brief = pathlib.Path(tmp) / "b.md"
+            brief.write_text("## Opening\n\nHi\n\n## Player\n\nYou want a deck.\n")
+            return runner.run(brief, "bare", pathlib.Path(tmp) / "out", 20, **run_args)
+    finally:
+        runner.deckwright_turn, runner.stand_in_turn = real
+
+
+def test_a_run_costs_the_last_total_of_each_conversation():
+    # Claude Code reports a resumed session's whole running total on every turn.
+    running_totals = [0.10, 0.25, 0.40, 0.05, 0.20]
+    turns = [[{"type": "result", "result": "Next?", "total_cost_usd": total}] for total in running_totals]
+    summary = play(turns, ["ok", "ok", runner.NEW_CONVERSATION + "\nHi again", "ok", runner.END])
+    assert summary["exchanges"] == 5, summary
+    assert summary["deckwright_cost_usd"] == 0.60, f"0.40 and 0.20 are what the two conversations cost: {summary}"
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):
