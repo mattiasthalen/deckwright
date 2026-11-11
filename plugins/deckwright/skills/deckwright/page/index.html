@@ -76,10 +76,12 @@ section[hidden] { display: none; }
 .thing .pips .mana i { width: 36px; height: 36px; font-size: 1rem; }
 .thing .thing-label { font-size: .84rem; color: var(--fog); text-align: center; }
 .thing .badge { position: absolute; top: -10px; right: -10px; z-index: 2; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: .95rem; border-radius: 99px; padding: 3px 10px; box-shadow: 0 2px 6px rgba(0,0,0,.5); animation: pop .45s .45s cubic-bezier(.3,1.6,.5,1) both; }
+/* Every step is inserted anew, and a transition never runs on an element just
+   inserted, so each motion is a keyframe animation. */
 .thing.enters { animation: enter .6s cubic-bezier(.3,1.3,.5,1) both; }
 .thing.glows > :first-child:not(.badge), .thing.glows .badge + * { animation: pulse .9s .25s both; }
-.thing.taps > img, .thing.taps .badge + img { transform: rotate(90deg) scale(.8); transition: transform .5s .3s; }
-.thing.leaves > img, .thing.leaves .badge + *, .thing.leaves > .pile { animation: exile 1s .6s both; }
+.thing.taps > :first-child:not(.badge), .thing.taps .badge + * { animation: tap .5s .3s both; }
+.thing.leaves > :first-child:not(.badge), .thing.leaves .badge + * { animation: exile 1s .6s both; }
 .thing.copies { animation: ghost .7s cubic-bezier(.3,.7,.2,1) both; }
 .thing.copies img { opacity: .75; outline: 2px dashed var(--accent); outline-offset: 2px; }
 .scene .caption { font-size: 1.15rem; font-weight: 500; text-align: center; min-height: 3.2em; animation: enter .5s both; }
@@ -95,6 +97,7 @@ section[hidden] { display: none; }
 .more-scenes .thing .blank-card { font-size: .85rem; }
 .more-scenes .caption { font-size: 1rem; }
 @keyframes enter { from { transform: translateY(22px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes tap { to { transform: rotate(90deg) scale(.8); } }
 @keyframes exile { to { transform: scale(.82) rotate(-6deg); filter: grayscale(1) brightness(.7); opacity: .35; } }
 @keyframes pulse { 0% { transform: none; } 35% { transform: translateY(-8px) scale(1.06); box-shadow: 0 0 0 4px var(--accent); } 100% { transform: none; } }
 @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
