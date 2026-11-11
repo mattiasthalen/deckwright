@@ -184,11 +184,23 @@ async function nextStep(page, scope, caption, limit = 4000) {
   assert.fail(`"${caption}" was still shown after ${limit} ms on screen`);
 }
 
-// What a reader sees in one thing of a scene: the text of each element shown at
-// more than half opacity, its pictures, and its blank cards (card-shaped boxes
-// holding no picture and no smaller card shape). At 'start' every motion in the
-// thing is rewound to its beginning first; at 'end' every motion is finished.
-const readThing = (thing, at) => thing.evaluate((t, at) => {
+// What a reader sees in the thing at an index of the step a scene shows, once its
+// pictures have loaded or failed: the text of each element shown at more than
+// half opacity, its pictures, and its blank cards (card-shaped boxes holding no
+// picture and no smaller card shape). At 'start' every motion in the thing is
+// rewound to its beginning first; at 'end' every motion is finished. The
+// installed clock also runs at real pace and can redraw the step between two
+// calls into the page, so the caption and the thing are read in one; null when
+// the scene shows another step, or redraws it while its pictures settle.
+const readThing = (scene, caption, index, at) => scene.evaluate(async (s, { caption, index, at }) => {
+  const t = s.innerText.includes(caption) && s.querySelectorAll('.thing')[index];
+  if (!t) return null;
+  await Promise.all([...t.querySelectorAll('img')].map(i => i.complete ? null : new Promise(settled => {
+    i.addEventListener('load', settled, { once: true });
+    i.addEventListener('error', settled, { once: true });
+    setTimeout(settled, 3000);
+  })));
+  if (!t.isConnected) return null;
   const motions = t.getAnimations({ subtree: true });
   const running = motions.filter(a => a.playState === 'running').length;
   if (at === 'start') motions.forEach(a => { a.currentTime = 0; });
@@ -204,7 +216,7 @@ const readThing = (thing, at) => thing.evaluate((t, at) => {
     blanks: all.filter(e => e.tagName !== 'IMG' && cardShaped(e) && !e.querySelector('img') && ![...e.querySelectorAll('*')].some(cardShaped)).length,
     running,
   };
-}, at);
+}, { caption, index, at });
 const numbersIn = seen => seen.texts.filter(s => /^\d+$/.test(s)).map(Number);
 const minusMarkIn = (seen, n) => seen.texts.some(s => new RegExp(`^[−–-]\\s?${n}$`).test(s));
 const plusMarkIn = (seen, n) => seen.texts.some(s => new RegExp(`^\\+\\s?${n}$`).test(s));
@@ -212,14 +224,49 @@ const plusMarkIn = (seen, n) => seen.texts.some(s => new RegExp(`^\\+\\s?${n}$`)
 // The thing in a scene's step at an index, read at every 100 ms of the fake clock
 // while the step is shown; the last reading is the thing at the end of its step.
 async function atEndOfStep(page, scene, caption, index, limit = 4000) {
-  let last = null;
-  for (let spent = 0; spent <= limit; spent += 100) {
-    if (!(await scene.innerText()).includes(caption)) return last;
-    last = await readThing(scene.locator('.thing').nth(index), 'end');
+  for (let spent = 0, last = null; ; spent += 100) {
+    const seen = await readThing(scene, caption, index, 'end');
+    if (!seen) {
+      assert.ok(last, `"${caption}" was no longer shown when its thing ${index} was read`);
+      return last;
+    }
+    assert.ok(spent <= limit, `"${caption}" was still shown after ${limit} ms on screen`);
+    last = seen;
     await page.clock.runFor(100);
   }
-  assert.fail(`"${caption}" was still shown after ${limit} ms on screen`);
 }
+
+// Runs the fake clock until read, which reads the step with the caption, reads something.
+async function whenShown(page, caption, read, limit = 6000) {
+  for (let spent = 0; ; spent += 100) {
+    const seen = await read();
+    if (seen) return seen;
+    assert.ok(spent <= limit, `"${caption}" was not shown within ${limit} ms`);
+    await page.clock.runFor(100);
+  }
+}
+
+// The motions on the parts of a damage or draw thing in the step a scene shows:
+// on its body (the elements from the lowered life total's number, or from each
+// card back's picture, up to the thing) and on its "−N" or "+N" mark; and how
+// faded or grey each part of the body ends once every motion is finished. Null
+// when the scene shows another step.
+const partsOfThing = (scene, caption, index) => scene.evaluate((s, { caption, index }) => {
+  const t = s.innerText.includes(caption) && s.querySelectorAll('.thing')[index];
+  if (!t) return null;
+  const upToThing = e => { const chain = []; for (; e && e !== t; e = e.parentElement) chain.push(e); return chain; };
+  const motionNames = elements => [...new Set(elements.flatMap(e => e.getAnimations().map(a => a.animationName)))].sort();
+  const ends = [...t.querySelectorAll('*')].filter(e => !e.children.length);
+  const mark = ends.find(e => /^[−+]/.test(e.textContent.trim()));
+  const anchors = [...t.querySelectorAll('img'), ...ends.filter(e => /^\d+$/.test(e.textContent.trim())).slice(-1)];
+  const seen = { anchors: anchors.length, body: motionNames(anchors.flatMap(upToThing)), mark: mark ? motionNames(upToThing(mark)) : null };
+  t.getAnimations({ subtree: true }).forEach(a => { try { a.finish(); } catch {} });
+  seen.ended = anchors.map(a => {
+    const chain = upToThing(a);
+    return { opacity: chain.reduce((o, e) => o * +getComputedStyle(e).opacity, 1), grey: chain.some(e => /grayscale\((1|0\.[5-9])/.test(getComputedStyle(e).filter)) };
+  });
+  return seen;
+}, { caption, index });
 
 // Brings a scene of the drawn decks to its last step, the one with damage and a draw.
 async function toLastStep(page, deckName, sceneIndex) {
@@ -746,7 +793,8 @@ describe('Scenes', () => {
           const { scene, step } = await toLastStep(page, name, sceneIndex);
           const index = step.things.findIndex(t => t.damage !== undefined);
           const { damage, label = 'Opponent' } = step.things[index];
-          const start = await readThing(scene.locator('.thing').nth(index), 'start');
+          const start = await readThing(scene, step.caption, index, 'start');
+          assert.ok(start, `${name}: "${step.caption}" was no longer shown when its damage was read`);
           assert.deepEqual(numbersIn(start), [life], `${name}: at the start of its step, ${damage} damage shows ${JSON.stringify(start.texts)}, not the starting life ${life}`);
           const end = await atEndOfStep(page, scene, step.caption, index);
           assert.deepEqual(numbersIn(end), [life - damage], `${name}: at the end of its step, ${damage} damage shows ${JSON.stringify(end.texts)}, not ${life - damage}`);
@@ -759,14 +807,14 @@ describe('Scenes', () => {
 
   test('AC41: A draw thing shows one card back per card drawn, at most five, each an image of cards/back.jpg, with a "+N" mark and a label; a missing cards/back.jpg shows blank cards and no broken image', async () => {
     const drawIn = step => { const index = step.things.findIndex(t => t.draw !== undefined); return { index, ...step.things[index] }; };
-    await open('drawn-brawl', { clock: true }, async ({ page, deck }) => {
+    await open('drawn-brawl', { clock: true }, async ({ page, deck, missing }) => {
       for (const sceneIndex of deck.scenes.keys()) {
         const { scene, step } = await toLastStep(page, 'drawn-brawl', sceneIndex);
         const { index, draw, label = `You draw ${draw}` } = drawIn(step);
         await settlePictures(scene);
         const end = await atEndOfStep(page, scene, step.caption, index);
         const backs = end.pictures.filter(p => p.src === '/drawn-brawl/cards/back.jpg');
-        assert.equal(backs.length, Math.min(draw, 5), `a draw of ${draw} shows ${backs.length} card backs; its pictures: ${JSON.stringify(end.pictures)}`);
+        assert.equal(backs.length, Math.min(draw, 5), `a draw of ${draw} shows ${backs.length} card backs; it shows the pictures ${JSON.stringify(end.pictures)} and ${end.blanks} blank cards, and the server did not find ${JSON.stringify(missing)}`);
         assert.equal(end.pictures.length, backs.length, `a draw of ${draw} shows a picture that is not the card back: ${JSON.stringify(end.pictures)}`);
         for (const b of backs) assert.ok(b.loaded, `a card back in a draw of ${draw} did not load`);
         assert.ok(plusMarkIn(end, draw), `a draw of ${draw} shows no "+${draw}" mark: ${JSON.stringify(end.texts)}`);
@@ -807,7 +855,7 @@ describe('Scenes', () => {
         const di = step.things.findIndex(t => t.damage !== undefined), wi = step.things.findIndex(t => t.draw !== undefined);
         const { damage } = step.things[di], { draw } = step.things[wi];
         const hitThing = scene.locator('.thing').nth(di), fanThing = scene.locator('.thing').nth(wi);
-        const hit = await readThing(hitThing, 'now'), fan = await readThing(fanThing, 'now');
+        const hit = await readThing(scene, step.caption, di, 'now'), fan = await readThing(scene, step.caption, wi, 'now');
         assert.deepEqual(numbersIn(hit), [life - damage], `with reduced motion, ${damage} damage shows ${JSON.stringify(hit.texts)}, not the lowered life ${life - damage}`);
         assert.ok(minusMarkIn(hit, damage), `with reduced motion, ${damage} damage shows no "−${damage}" mark: ${JSON.stringify(hit.texts)}`);
         const backs = fan.pictures.filter(p => p.src === '/drawn-brawl/cards/back.jpg' && p.loaded);
@@ -819,6 +867,78 @@ describe('Scenes', () => {
         assert.deepEqual([await layout(hitThing), await layout(fanThing)], still, 'with reduced motion, the damage or the draw moves');
       }
     }));
+
+  test('does on a damage or draw thing moves its life total or its fan, and its mark moves as on a thing with no does', () =>
+    open('drawn-oddly', { clock: true }, async ({ page, deck }) => {
+      const scene = page.locator('#main-scene');
+      assert.ok(await visible(scene), 'the scene with damage and drawn cards that move is not drawn');
+      await settlePictures(scene);
+      const [still, leaves, glows] = deck.scenes[0].steps;
+      const read = {};
+      for (const step of [still, leaves, glows]) {
+        read[step.caption] = await whenShown(page, step.caption, async () => {
+          const parts = await Promise.all([0, 1].map(i => partsOfThing(scene, step.caption, i)));
+          return parts.every(Boolean) ? parts : null;
+        });
+      }
+      for (const [i, kind] of ['damage', 'draw'].entries()) {
+        const [s, l, g] = [still, leaves, glows].map(step => read[step.caption][i]);
+        assert.ok(s.anchors && l.anchors && g.anchors, `the ${kind} thing shows no life total or card back: ${JSON.stringify([s, l, g])}`);
+        assert.ok(l.ended.every(e => e.opacity < 0.9 || e.grey), `a ${kind} thing that leaves ends with its ${kind === 'damage' ? 'life total' : 'fan'} not faded: ${JSON.stringify(l)}`);
+        assert.ok(!s.ended.some(e => e.opacity < 0.9 || e.grey), `a ${kind} thing with no does ends faded: ${JSON.stringify(s)}`);
+        assert.ok(g.body.some(name => !s.body.includes(name)), `a ${kind} thing that glows moves its ${kind === 'damage' ? 'life total' : 'fan'} as with no does: ${JSON.stringify(g.body)} against ${JSON.stringify(s.body)}`);
+        for (const [does, seen] of [['leaves', l], ['glows', g]]) {
+          assert.deepEqual(seen.mark, s.mark, `the mark of a ${kind} thing that ${does} moves otherwise than with no does`);
+        }
+      }
+    }));
+
+  test('A badge given on a damage or draw thing is not drawn: its "−N" or "+N" mark is its badge', () =>
+    open('drawn-oddly', { reducedMotion: 'reduce' }, async ({ page, deck }) => {
+      const scene = page.locator('#engine .scene').nth(1);
+      assert.ok(await visible(scene), 'the scene with badges given is not drawn');
+      await settlePictures(scene);
+      const step = deck.scenes[1].steps[0];
+      for (const [i, t] of step.things.entries()) {
+        const seen = await readThing(scene, step.caption, i, 'now');
+        const kind = t.damage !== undefined ? 'damage' : 'draw';
+        assert.ok(!seen.texts.includes(t.badge), `a ${kind} thing given the badge "${t.badge}" draws it: ${JSON.stringify(seen.texts)}`);
+        const marks = seen.texts.filter(s => /^[−+]/.test(s));
+        assert.deepEqual(marks, [kind === 'damage' ? `−${t.damage}` : `+${t.draw}`], `a ${kind} thing given a badge shows the marks ${JSON.stringify(marks)}`);
+      }
+    }));
+
+  test('X damage shows "−X" on the starting life, which stays; X cards drawn deals one card back marked "+X" and labelled "You draw X"', () =>
+    open('drawn-oddly', { clock: true }, async ({ page, deck }) => {
+      const scene = page.locator('#engine .scene').nth(2);
+      assert.ok(await visible(scene), 'the scene with X damage and X cards is not drawn');
+      await settlePictures(scene);
+      const life = STARTING_LIFE[deck.format];
+      const { caption } = deck.scenes[2].steps[0];
+      const parts = await whenShown(page, caption, () => partsOfThing(scene, caption, 0));
+      assert.deepEqual(parts.body, [], `the starting life under X damage takes a hit: ${JSON.stringify(parts.body)} move on it`);
+      const start = await whenShown(page, caption, () => readThing(scene, caption, 0, 'start'));
+      const hit = await whenShown(page, caption, () => readThing(scene, caption, 0, 'end'));
+      assert.deepEqual([numbersIn(start), numbersIn(hit)], [[life], [life]], `X damage shows ${JSON.stringify(start.texts)} and then ${JSON.stringify(hit.texts)}, not the starting life ${life} throughout`);
+      assert.ok(hit.texts.includes('−X'), `X damage shows no "−X" mark: ${JSON.stringify(hit.texts)}`);
+      assert.ok(hit.texts.includes('Opponent'), `X damage is not labelled "Opponent": ${JSON.stringify(hit.texts)}`);
+      const fan = await whenShown(page, caption, () => readThing(scene, caption, 1, 'end'));
+      const backs = fan.pictures.filter(p => p.src === '/drawn-oddly/cards/back.jpg');
+      assert.equal(backs.length, 1, `X cards drawn shows ${backs.length} card backs; it shows the pictures ${JSON.stringify(fan.pictures)} and ${fan.blanks} blank cards`);
+      assert.ok(fan.texts.includes('+X'), `X cards drawn shows no "+X" mark: ${JSON.stringify(fan.texts)}`);
+      assert.ok(fan.texts.includes('You draw X'), `X cards drawn is not labelled "You draw X": ${JSON.stringify(fan.texts)}`);
+    }));
+
+  test('At phone width a scene with damage and drawn cards scrolls nothing sideways', async () => {
+    for (const name of ['drawn-brawl', 'drawn-oddly']) {
+      await open(name, { viewport: { width: 360, height: 740 } }, async ({ page }) => {
+        assert.ok(await visible(page.locator('#engine')), `${name}: the scenes section is not drawn, so the width check would prove nothing`);
+        await page.locator('#engine').scrollIntoViewIfNeeded();
+        const widths = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, body: document.body.scrollWidth, view: document.documentElement.clientWidth }));
+        assert.ok(widths.page <= widths.view && widths.body <= widths.view, `${name}: the page is ${widths.page} px wide in a ${widths.view} px window`);
+      });
+    }
+  });
 });
 
 // ======================================================================
@@ -1289,6 +1409,19 @@ print((build.HERE / name / "deck.json").read_text())
     for (const c of JSON.parse(written).cards) assert.equal(c.copy.mana_value, 3, `${c.name} is saved with mana value ${c.copy.mana_value}`);
   });
 
+  test('A packed deck whose scene draws cards shows its card backs from window.DECK_FILES, without asking for cards/back.jpg', () =>
+    open('packed-drawn', { reducedMotion: 'reduce' }, async ({ page, deck, requested }) => {
+      const scene = page.locator('#main-scene');
+      assert.ok(await visible(scene), 'the packed deck\'s scene is not drawn');
+      await settlePictures(scene);
+      const step = deck.scenes[0].steps.at(-1), index = step.things.findIndex(t => t.draw !== undefined);
+      const backs = await scene.locator('.thing').nth(index).evaluate(t => [...t.querySelectorAll('img')].map(i => ({ packed: i.src.startsWith('data:image/'), loaded: i.complete && i.naturalWidth > 0 })));
+      const blanks = (await readThing(scene, step.caption, index, 'now')).blanks;
+      assert.equal(backs.filter(b => b.packed && b.loaded).length, step.things[index].draw, `a packed draw of ${step.things[index].draw} shows the card backs ${JSON.stringify(backs)} and ${blanks} blank cards`);
+      await page.waitForLoadState('networkidle');
+      assert.deepEqual(requested.filter(p => p.endsWith('/cards/back.jpg')), [], 'the packed page asked the server for cards/back.jpg');
+    }));
+
   test('AC43: deck.example.json shows a damage and a draw thing, SKILL.md says the card back is saved as cards/back.jpg when a scene draws cards, and ADR-0008 names both kinds', () => {
     const things = example().scenes.flatMap(s => s.steps.flatMap(st => st.things));
     for (const kind of ['damage', 'draw']) assert.ok(things.some(t => t[kind] !== undefined), `no thing in deck.example.json is a ${kind}`);
@@ -1317,6 +1450,22 @@ print((build.HERE / name / "deck.json").read_text())
 
 // ======================================================================
 describe('Edge cases', () => {
+  test('The format is read whatever its case, and a format the page does not know is drawn as Standard', async () => {
+    for (const [name, format, size, life] of [['drawn-capital-brawl', 'Brawl', 100, 25], ['drawn-no-format', 'Standard', 60, 20]]) {
+      await open(name, { reducedMotion: 'reduce' }, async ({ page, deck }) => {
+        const hero = await sectionText(page, 'top');
+        assert.match(hero, new RegExp(`${format} · 10 of ${size} cards`, 'i'), `format "${deck.format}": the hero line reads ${JSON.stringify(hero.split('\n')[0])}`);
+        const scene = page.locator('#main-scene');
+        await settlePictures(scene);
+        const step = deck.scenes[0].steps.at(-1), index = step.things.findIndex(t => t.damage !== undefined);
+        const hit = await readThing(scene, step.caption, index, 'now');
+        assert.deepEqual(numbersIn(hit), [life - step.things[index].damage], `format "${deck.format}": ${step.things[index].damage} damage shows ${JSON.stringify(hit.texts)}, not from a starting life of ${life}`);
+        const commanderFirst = (await sectionText(page, 'import')).includes('The Commander section comes first');
+        assert.equal(commanderFirst, format === 'Brawl', `format "${deck.format}": the Arena import ${commanderFirst ? 'says' : 'does not say'} the Commander section comes first`);
+      });
+    }
+  });
+
   test('The hero shows the format, the card count against the format\'s size, and Approved or In progress', async () => {
     for (const [name, line] of [['rich', [/Brawl/i, /\b29 of 100\b/i, /In progress/i]], ['mono', [/Standard/i, /\b36 of 60\b/i, /Approved/i]]]) {
       await open(name, async ({ page }) => {

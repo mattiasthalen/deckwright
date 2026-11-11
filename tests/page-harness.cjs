@@ -389,6 +389,30 @@ const drawnStandard = {
   approved: false,
 };
 
+// Damage and drawn cards written as a scene writer might: with a motion, with a
+// badge, and with X for the amount.
+const drawnOddly = {
+  ...drawnBrawl,
+  name: 'Ash Keeper Odd Draws',
+  scenes: [
+    { title: 'Damage and drawn cards that move', steps: [
+      { caption: 'Nothing moves but the hit and the deal.', things: [{ damage: 3 }, { draw: 3 }] },
+      { caption: 'The life total and the fan leave.', things: [{ damage: 3, does: 'leaves' }, { draw: 3, does: 'leaves' }] },
+      { caption: 'The life total and the fan glow.', things: [{ damage: 3, does: 'glows' }, { draw: 3, does: 'glows' }] },
+    ] },
+    { title: 'A badge given', steps: [
+      { caption: 'Damage and a draw, each given a badge.', things: [{ damage: 3, badge: 'x2' }, { draw: 3, badge: 'x2' }] },
+    ] },
+    { title: 'X damage and X cards', steps: [
+      { caption: 'Ash Keeper deals X damage and you draw X cards.', things: [{ damage: 'X' }, { draw: 'X' }] },
+    ] },
+  ],
+};
+
+// The format written with a capital, and a word that is not a format.
+const drawnCapitalBrawl = { ...drawnBrawl, format: 'Brawl' };
+const drawnNoFormat = { ...drawnBrawl, format: 'constructor' };
+
 const drawsCards = deck => (deck.scenes || []).some(s => (s.steps || []).some(st => Array.isArray(st.things) && st.things.some(t => t.draw !== undefined)));
 
 const ledgerFile = entries => '# Ledger\n\n' + entries.map(([date, kind, subject, why]) => `- ${date} · ${kind} · ${subject} · ${why}`).join('\n') + '\n';
@@ -429,8 +453,12 @@ function deckFolders() {
     'drawn-brawl': { deck: drawnBrawl, ...all(drawnBrawl) },
     'drawn-standard': { deck: drawnStandard, ...all(drawnStandard) },
     'drawn-no-back': { deck: drawnBrawl, ...all(drawnBrawl), back: false },
+    'drawn-oddly': { deck: drawnOddly, ...all(drawnOddly) },
+    'drawn-capital-brawl': { deck: drawnCapitalBrawl, ...all(drawnCapitalBrawl) },
+    'drawn-no-format': { deck: drawnNoFormat, ...all(drawnNoFormat) },
     // The rich deck with every file given to the page in window.DECK_FILES and none in the folder.
     packed: { deck: rich, packedFrom: 'rich', pictures: new Set(), art: [] },
+    'packed-drawn': { deck: drawnBrawl, packedFrom: 'drawn-brawl', pictures: new Set(), art: [] },
     example: { deck: example, ledger: ledgerFile([['2026-11-10', 'in', 'An example card', 'the example ledger']]), ...all(example) },
   };
 }
