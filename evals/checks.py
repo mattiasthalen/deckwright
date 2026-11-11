@@ -148,6 +148,8 @@ def scryfall_get(path: str, pause: float) -> dict | None:
 def scryfall(name: str, cache: dict) -> dict | None:
     if name not in cache:
         card = scryfall_get("/cards/named?exact=" + urllib.parse.quote(name), 0.15)
+        # The reader may shorten a name ("Kogla") or a face pair; fuzzy finds those.
+        card = card or scryfall_get("/cards/named?fuzzy=" + urllib.parse.quote(name), 0.15)
         if card is None:
             cache[name] = None
         else:
@@ -169,6 +171,51 @@ class Run:
         self.files = {p.relative_to(path / "workspace").as_posix(): p.read_text(errors="replace")
                       for p in (path / "workspace").rglob("*")
                       if p.is_file() and p.suffix in {".json", ".md", ".txt", ".html"} and ".claude" not in p.parts}
+        self.published = self.last_published()
+
+    def last_published(self) -> dict[str, pathlib.Path]:
+        """The page's files as the publishes left them, by published path, read from disk now.
+
+        A page's files may sit outside the workspace (the session scratchpad), and
+        relative sources resolve against the workspace.
+        """
+        files: dict[str, pathlib.Path] = {}
+        for event in self.trace:
+            for block in event.get("message", {}).get("content", []) if event.get("type") == "assistant" else []:
+                if not (isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name") == "Artifact"):
+                    continue
+                given = block.get("input", {})
+                if given.get("action", "publish") != "publish" or not str(given.get("file_path", "")).endswith(".html"):
+                    continue
+                workspace = self.path / "workspace"
+                page = workspace / given["file_path"]
+                # A relative source resolves against `root` or the session's working
+                # directory, which a `cd` may have moved; try the likely ones.
+                bases = [workspace / given["root"]] if given.get("root") else [workspace, page.parent]
+
+                def resolve(source: str) -> pathlib.Path:
+                    return next((b / source for b in bases if (b / source).exists()), bases[0] / source)
+
+                sources = {"index.html": page}
+                listed = given.get("files") or {}
+                if isinstance(listed, list):  # the list form publishes each file at its own spelling
+                    listed = {(item if isinstance(item, str) else item.get("path")): (item if isinstance(item, str) else item.get("path"))
+                              for item in listed if isinstance(item, str) or isinstance(item, dict)}
+                for published, source in listed.items():
+                    if isinstance(source, dict):
+                        source = source.get("from")
+                    if isinstance(source, str):
+                        sources[published] = resolve(source)
+                # A publish adds or replaces files and keeps the rest, as the artifact does.
+                files.update(sources)
+        return {k: v for k, v in files.items() if v.exists()}
+
+    def deck(self) -> dict | None:
+        source = self.published.get("deck.json")
+        try:
+            return json.loads(source.read_text()) if source else None
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return None
 
     def foreign_paths(self) -> list[str]:
         """Tool calls that reached outside the run's own folder: another run's files or memory."""
@@ -208,7 +255,15 @@ class Run:
         return saves
 
     def final_list(self) -> tuple[Counter, str | None]:
-        """The last Arena import list in a reply or a saved file: cards and commander."""
+        """The deck as last published, else the last Arena import list in a reply or a
+        saved file: cards and commander."""
+        deck = self.deck()
+        if deck and deck.get("cards"):
+            cards = Counter()
+            for card in deck["cards"]:
+                cards[card["name"]] += int(card.get("count") or 1)
+            commander = next((c["name"] for c in deck["cards"] if str(c.get("category", "")).lower() == "commander"), None)
+            return cards, commander
         candidates = self.deckwright_texts() + list(self.files.values())
         for text in reversed(candidates):
             cards, commander, section = Counter(), None, None
@@ -232,7 +287,11 @@ class Run:
         if cached.exists():
             return json.loads(cached.read_text())
         lines = [f"[{i}] {m['role'].upper()}: {m['text']}" for i, m in enumerate(self.messages)]
-        files = [f"--- {name} ---\n{text[:60000]}" for name, text in self.files.items()]
+        saved = dict(self.files)
+        for name in ("deck.json", "LEDGER.md"):
+            if name in self.published:
+                saved[f"published {name}"] = self.published[name].read_text(errors="replace")
+        files = [f"--- {name} ---\n{text[:60000]}" for name, text in saved.items()]
         prompt = READER_PROMPT.format(transcript="\n\n".join(lines) + "\n\nSAVED FILES\n" + "\n".join(files))
         proc = subprocess.run(
             ["claude", "-p", "--model", READER_MODEL, "--tools", "", "--output-format", "json",
@@ -385,18 +444,19 @@ def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> 
     if "index.html" not in published:
         problems.append("no page published")
     for name in ("deck.json", "LEDGER.md"):
-        if not any(path.endswith(name) for path in run.files):
-            problems.append(f"no {name}")
-    if not any((run.path / "workspace").rglob("cards/*.jpg")):
-        problems.append("no card images")
+        if name not in run.published:
+            problems.append(f"no {name} published")
+    if not any(k.startswith("cards/") and k.endswith(".jpg") for k in run.published):
+        problems.append("no card images published")
     lands = sum(n for name, n in cards.items() if "Land" in ((scryfall(name, cache) or {}).get("type_line") or ""))
     want_lands = {"brawl": 35, "standard": 24}.get(fmt)
     if want_lands and lands != want_lands:
         problems.append(f"{lands} lands, template says {want_lands}")
-    categories = [c for c in facts["saved_categories"] if not c["name"].lower().startswith("land")]
+    # A target off the template is a departure, which C11 judges; the shape is the number of jobs.
+    categories = [c for c in facts["saved_categories"] if c["name"].lower() not in ("commander", "lands", "land")]
     shape = {"brawl": (8, 8), "standard": (9, 4)}.get(fmt)
-    if shape and (len(categories) != shape[0] or any(c["target"] != shape[1] for c in categories)):
-        problems.append(f"categories {[(c['name'], c['target']) for c in categories][:9]}, template is {shape[0]} of {shape[1]}")
+    if shape and len(categories) != shape[0]:
+        problems.append(f"{len(categories)} categories {[c['name'] for c in categories][:10]}, template has {shape[0]}")
     creature_types = {t.lower() for name in cards for t in ((scryfall(name, cache) or {}).get("type_line") or "").split("—")[-1].split()
                       if "Creature" in ((scryfall(name, cache) or {}).get("type_line") or "")}
     typal = [c["name"] for c in categories if any(w.rstrip("s").lower() in creature_types for w in c["name"].split())]
