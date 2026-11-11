@@ -83,14 +83,13 @@ section[hidden] { display: none; }
 .thing .life .life-before { opacity: 0; animation: shown-until-hit 1s; }
 .thing .life .life-after { color: #ffb4a6; animation: appear .3s 1s both; }
 .thing .life::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; background: radial-gradient(circle, rgba(224,83,63,.85), rgba(224,83,63,0) 65%); opacity: 0; animation: burst .7s .85s both; }
-.thing .mark { position: absolute; top: -12px; right: -8px; z-index: 2; font-weight: 700; font-size: .95rem; border-radius: 99px; padding: 3px 10px; box-shadow: 0 2px 6px rgba(0,0,0,.5); }
-.thing .mark.life-lost { background: var(--blood); color: #fff; animation: appear .3s 1s both; }
-.thing .mark.cards-drawn { background: var(--accent); color: var(--accent-ink); }
+.thing .life.untouched, .thing .life.untouched::after { animation: none; }
 /* As tall as one back and the lift of the fan, so the +N mark sits on the backs. */
 .thing .fan { position: relative; width: 100%; aspect-ratio: 1 / .95; }
 .thing .fan .back { position: absolute; left: 20%; bottom: 0; width: 60%; border-radius: 4.75% / 3.5%; transform-origin: 50% 120%; transform: rotate(var(--turn));
   box-shadow: 0 4px 14px rgba(0,0,0,.6); animation: deal .55s cubic-bezier(.3,1.2,.5,1) both; animation-delay: calc(.2s + var(--i) * .3s); }
 .thing .badge { position: absolute; top: -10px; right: -10px; z-index: 2; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: .95rem; border-radius: 99px; padding: 3px 10px; box-shadow: 0 2px 6px rgba(0,0,0,.5); animation: pop .45s .45s cubic-bezier(.3,1.6,.5,1) both; }
+.thing .badge.life-lost { background: var(--blood); color: #fff; animation-delay: 1s; }
 /* Every step is inserted anew, and a transition never runs on an element just
    inserted, so each motion is a keyframe animation. */
 .thing.enters { animation: enter .6s cubic-bezier(.3,1.3,.5,1) both; }
@@ -235,13 +234,11 @@ dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); 
   .thing .blank-card { font-size: .8rem; }
   .thing .life, .more-scenes .thing .life { width: 72px; margin-bottom: 18px; }
   .thing .life b, .more-scenes .thing .life b { font-size: 1.9rem; }
-  .thing .mark { font-size: .82rem; padding: 2px 8px; right: -6px; }
   .entry { grid-template-columns: 70px minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
-  .thing .life, .thing .life .life-before, .thing .life .life-after, .thing .life::after, .thing .mark.life-lost, .thing .fan .back { animation: none; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 </style>
 </head>
@@ -302,9 +299,9 @@ const COLOUR_WORDS = {W: 'white', U: 'blue', B: 'black', R: 'red', G: 'green', C
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let deck;
-// A deck whose format is not Brawl is drawn as Standard.
-const FORMATS = {brawl: {name: 'Brawl', size: 100, startingLife: 25}, standard: {name: 'Standard', size: 60, startingLife: 20}};
-const format = () => FORMATS[deck.format] || FORMATS.standard;
+// A deck's format is read whatever its case; one that is not Brawl is drawn as Standard.
+const FORMATS = new Map([['brawl', {name: 'Brawl', size: 100, startingLife: 25}], ['standard', {name: 'Standard', size: 60, startingLife: 20}]]);
+const format = () => FORMATS.get(String(deck.format).toLowerCase()) || FORMATS.get('standard');
 // The deck's cards by name, for scenes, the handbook and the ledger; the
 // maybeboard is not in the deck, but its tiles open from the grid.
 const cardsInDeck = new Map(), cardsToOpen = new Map();
@@ -456,40 +453,42 @@ function drawHero() {
 
 // ---------- scenes ----------
 
-// The opponent's life total takes the hit: the format's starting life, then that life less the damage.
-function lifeTotal(damage) {
-  const before = format().startingLife, after = before - damage;
-  return `<span class="mark life-lost">−${esc(damage)}</span>`
-    + `<div class="life" role="img" aria-label="${esc(`${before} life, less ${damage}: ${after}`)}"><b class="life-before">${esc(before)}</b><b class="life-after">${esc(after)}</b></div>`;
-}
+// The number a damage or draw amount gives; null for one written otherwise, such
+// as X, which the page shows as written.
+const numberIn = amount => typeof amount === 'number' ? amount : /^\s*\d+\s*$/.test(amount) ? Number(amount) : null;
 
-// The Magic card back, drawn blank when cards/back.jpg is missing, like any picture.
-function cardBack() {
-  const src = url('cards/back.jpg');
-  return missingPictures.has(src) ? blankCard('') : `<img src="${esc(src)}" alt="">`;
+// The opponent's life total takes the hit: the format's starting life, then that
+// life less the damage. Damage of no number leaves the starting life untouched.
+function lifeTotal(damage) {
+  const before = format().startingLife, lost = numberIn(damage), mark = `<span class="badge life-lost">−${esc(damage)}</span>`;
+  if (lost === null) return mark + `<div class="life untouched" role="img" aria-label="${esc(`${before} life, less ${damage}`)}"><b>${esc(before)}</b></div>`;
+  const after = before - lost;
+  return mark + `<div class="life" role="img" aria-label="${esc(`${before} life, less ${lost}: ${after}`)}"><b class="life-before">${esc(before)}</b><b class="life-after">${esc(after)}</b></div>`;
 }
 
 const MOST_BACKS_DEALT = 5;
-// Drawn cards are dealt in as card backs, fanned out to either side by at most 12 degrees.
+// Drawn cards are dealt in as Magic card backs, fanned out to either side by at
+// most 12 degrees; a draw of no number deals one.
 function dealtCards(drawn) {
-  const dealt = Math.min(Math.max(drawn, 0), MOST_BACKS_DEALT), spread = dealt > 1 ? 24 / (dealt - 1) : 0;
-  const backs = Array.from({length: dealt}, (_, i) => `<div class="back" style="--i:${i};--turn:${dealt > 1 ? i * spread - 12 : 0}deg">${cardBack()}</div>`);
-  return `<span class="mark cards-drawn">+${esc(drawn)}</span><div class="fan" role="img" aria-label="${esc(`${drawn} cards drawn`)}">${backs.join('')}</div>`;
+  const counted = numberIn(drawn), dealt = counted === null ? 1 : Math.min(Math.max(counted, 0), MOST_BACKS_DEALT);
+  const backs = Array.from({length: dealt}, (_, i) => `<div class="back" style="--i:${i};--turn:${dealt > 1 ? i * 24 / (dealt - 1) - 12 : 0}deg">${picture('back', '')}</div>`);
+  return `<span class="badge">+${esc(drawn)}</span><div class="fan" role="img" aria-label="${esc(`${drawn} cards drawn`)}">${backs.join('')}</div>`;
 }
 
+// A damage or draw thing takes no badge: its −N or +N mark is its badge.
 function drawThing(t) {
   const token = t.token && (deck.tokens || []).find(k => k.name === t.token);
-  const drawn = Number(t.draw) || 0;
+  const marked = t.damage !== undefined || t.draw !== undefined;
   const body = t.card ? cardPicture(t.card)
     : t.token ? (token ? picture(token.scryfall_id, `${t.token} token`) : blankCard(`${t.token} token`))
     : t.pile ? `<div class="pile">${esc(t.count ?? '')}</div>`
     : t.mana ? `<div class="pips">${manaRun(t.mana)}</div>`
-    : t.damage !== undefined ? lifeTotal(Number(t.damage) || 0)
-    : t.draw !== undefined ? dealtCards(drawn)
+    : t.damage !== undefined ? lifeTotal(t.damage)
+    : t.draw !== undefined ? dealtCards(t.draw)
     : `<div class="chip">${esc(t.chip ?? '')}</div>`;
-  const label = t.label || t.pile || (t.damage !== undefined ? 'Opponent' : t.draw !== undefined ? `You draw ${drawn}` : '');
+  const label = t.label || t.pile || (t.damage !== undefined ? 'Opponent' : t.draw !== undefined ? `You draw ${t.draw}` : '');
   const motion = ['enters', 'glows', 'taps', 'leaves', 'copies'].includes(t.does) ? t.does : '';
-  return `<div class="thing ${motion}">${t.badge ? `<span class="badge">${esc(t.badge)}</span>` : ''}${body}${label ? `<div class="thing-label">${esc(label)}</div>` : ''}</div>`;
+  return `<div class="thing ${motion}">${t.badge && !marked ? `<span class="badge">${esc(t.badge)}</span>` : ''}${body}${label ? `<div class="thing-label">${esc(label)}</div>` : ''}</div>`;
 }
 
 const SCENE_STEP_MS = 2600;
@@ -649,7 +648,7 @@ function drawLedger(text) {
 // ---------- Arena import ----------
 
 function drawImport() {
-  $('import').innerHTML = `<div class="section-head"><span class="label">Arena import</span><h2>Paste it into Arena</h2><p class="lede">In Arena, go to Decks, then Import.${deck.format === 'brawl' ? ' The Commander section comes first, so Brawl picks up the commander.' : ''}</p></div>`
+  $('import').innerHTML = `<div class="section-head"><span class="label">Arena import</span><h2>Paste it into Arena</h2><p class="lede">In Arena, go to Decks, then Import.${format().name === 'Brawl' ? ' The Commander section comes first, so Brawl picks up the commander.' : ''}</p></div>`
     + '<div><button class="btn primary" type="button" id="copy-bottom">Copy for Arena</button></div><pre id="arena-list"></pre>';
   $('arena-list').textContent = arenaList();
   $('copy-bottom').onclick = copyArenaList;
