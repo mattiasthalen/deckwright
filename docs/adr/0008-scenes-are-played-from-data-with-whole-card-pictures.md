@@ -15,7 +15,10 @@ pictures. The card pictures are already saved in the deck folder.
 
 A scene in `deck.json` is a title and a list of steps. A step is a caption and a
 row of things: a card from the deck, a token, a pile shown as a card back with a
-number, mana symbols, or a chip with a short word or number. A thing may enter,
+number, mana symbols, a chip with a short word or number, damage (the opponent's
+life total takes the hit) or drawn cards (Magic card backs dealt in). Damage and
+drawn cards were added after the first proof, because the plain number chips said
+what happened without showing it. A thing may enter,
 glow, tap, leave or appear as a copy, and may carry a badge. The page draws every
 card and token as its whole saved picture and plays the steps in a loop with no
 controls. The first scene is the deck's main engine and is drawn large; the others

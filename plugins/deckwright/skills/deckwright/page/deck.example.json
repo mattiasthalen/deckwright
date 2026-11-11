@@ -83,6 +83,20 @@
           {"chip": "+1", "label": "Rats"}
         ]}
       ]
+    },
+    {
+      "title": "The Rats connect",
+      "steps": [
+        {"caption": "Vren and three Rats attack.", "things": [
+          {"card": "Vren, the Relentless", "does": "taps"},
+          {"token": "Rat", "badge": "×3"}
+        ]},
+        {"caption": "They deal 3 damage to each opponent, and you draw 3 cards.", "things": [
+          {"card": "Vren, the Relentless"},
+          {"damage": 3, "label": "Each opponent"},
+          {"draw": 3}
+        ]}
+      ]
     }
   ],
   "handbook": [

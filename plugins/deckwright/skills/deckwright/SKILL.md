@@ -39,6 +39,7 @@ Each deck is one artifact holding plain files, published after every decision wi
 - `deck.json`: the deck as it is now, in the shape of [`page/deck.example.json`](page/deck.example.json). Each card carries its Scryfall id and a display copy (name, mana cost, mana value, type line, text, rarity, date taken); reason only from fresh lookups. The hero is the commander in Brawl and a card the player names in Standard.
 - `LEDGER.md`: one line appended per decision, never edited: `- <date> · <in|out|criteria|category|finding> · <card or subject> (<scryfall id>) · <reason>`.
 - `cards/<scryfall id>.jpg`: the card's `normal` image from Scryfall (a two-faced card's is on its first face); a missing picture shows as text and is tried again at the next save. A token a scene shows is saved here too and listed in `tokens`.
+- `cards/back.jpg`: when a scene draws cards, Scryfall's picture of the Magic card back, `https://backs.scryfall.io/normal/0/a/0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg`.
 - `art/<scryfall id>.jpg`: the hero card's `art_crop` from Scryfall, from the first face of a two-faced card.
 
 The first save comes with the first answer. Give the player the page's link after each save.
