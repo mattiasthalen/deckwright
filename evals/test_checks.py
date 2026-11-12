@@ -1,8 +1,6 @@
 """Tests for the checks and the runner that need no model and no Scryfall.
 
     python3 evals/test_checks.py
-
-Each one was found red by the pre-PR review of 2026-11-11 and fixed.
 """
 
 from __future__ import annotations
@@ -569,7 +567,8 @@ def block_the_network():
             return connect_to(sock, address)
         return checked
 
-    # Through a proxy the only host a connection names is the proxy's, and these tests need none.
+    # Name lookups are refused so the error names the host the test asked for; through a proxy
+    # the only host a connection names is the proxy's, and these tests need none.
     for key in [key for key in os.environ if key.lower().endswith("_proxy")]:
         del os.environ[key]
     socket.getaddrinfo = resolve
@@ -583,14 +582,16 @@ def run_tests(tests):
         try:
             fn()
             print("PASS", name)
+        except SystemExit as e:
+            failed += 1
+            print("FAIL", name, "--", f"exited with status {e.code}")
         except Exception as e:
             failed += 1
             print("FAIL", name, "--", e if isinstance(e, AssertionError) else traceback.format_exc(limit=1))
     if not tests:
         print("no tests found")
-        return 1
     print(f"{failed} failed")
-    return 1 if failed else 0
+    return 1 if failed or not tests else 0
 
 
 if __name__ == "__main__":
