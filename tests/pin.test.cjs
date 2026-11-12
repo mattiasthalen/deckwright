@@ -16,6 +16,7 @@ const readJson = name => {
 };
 
 test('Playwright is pinned to the exact version installed and locked', () => {
+  assert.fail('deliberate break: proving the browser tests job goes red');
   const pinned = readJson('package.json').devDependencies?.playwright;
   assert.match(String(pinned), /^\d+\.\d+\.\d+$/, `package.json asks for Playwright ${pinned}, not one exact version`);
   const installed = require('playwright/package.json').version;
