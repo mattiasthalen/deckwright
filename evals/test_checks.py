@@ -1,13 +1,13 @@
 """Tests for the checks and the runner that need no model and no Scryfall.
 
     python3 evals/test_checks.py
-
-Each one was found red by the pre-PR review of 2026-11-11 and fixed.
 """
 
 from __future__ import annotations
 
+import os
 import pathlib
+import socket
 import sys
 import traceback
 from collections import Counter
@@ -92,7 +92,10 @@ def test_c3_counts_only_lookups_in_the_same_conversation():
 
 def test_c6_compares_basics_of_a_colour_with_no_pips():
     cache = {"Llanowar Elves": card("Llanowar Elves", "Creature — Elf Druid", "{G}", "G"),
-             "Shock": card("Shock", "Instant", "{R}", "R")}
+             "Shock": card("Shock", "Instant", "{R}", "R"),
+             "Forest": card("Forest", "Basic Land — Forest", "", "G"),
+             "Mountain": card("Mountain", "Basic Land — Mountain", "", "R"),
+             "Plains": card("Plains", "Basic Land — Plains", "", "W")}
     cards = Counter({"Llanowar Elves": 10, "Shock": 10, "Forest": 14, "Mountain": 14, "Plains": 4})
     r = fake_run([], [])
     r.final_list = lambda: (cards, None)
@@ -482,14 +485,115 @@ def test_every_start_of_the_runner_counts_against_the_days_budget():
         runner.RUNS_DIR, runner.play_round = real
 
 
-if __name__ == "__main__":
+def test_the_tests_exit_non_zero_when_one_fails_and_zero_when_none_do():
+    import contextlib
+    import io
+
+    def fails():
+        raise AssertionError("a stand-in failure")
+
+    with contextlib.redirect_stdout(io.StringIO()):
+        one_fails = run_tests({"test_passes": lambda: None, "test_fails": fails})
+        none_fail = run_tests({"test_passes": lambda: None})
+    with contextlib.redirect_stdout(io.StringIO()) as printed:
+        none_run = run_tests({})
+    assert one_fails == 1, f"a failing test left the exit status at {one_fails}, so CI goes green"
+    assert none_fail == 0, f"every test passed and the exit status is {none_fail}"
+    assert none_run == 1, f"no test ran and the exit status is {none_run}, so CI goes green on nothing"
+    said = printed.getvalue()
+    assert "no tests found" in said, f"a run with no tests does not say so: {said!r}"
+    assert "0 failed" in said.splitlines(), f"a run with no tests prints no tally: {said!r}"
+
+
+def test_a_test_that_exits_does_not_end_the_run():
+    import contextlib
+    import io
+
+    def exits():
+        sys.exit(0)
+
+    with contextlib.redirect_stdout(io.StringIO()) as printed:
+        try:
+            status = run_tests({"test_exits": exits, "test_passes": lambda: None})
+        except SystemExit as e:
+            status = f"SystemExit({e.code}) out of run_tests"
+    said = printed.getvalue().splitlines()
+    assert status != "SystemExit(0) out of run_tests", \
+        "a test calling sys.exit(0) ended the run, so CI goes green on the tests it never ran"
+    assert status == 1, f"a test called sys.exit(0) and the exit status is {status}"
+    assert any(line.startswith("FAIL test_exits") for line in said), f"the exiting test is not reported as failed: {said}"
+    assert "PASS test_passes" in said, f"the test after the exiting one never ran: {said}"
+
+
+def test_the_tests_cannot_reach_scryfall():
+    import time
+    began = time.monotonic()
+    try:
+        checks.scryfall_get("/cards/named?exact=Forest", 0)
+    except Exception as e:
+        error = e
+    else:
+        error = None
+    took = time.monotonic() - began
+    assert error is not None, "a test reached Scryfall"
+    assert "api.scryfall.com" in str(error), f"the blocked request's error does not name the host: {error!r}"
+    assert took < 2, f"the blocked request took {took:.1f}s, so scryfall_get retried it as a network error"
+
+
+def test_the_workflow_never_starts_claude():
+    workflow = pathlib.Path(__file__).resolve().parent.parent / ".github" / "workflows" / "tests.yml"
+    assert workflow.is_file(), f"no workflow at {workflow}"
+    import re
+    text = workflow.read_text()
+    assert not re.search(r"\bsecrets\b", text), "the workflow reads a secret, so it can hold a key that starts Claude"
+    assert "claude" not in text.lower(), "the workflow names Claude"
+
+
+class NetworkBlocked(RuntimeError):
+    """Not an OSError: checks.scryfall_get retries those, and urllib wraps them in URLError."""
+
+
+def block_the_network():
+    def refuse(host):
+        raise NetworkBlocked(f"the offline tests tried to reach {host}")
+
+    def resolve(host, *args, **kwargs):
+        refuse(host)
+
+    def connect(connect_to):
+        def checked(sock, address):
+            if sock.family in (socket.AF_INET, socket.AF_INET6):
+                refuse(address[0])
+            return connect_to(sock, address)
+        return checked
+
+    # Name lookups are refused so the error names the host the test asked for; through a proxy
+    # the only host a connection names is the proxy's, and these tests need none.
+    for key in [key for key in os.environ if key.lower().endswith("_proxy")]:
+        del os.environ[key]
+    socket.getaddrinfo = resolve
+    socket.socket.connect = connect(socket.socket.connect)
+    socket.socket.connect_ex = connect(socket.socket.connect_ex)
+
+
+def run_tests(tests):
     failed = 0
-    for name, fn in list(globals().items()):
-        if name.startswith("test_"):
-            try:
-                fn()
-                print("PASS", name)
-            except Exception as e:
-                failed += 1
-                print("FAIL", name, "--", e if isinstance(e, AssertionError) else traceback.format_exc(limit=1))
+    for name, fn in tests.items():
+        try:
+            fn()
+            print("PASS", name)
+        except SystemExit as e:
+            failed += 1
+            print("FAIL", name, "--", f"exited with status {e.code}")
+        except Exception as e:
+            failed += 1
+            print("FAIL", name, "--", e if isinstance(e, AssertionError) else traceback.format_exc(limit=1))
+    if not tests:
+        print("no tests found")
     print(f"{failed} failed")
+    return 1 if failed or not tests else 0
+
+
+if __name__ == "__main__":
+    block_the_network()
+    sys.exit(run_tests({name: fn for name, fn in list(globals().items()) if name.startswith("test_")}))

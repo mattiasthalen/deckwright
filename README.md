@@ -13,5 +13,13 @@ private page you can reopen from its link.
 ```
 
 How it is tested: [`evals/README.md`](evals/README.md). Decisions: [`docs/adr/`](docs/adr/).
-The deck page is tested in a browser, with Node and Playwright's Chromium: `node --test tests/*.test.cjs`.
+The deck page is tested in a browser, with Node and Playwright's Chromium. Playwright's
+version is fixed in `package.json`; to run the tests at it:
+
+```
+npm ci
+npx playwright install chromium
+node --test tests/*.test.cjs
+```
+
 The first version is in this repository's history, up to commit `03a235f`.
