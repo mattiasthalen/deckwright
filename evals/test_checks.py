@@ -497,10 +497,34 @@ def test_the_tests_exit_non_zero_when_one_fails_and_zero_when_none_do():
     with contextlib.redirect_stdout(io.StringIO()):
         one_fails = run_tests({"test_passes": lambda: None, "test_fails": fails})
         none_fail = run_tests({"test_passes": lambda: None})
+    with contextlib.redirect_stdout(io.StringIO()) as printed:
         none_run = run_tests({})
     assert one_fails == 1, f"a failing test left the exit status at {one_fails}, so CI goes green"
     assert none_fail == 0, f"every test passed and the exit status is {none_fail}"
     assert none_run == 1, f"no test ran and the exit status is {none_run}, so CI goes green on nothing"
+    said = printed.getvalue()
+    assert "no tests found" in said, f"a run with no tests does not say so: {said!r}"
+    assert "0 failed" in said.splitlines(), f"a run with no tests prints no tally: {said!r}"
+
+
+def test_a_test_that_exits_does_not_end_the_run():
+    import contextlib
+    import io
+
+    def exits():
+        sys.exit(0)
+
+    with contextlib.redirect_stdout(io.StringIO()) as printed:
+        try:
+            status = run_tests({"test_exits": exits, "test_passes": lambda: None})
+        except SystemExit as e:
+            status = f"SystemExit({e.code}) out of run_tests"
+    said = printed.getvalue().splitlines()
+    assert status != "SystemExit(0) out of run_tests", \
+        "a test calling sys.exit(0) ended the run, so CI goes green on the tests it never ran"
+    assert status == 1, f"a test called sys.exit(0) and the exit status is {status}"
+    assert any(line.startswith("FAIL test_exits") for line in said), f"the exiting test is not reported as failed: {said}"
+    assert "PASS test_passes" in said, f"the test after the exiting one never ran: {said}"
 
 
 def test_the_tests_cannot_reach_scryfall():
@@ -521,8 +545,9 @@ def test_the_tests_cannot_reach_scryfall():
 def test_the_workflow_never_starts_claude():
     workflow = pathlib.Path(__file__).resolve().parent.parent / ".github" / "workflows" / "tests.yml"
     assert workflow.is_file(), f"no workflow at {workflow}"
+    import re
     text = workflow.read_text()
-    assert "secrets." not in text, "the workflow reads a secret, so it can hold a key that starts Claude"
+    assert not re.search(r"\bsecrets\b", text), "the workflow reads a secret, so it can hold a key that starts Claude"
     assert "claude" not in text.lower(), "the workflow names Claude"
 
 
