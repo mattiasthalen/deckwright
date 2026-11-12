@@ -105,7 +105,6 @@ def test_c6_compares_basics_of_a_colour_with_no_pips():
 
 
 def test_c12_finds_a_plural_creature_type():
-    assert False, "deliberate break: proving the offline tests job goes red"
     cache = {"Llanowar Elves": card("Llanowar Elves", "Creature — Elf Druid", "{G}", "G")}
     r = fake_run([], [])
     f = facts(saved_categories=[{"name": "Elves", "target": 8}])
