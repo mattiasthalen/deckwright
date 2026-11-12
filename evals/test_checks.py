@@ -92,7 +92,10 @@ def test_c3_counts_only_lookups_in_the_same_conversation():
 
 def test_c6_compares_basics_of_a_colour_with_no_pips():
     cache = {"Llanowar Elves": card("Llanowar Elves", "Creature — Elf Druid", "{G}", "G"),
-             "Shock": card("Shock", "Instant", "{R}", "R")}
+             "Shock": card("Shock", "Instant", "{R}", "R"),
+             "Forest": card("Forest", "Basic Land — Forest", "", "G"),
+             "Mountain": card("Mountain", "Basic Land — Mountain", "", "R"),
+             "Plains": card("Plains", "Basic Land — Plains", "", "W")}
     cards = Counter({"Llanowar Elves": 10, "Shock": 10, "Forest": 14, "Mountain": 14, "Plains": 4})
     r = fake_run([], [])
     r.final_list = lambda: (cards, None)
@@ -480,6 +483,45 @@ def test_every_start_of_the_runner_counts_against_the_days_budget():
             assert budgets[1].used_up(), "a second start of run.py did not see the first one's publish"
     finally:
         runner.RUNS_DIR, runner.play_round = real
+
+
+def test_the_tests_exit_non_zero_when_one_fails_and_zero_when_none_do():
+    import contextlib
+    import io
+
+    def fails():
+        raise AssertionError("a stand-in failure")
+
+    with contextlib.redirect_stdout(io.StringIO()):
+        one_fails = run_tests({"test_passes": lambda: None, "test_fails": fails})
+        none_fail = run_tests({"test_passes": lambda: None})
+        none_run = run_tests({})
+    assert one_fails == 1, f"a failing test left the exit status at {one_fails}, so CI goes green"
+    assert none_fail == 0, f"every test passed and the exit status is {none_fail}"
+    assert none_run == 1, f"no test ran and the exit status is {none_run}, so CI goes green on nothing"
+
+
+def test_the_tests_cannot_reach_scryfall():
+    import time
+    began = time.monotonic()
+    try:
+        checks.scryfall_get("/cards/named?exact=Forest", 0)
+    except Exception as e:
+        error = e
+    else:
+        error = None
+    took = time.monotonic() - began
+    assert error is not None, "a test reached Scryfall"
+    assert "api.scryfall.com" in str(error), f"the blocked request's error does not name the host: {error!r}"
+    assert took < 2, f"the blocked request took {took:.1f}s, so scryfall_get retried it as a network error"
+
+
+def test_the_workflow_never_starts_claude():
+    workflow = pathlib.Path(__file__).resolve().parent.parent / ".github" / "workflows" / "tests.yml"
+    assert workflow.is_file(), f"no workflow at {workflow}"
+    text = workflow.read_text()
+    assert "secrets." not in text, "the workflow reads a secret, so it can hold a key that starts Claude"
+    assert "claude" not in text.lower(), "the workflow names Claude"
 
 
 if __name__ == "__main__":
