@@ -28,3 +28,13 @@ The skill may end up very small: the page template, the shape of `deck.json` and
 the ledger, and the few rules the bare model broke. Every addition needs a failing
 run first, which costs runs. Results state their number of runs and their cost,
 and with few runs say "no failure seen in three runs", never "passes".
+
+## Addendum 2026-11-12
+
+The first real build with the skill (2026-11-11) failed in eleven ways, filed as
+#39 to #49. For those, that build is the failing run: the skill was loaded and
+the behaviour was still wrong, so no bare round was run before the skill text
+changed. Each fix has a check, and a skill round of the affected briefs is
+reported with its number of runs. #46 (terms explained where first used) may be
+something a bare run already does; it was accepted as one line that might not
+have been needed.

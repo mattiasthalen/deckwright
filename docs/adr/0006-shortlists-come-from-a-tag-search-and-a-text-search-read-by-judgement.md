@@ -1,6 +1,6 @@
 # ADR-0006 — Shortlists come from a tag search and a text search, read by judgement
 
-**Status:** Accepted (2026-11-10)
+**Status:** Superseded by [ADR-0012](0012-a-round-shows-every-step-of-the-ladder.md) (2026-11-12)
 
 ## Context
 

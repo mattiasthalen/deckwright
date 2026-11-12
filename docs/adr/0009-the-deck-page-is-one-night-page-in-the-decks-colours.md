@@ -1,6 +1,6 @@
 # ADR-0009 — The deck page is one night page in the deck's colours
 
-**Status:** Accepted (2026-11-11)
+**Status:** Superseded by [ADR-0013](0013-the-deck-page-shows-the-cards-on-offer.md) (2026-11-12)
 
 ## Context
 

@@ -1,6 +1,6 @@
 # ADR-0010 — A deck is a folder of plain files, with its hero art and tokens
 
-**Status:** Accepted (2026-11-11) · **Supersedes:** [ADR-0003](0003-a-deck-is-a-folder-of-plain-files.md)
+**Status:** Superseded by [ADR-0011](0011-a-save-writes-the-deck-folder-and-the-page-is-shown-as-one-packed-file.md) (2026-11-12)
 
 ## Context
 
