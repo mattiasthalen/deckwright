@@ -7,7 +7,9 @@ Each one was found red by the pre-PR review of 2026-11-11 and fixed.
 
 from __future__ import annotations
 
+import os
 import pathlib
+import socket
 import sys
 import traceback
 from collections import Counter
@@ -524,14 +526,48 @@ def test_the_workflow_never_starts_claude():
     assert "claude" not in text.lower(), "the workflow names Claude"
 
 
-if __name__ == "__main__":
+class NetworkBlocked(RuntimeError):
+    """Not an OSError: checks.scryfall_get retries those, and urllib wraps them in URLError."""
+
+
+def block_the_network():
+    def refuse(host):
+        raise NetworkBlocked(f"the offline tests tried to reach {host}")
+
+    def resolve(host, *args, **kwargs):
+        refuse(host)
+
+    def connect(connect_to):
+        def checked(sock, address):
+            if sock.family in (socket.AF_INET, socket.AF_INET6):
+                refuse(address[0])
+            return connect_to(sock, address)
+        return checked
+
+    # Through a proxy the only host a connection names is the proxy's, and these tests need none.
+    for key in [key for key in os.environ if key.lower().endswith("_proxy")]:
+        del os.environ[key]
+    socket.getaddrinfo = resolve
+    socket.socket.connect = connect(socket.socket.connect)
+    socket.socket.connect_ex = connect(socket.socket.connect_ex)
+
+
+def run_tests(tests):
     failed = 0
-    for name, fn in list(globals().items()):
-        if name.startswith("test_"):
-            try:
-                fn()
-                print("PASS", name)
-            except Exception as e:
-                failed += 1
-                print("FAIL", name, "--", e if isinstance(e, AssertionError) else traceback.format_exc(limit=1))
+    for name, fn in tests.items():
+        try:
+            fn()
+            print("PASS", name)
+        except Exception as e:
+            failed += 1
+            print("FAIL", name, "--", e if isinstance(e, AssertionError) else traceback.format_exc(limit=1))
+    if not tests:
+        print("no tests found")
+        return 1
     print(f"{failed} failed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    block_the_network()
+    sys.exit(run_tests({name: fn for name, fn in list(globals().items()) if name.startswith("test_")}))
