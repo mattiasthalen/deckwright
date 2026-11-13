@@ -553,9 +553,11 @@ function drawOffer() {
   const groups = (deck.offer?.groups ?? []).filter(g => g.cards.length);
   if (!groups.length) return;
   let numbered = 0;
-  const drawGroup = g => `<div class="offer-group">${g.heading ? `<div class="category-head"><h3>${esc(g.heading)}</h3>`
-    + `${g.total !== undefined ? `<span class="count-of">${g.cards.length} of ${g.total} shown</span>` : ''}</div>` : ''}`
-    + `<div class="offer-grid">${g.cards.map(c => drawOffered(c, ++numbered)).join('')}</div></div>`;
+  const drawGroup = g => {
+    const head = (g.heading ? `<h3>${esc(g.heading)}</h3>` : '') + (g.total !== undefined ? `<span class="count-of">${g.cards.length} of ${g.total} shown</span>` : '');
+    return `<div class="offer-group">${head ? `<div class="category-head">${head}</div>` : ''}`
+      + `<div class="offer-grid">${g.cards.map(c => drawOffered(c, ++numbered)).join('')}</div></div>`;
+  };
   const section = $('offer');
   section.innerHTML = `<div class="section-head"><span class="label">On offer</span><h2>${esc(deck.offer.category || 'This round')}</h2>`
     + '<p class="lede">The cards to choose from this round, numbered as in the chat. None of them is in the deck yet.</p></div>'
