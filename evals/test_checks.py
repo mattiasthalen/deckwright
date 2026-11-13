@@ -31,7 +31,7 @@ def card(name, type_line, cost="", ci=(), fmt_legal=("brawl", "standard")):
             "legalities": {f: "legal" for f in fmt_legal}, "on_arena": True}
 
 
-READER_FACTS_ADDED = ["ladder_steps_with_counts", "suggestions_marked_with_reasons", "you_pick_takes_the_suggested",
+READER_FACTS_ADDED = ["ladder_steps_with_counts", "suggestions_marked", "you_pick_takes_the_suggested",
                       "limits_question_names_crossover", "commander_before_colours", "set_count_says_any_printing",
                       "terms_explained_where_first_used", "name_asked_once_complete_before_handbook",
                       "handbook_written_unasked"]
@@ -957,6 +957,43 @@ def test_c4_is_not_applicable_to_a_run_with_no_record_of_its_folder():
     assert (status, NO_RECORD in evidence) == ("n/a", True), (status, evidence)
 
 
+REVIEWED = [{"role": "player", "text": "Review the deck"}, {"role": "deckwright", "text": "The deck has 10 creatures."},
+            {"role": "player", "text": "Add five more Rat Colony"}, {"role": "deckwright", "text": "Added."}]
+
+
+def reviewed_then_grown(record=True):
+    """REVIEWED in a run whose deck held Wick and 10 Rat Colony after the review's
+    exchange, 0, and 15 Rat Colony after exchange 1; `record` False keeps only the end."""
+    at_review = deck_json([WICK, deck_card("Rat Colony", 10)])
+    grown = deck_json([WICK, deck_card("Rat Colony", 15)])
+    if not record:
+        return fake_run(REVIEWED, [], workspace=deck_folder(grown))
+    return fake_run(REVIEWED, [], states=[{"brawl-rats": (at_review, ledger(LEDGER_LINE))},
+                                          {"brawl-rats": (grown, ledger(LEDGER_LINE))}])
+
+
+def review_facts(count):
+    return facts(review_type_counts=[{"message": 1, "card_type": "Creature", "count": count}])
+
+
+def test_c5_passes_a_review_true_of_the_deck_at_that_review():
+    status, evidence = verdict(reviewed_then_grown(), "C5", review_facts(10))
+    assert status == "pass", f"10 creatures when reviewed; 5 were added after: {(status, evidence)}"
+    assert "(against the deck at that review)" in evidence, evidence
+
+
+def test_c5_fails_a_review_true_only_of_the_final_list():
+    status, evidence = verdict(reviewed_then_grown(), "C5", review_facts(15))
+    assert status == "fail", f"15 creatures said when the deck held 10: {(status, evidence)}"
+    assert "said 15, is 10 to 11" in evidence and "(against the deck at that review)" in evidence, evidence
+
+
+def test_c5_compares_with_the_final_list_in_a_run_with_no_record_of_its_folder():
+    status, evidence = verdict(reviewed_then_grown(record=False), "C5", review_facts(15))
+    assert status == "pass", f"without a record the final list is the deck: {(status, evidence)}"
+    assert "(against the final list)" in evidence, evidence
+
+
 def test_a_card_whose_count_is_not_a_number_counts_as_zero():
     deck = complete_deck()
     deck["cards"] += [{**deck_card("Infernal Grasp"), "count": None}, {**deck_card("Feed the Swarm"), "count": "two"}]
@@ -1319,6 +1356,39 @@ def test_s2_leaves_a_file_sent_into_chat_to_the_runner_which_disallows_it():
     assert status == "pass", f"S2 still judges a SendUserFile call, which no run can make: {(status, evidence)}"
 
 
+def saved_and_replied(reply, packed=True):
+    """PICKED, packed in both exchanges, its first reply naming the packed file and the
+    second, after the pick is saved, `reply`; the reader saw no card offered."""
+    messages = [PICKED[0], {"role": "deckwright", "text": "Wick leads; open brawl-rats.html. Token makers next?"},
+                PICKED[2], {"role": "deckwright", "text": reply}]
+    trace = bash(PACK, 0, answer=f"{WORKSPACE}/brawl-rats.html")
+    if packed:
+        trace += bash(PACK, 1, answer=f"{WORKSPACE}/brawl-rats.html")
+    return fake_run(messages, trace + publish(1), states=[BEFORE_PICK, AFTER_PICK])
+
+
+def test_s2_passes_every_save_whose_reply_names_the_packed_file():
+    r = saved_and_replied("Rat Colony is in; open brawl-rats.html, or https://claude.ai/artifact/aaa. Removal next?")
+    status, evidence = verdict(r, "S2", facts(**PICK_FACTS))
+    assert status == "pass", f"both saves were packed and named in their replies: {(status, evidence)}"
+
+
+def test_s2_fails_a_save_whose_reply_gives_only_the_link():
+    # From the round of 2026-11-13: link-mid-build's exchange 2 saved, and its reply gave only the artifact link.
+    r = saved_and_replied("Rat Colony is in. Here is the link: https://claude.ai/artifact/aaa")
+    status, evidence = verdict(r, "S2", facts(**PICK_FACTS))
+    assert status == "fail", f"the save's reply never named the packed file: {(status, evidence)}"
+    assert "exchange 1" in evidence and "brawl-rats.html" in evidence, \
+        f"the evidence does not name the exchange and the file: {evidence}"
+
+
+def test_s2_fails_a_save_never_packed():
+    r = saved_and_replied("Rat Colony is in. Removal next?", packed=False)
+    status, evidence = verdict(r, "S2", facts(**PICK_FACTS))
+    assert status == "fail", f"the save of exchange 1 was never packed for the player: {(status, evidence)}"
+    assert "exchange 1" in evidence, f"the evidence does not name the exchange: {evidence}"
+
+
 def test_s2_is_not_applicable_to_a_run_with_no_record_of_its_folder():
     status, evidence = verdict(shown_round(record=False), "S2", facts(**ROUND_FACTS))
     assert (status, NO_RECORD in evidence) == ("n/a", True), (status, evidence)
@@ -1458,7 +1528,7 @@ def test_the_examples_offer_is_a_ladder_s3_passes():
 # ---------- S4: a round marks the tutor's picks ----------
 
 def marked_round_facts(marked=True, taken=True):
-    return facts(suggestions_marked_with_reasons=fact(marked, "Suggested: 1 and 3, because they answer flyers"),
+    return facts(suggestions_marked=fact(marked, "Suggested: 1 and 3"),
                  you_pick_takes_the_suggested=fact(taken, "Player: you pick. Tutor: taking 1 and 3"))
 
 
@@ -1470,7 +1540,7 @@ def test_s4_passes_marked_suggestions_taken_on_you_pick():
 
 def test_s4_fails_you_pick_answered_with_a_new_suggestion():
     # The first real build: "go with your suggestion", answered "I hadn't given a suggestion for this one yet" (#41).
-    f = facts(suggestions_marked_with_reasons=fact(True, "Suggested: 1 and 3"),
+    f = facts(suggestions_marked=fact(True, "Suggested: 1 and 3"),
               you_pick_takes_the_suggested=fact(False, "I hadn't given a suggestion for this one yet, so here it is."))
     r, _ = ladder_round(ladder())
     status, evidence = verdict(r, "S4", f)
@@ -1491,10 +1561,62 @@ def test_s4_is_not_applicable_when_no_round_was_asked_for():
     assert status == "n/a", (status, evidence)
 
 
-def test_s4_asks_no_suggested_mark_of_a_commander_offer():
-    r, _ = ladder_round(offer(group(None, ["Wick, the Whorled Mind", "Marrow-Gnawer"]), category="Commander"))
+def test_s4_asks_no_suggested_mark_or_reason_of_a_commander_offer():
+    commanders = offer(group(None, ["Wick, the Whorled Mind", "Marrow-Gnawer"]), category="Commander")
+    for c in checks.offered_cards(commanders):
+        del c["reason"]
+    r, _ = ladder_round(commanders)
     status, evidence = verdict(r, "S4", facts())
     assert status != "fail", f"a commander offer is not a category's round, and fails S4 for marking none: {evidence}"
+
+
+def test_s4_fails_a_card_of_a_round_on_offer_without_a_reason():
+    failed = []
+    for unreasoned in ({"reason": ""}, {"reason": None}, None):
+        round_ = ladder()
+        card_ = round_["groups"][1]["cards"][0]
+        if unreasoned is None:
+            del card_["reason"]
+        else:
+            card_.update(unreasoned)
+        r, _ = ladder_round(round_)
+        status, evidence = verdict(r, "S4", marked_round_facts())
+        if status != "fail" or card_["name"] not in evidence:
+            failed.append((unreasoned, status, evidence))
+    assert not failed, f"a card on offer with no reason, and S4 does not fail it by name: {failed}"
+
+
+def test_s4_fails_a_reply_the_reader_saw_mark_nothing():
+    f = facts(suggestions_marked=fact(False, "Here are ten removal spells; which do you want?"),
+              you_pick_takes_the_suggested=FACT_NULL)
+    r, _ = ladder_round(ladder())
+    status, evidence = verdict(r, "S4", f)
+    assert status == "fail", f"the reply marked no card, though the saved round does: {(status, evidence)}"
+    assert "which do you want" in evidence, f"the evidence does not quote the reply: {evidence}"
+
+
+def reader_entry(name):
+    """The reader prompt's entry for the fact `name`, its lines joined."""
+    entry = checks.READER_PROMPT.split(f"- {name}:", 1)[1].split("\n- ", 1)[0]
+    return " ".join(entry.split())
+
+
+def test_s4_asks_the_reader_only_whether_the_reply_marks_cards():
+    assert "suggestions_marked" in checks.READER_SCHEMA["properties"], "the reader is not asked for suggestions_marked"
+    gone = [n for n in ("suggestions_marked_with_reasons",)
+            if n in checks.READER_SCHEMA["properties"] or n in checks.READER_PROMPT]
+    assert not gone, f"the reader is still asked for: {gone}"
+    assert "reason" not in reader_entry("suggestions_marked"), \
+        f"the reasons are the saved round's, and the reader still judges them: {reader_entry('suggestions_marked')}"
+
+
+def test_s4_asks_the_reader_whether_you_pick_takes_the_marked_cards_in_the_decided_words():
+    wanted = ("when the player, after a round with marked cards, leaves the choice to the assistant ('you pick', "
+              "'go with your suggestions', 'yes, all of those'), does the assistant take exactly the marked cards of "
+              "that round? 'Just fill in the rest' asks for the remaining rounds with marks and is not itself leaving "
+              "the choice; judge the answer that follows those rounds. null if the player never did.")
+    said = reader_entry("you_pick_takes_the_suggested")
+    assert said == wanted, f"the reader is asked: {said}"
 
 
 def test_s4_judges_a_round_gone_from_the_deck_by_the_end():
@@ -1650,6 +1772,29 @@ def test_s7_fails_a_set_count_read_from_one_printing():
 def test_s7_is_not_applicable_without_a_set_criterion():
     status, evidence = reader_verdict("S7", "set_count_says_any_printing", None, "")
     assert status == "n/a", (status, evidence)
+
+
+# As standard-set-limit-template saved it in the round of 2026-11-13, as deck.example.json's
+# limit is saved: a set is a criterion of kind `limit`, and no criterion kind names a set.
+SET_LIMIT = {"kind": "limit", "text": "Only cards with a printing in Edge of Eternities (e:eoe)"}
+
+
+def test_s7_judges_a_set_limit_saved_as_a_limit_by_the_reader_alone():
+    deck = deck_json(criteria=[{"kind": "format", "text": "Standard on Arena"}, SET_LIMIT], fmt="standard")
+    status, evidence = reader_verdict("S7", "set_count_says_any_printing", False, "all six from Edge of Eternities",
+                                      fmt="standard", workspace=deck_folder(deck, "standard-spacecraft"))
+    assert status == "fail", f"no criterion has kind set, and S7 left the reader's no unjudged: {(status, evidence)}"
+    status, evidence = reader_verdict("S7", "set_count_says_any_printing", True, "counts any printing in e:eoe",
+                                      fmt="standard", workspace=deck_folder(deck, "standard-spacecraft"))
+    assert status == "pass", (status, evidence)
+
+
+def test_s7_asks_the_reader_about_set_counts_in_the_decided_words():
+    wanted = ("whenever the assistant counts cards from a set the player named as a limit, does it say a card counts "
+              "when any of its printings is in that set? Counts of crossover printings, types or the whole pool are "
+              "not set counts. null if no set was named or no such count was made.")
+    said = reader_entry("set_count_says_any_printing")
+    assert said == wanted, f"the reader is asked: {said}"
 
 
 def test_s9_passes_terms_explained_where_first_used():
@@ -1940,6 +2085,49 @@ def test_s12_is_not_applicable_to_a_run_with_no_record_of_its_folder():
     r = fake_run(NAMED, [], workspace=deck_folder(complete_deck(name="The Whorled Swarm"), "brawl-the-whorled-swarm"))
     status, evidence = verdict(r, "S12", facts(**NAME_FACTS))
     assert (status, NO_RECORD in evidence) == ("n/a", True), (status, evidence)
+
+
+START_RENAME_LINE = "- 2026-11-12 · name · The Whorled Swarm · folder deck renamed brawl-the-whorled-swarm"
+
+
+def named_from_a_start(folder, gained=(START_RENAME_LINE,), taken=None):
+    """A run begun from a start in `deck`, the folder the runner copies it to, whose deck is
+    complete and named The Whorled Swarm in `folder` after exchange 0, its ledger having
+    gained `gained`; `taken` names a folder another deck already holds."""
+    start = deck_json()
+    other = {taken: (deck_json([deck_card("Infernal Grasp")], name="Another deck"), ledger())} if taken else {}
+    start_state = {"deck": (start, ledger(LEDGER_LINE)), **other}
+    named = complete_deck(name="The Whorled Swarm") if gained else complete_deck()
+    states = [{folder: (named, ledger(LEDGER_LINE, *gained)), **other}]
+    return fake_run(NAMED, [], start=start, start_state=start_state, states=states)
+
+
+def test_s12_passes_a_start_renamed_by_the_name_its_ledger_gains():
+    status, evidence = verdict(named_from_a_start("brawl-the-whorled-swarm"), "S12", facts(**NAME_FACTS))
+    assert status == "pass", f"the start was named and its folder renamed by the name: {(status, evidence)}"
+
+
+def test_s12_passes_a_start_renamed_by_its_name_numbered_when_taken():
+    r = named_from_a_start("brawl-the-whorled-swarm-2", taken="brawl-the-whorled-swarm")
+    status, evidence = verdict(r, "S12", facts(**NAME_FACTS))
+    assert status == "pass", f"brawl-the-whorled-swarm was taken by another deck: {(status, evidence)}"
+
+
+def test_s12_fails_a_start_named_in_its_ledger_and_left_in_its_folder():
+    status, evidence = verdict(named_from_a_start("deck"), "S12", facts(**NAME_FACTS))
+    assert status == "fail", f"the ledger names the deck The Whorled Swarm and it is still in deck: {(status, evidence)}"
+    assert "brawl-the-whorled-swarm" in evidence, f"the evidence does not name the folder it should be in: {evidence}"
+
+
+def test_s12_fails_a_start_renamed_by_another_name_than_its_ledgers():
+    status, evidence = verdict(named_from_a_start("brawl-wicks-rats"), "S12", facts(**NAME_FACTS))
+    assert status == "fail", f"named The Whorled Swarm and put in brawl-wicks-rats: {(status, evidence)}"
+    assert "brawl-wicks-rats" in evidence, f"the evidence does not name the folder: {evidence}"
+
+
+def test_s12_is_not_applicable_to_a_start_whose_ledger_gains_no_name_line():
+    status, evidence = verdict(named_from_a_start("deck", gained=(GRASP_LINE,)), "S12")
+    assert status == "n/a", f"the start was never named, so its folder is the runner's: {(status, evidence)}"
 
 
 def test_the_runner_lets_deckwright_rename_a_folder_with_mv():
