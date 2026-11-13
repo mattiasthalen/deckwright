@@ -207,6 +207,73 @@ class PackTest(unittest.TestCase):
                 self.assertEqual(len(said.splitlines()), 1, f"{case}: pack.py says more than one line: {done.stderr!r}")
                 self.assertNotIn("Traceback", said, f"{case}: pack.py ends in a traceback")
 
+    def test_r3_packs_a_deck_json_that_starts_with_a_byte_order_mark_and_packs_it_without(self):
+        # The page served over HTTP reads such a file, since fetch().text() drops the mark.
+        folder = self.root / "brawl-rats"
+        write_folder(folder, None)
+        text = json.dumps(a_deck(), ensure_ascii=False)
+        (folder / "deck.json").write_bytes(b"\xef\xbb\xbf" + text.encode("utf-8"))
+        done = self.pack(folder)
+        self.assertEqual(done.returncode, 0, f"pack.py fails on a deck.json that starts with a byte-order mark: {done.stderr}")
+        files, _, _ = deck_files((self.root / "brawl-rats.html").read_text(encoding="utf-8"))
+        self.assertFalse(files["deck.json"].startswith("\ufeff"), "the packed deck.json keeps the byte-order mark")
+        self.assertEqual(json.loads(files["deck.json"]), json.loads(text), "the packed deck.json is not the folder's deck")
+
+    def test_r4_fails_in_one_line_and_leaves_the_folder_as_it_was(self):
+        # A deck pack.py cannot write, or a LEDGER.md it cannot read, ends in a packed page or one line on stderr,
+        # never a traceback, and never leaves the folder's page empty or cut short.
+        before = "<!doctype html>\n<html><head><title>Packed before</title></head><body></body></html>\n"
+        cases = {
+            # The JSON escape of a lone surrogate, which no UTF-8 file can hold once decoded.
+            "a lone surrogate in the name": ('{"version": 2, "name": "Rats \\ud800", "format": "brawl"}', "ledger"),
+            "LEDGER.md a directory": (json.dumps(a_deck()), "directory"),
+        }
+        for case, (deck_text, ledger) in cases.items():
+            with self.subTest(case=case):
+                folder = self.root / case.replace(" ", "-")
+                write_folder(folder, deck_text, ledger=None)
+                if ledger == "directory":
+                    (folder / "LEDGER.md").mkdir()
+                else:
+                    (folder / "LEDGER.md").write_text("# Ledger\n", encoding="utf-8")
+                (folder / "index.html").write_text(before, encoding="utf-8")
+                done = self.pack(folder)
+                self.assertNotIn("Traceback", done.stderr, f"{case}: pack.py ends in a traceback")
+                if done.returncode == 0:
+                    page = (folder / "index.html").read_bytes().decode("utf-8")
+                    self.assertIn("</html>", page, f"{case}: pack.py succeeds and leaves index.html cut short")
+                    if ledger == "directory":
+                        files, _, _ = deck_files((self.root / f"{folder.name}.html").read_text(encoding="utf-8"))
+                        self.assertEqual(files.get("LEDGER.md"), "", f"{case}: the unreadable ledger is not packed as empty")
+                else:
+                    self.assertEqual(done.returncode, 1, f"{case}: pack.py exits {done.returncode}")
+                    self.assertEqual(len(done.stderr.strip().splitlines()), 1, f"{case}: pack.py says more than one line: {done.stderr!r}")
+                    page = (folder / "index.html").read_text(encoding="utf-8", errors="replace")
+                    self.assertTrue(page == before or "</html>" in page, f"{case}: pack.py fails and leaves index.html {page[:80]!r}")
+
+    def test_r5_titles_a_deck_as_the_page_does(self):
+        # The page titles a deck by its name trimmed, or by its format read as String(deck.format).toLowerCase(), with
+        # no trimming, and its first theme; a format other than "brawl" is Standard. The titles are HTML-escaped.
+        rats = [{"kind": "format", "text": "Brawl on Arena"}, {"kind": "theme", "text": "Rats"}]
+        cases = [
+            ("name present", {"name": "Vesk & the <Swarm>", "format": "brawl", "criteria": rats}, "Vesk &amp; the &lt;Swarm&gt;"),
+            ("nameless with theme", {"format": "brawl", "criteria": rats}, "Brawl · Rats"),
+            ("nameless empty name", {"name": "", "format": "standard", "criteria": [{"kind": "theme", "text": "Big green creatures"}]},
+             "Standard · Big green creatures"),
+            ("nameless without theme", {"format": "brawl", "criteria": [{"kind": "format", "text": "Brawl on Arena"}]}, "Brawl"),
+            ("format with a leading space", {"format": " brawl", "criteria": rats}, "Standard · Rats"),
+            ("format in capitals", {"format": "BRAWL", "criteria": rats}, "Brawl · Rats"),
+            ("format missing", {"criteria": rats}, "Standard · Rats"),
+        ]
+        for case, over, title in cases:
+            with self.subTest(case=case):
+                deck = {k: v for k, v in a_deck(**over).items() if k not in {"name", "format"} or k in over}
+                folder = self.root / case.replace(" ", "-")
+                write_folder(folder, json.dumps(deck, ensure_ascii=False))
+                done = self.pack(folder)
+                self.assertEqual(done.returncode, 0, f"pack.py failed: {done.stderr}")
+                self.assertEqual(self.title_of((folder / "index.html").read_text(encoding="utf-8")), title)
+
 
 if __name__ == "__main__":
     unittest.main()
