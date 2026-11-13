@@ -333,7 +333,24 @@ const offeredUnheaded = { ...several, name: 'One Round', offer: { category: 'Spe
 // The same round whose one unheaded group has a total.
 const offeredUnheadedTotal = { ...offeredUnheaded, name: 'One Round Counted', offer: { category: 'Spells', groups: [
   { total: 9, cards: offeredUnheaded.offer.groups[0].cards }] } };
-const offerNoGroups = { ...several, name: 'No Groups', offer: { category: 'Spells', groups: [] } };
+// The offered round with one card offered in both groups, each time for its own reason.
+const TWICE_REASONS = ['Kills a blocker and leaves a Rat behind.', 'Picks off a lone attacker at instant speed.'];
+const offeredTwice = { ...offeredDeck, name: 'Offered Twice', offer: { category: 'Removal', groups: [
+  { heading: 'Rats that remove', total: 14, cards: [offered(61, 'Gnawing Executioner', TWICE_REASONS[0], { suggested: true }), OFFER.groups[0].cards[2]] },
+  { heading: 'Other removal', cards: [offered(61, 'Gnawing Executioner', TWICE_REASONS[1])] },
+] } };
+// The offered round with the maybeboard's card on offer, and a card named as one in the deck.
+const offeredMaybe = { ...offeredDeck, name: 'Offered Maybe', offer: { category: 'Removal', groups: [{ heading: 'Rats that remove', cards: [
+  { ...offered(40, 'Shade of Doubt', 'Back on offer: it answers a flyer.'), copy: { mana_cost: '{2}{B}', type_line: 'Creature — Shade', text: 'Flying.' } },
+  { ...offered(10, 'Grim Bargain', 'Offered again, though it is already in the deck.'), copy: { mana_cost: '{2/B}', type_line: 'Instant', text: 'Destroy target creature with power 2 or less.' } },
+  OFFER.groups[0].cards[0],
+] }] } };
+// The offered round with a card whose name was never saved.
+const offeredNameless = { ...offeredDeck, name: 'Offered Nameless', offer: { category: 'Removal', groups: [{ heading: 'Rats that remove', cards: [
+  OFFER.groups[0].cards[0],
+  (({ name, ...c }) => c)(offered(65, 'Unnamed', 'A card offered with no name saved.')),
+] }] } };
+const offerNoGroups ={ ...several, name: 'No Groups', offer: { category: 'Spells', groups: [] } };
 const offerNoCards = { ...several, name: 'No Cards', offer: { category: 'Spells', groups: [{ heading: 'Rats that remove', total: 3, cards: [] }] } };
 
 // Decks with no name: the hero falls back to the format and the first theme criterion.
@@ -538,6 +555,9 @@ function deckFolders() {
     'packed-drawn': { deck: drawnBrawl, packedFrom: 'drawn-brawl', pictures: new Set(), art: [] },
     offered: { deck: offeredDeck, ledger: ledgerFile(RICH_LEDGER), art: [rich.hero],
       pictures: new Set([...pictureIds(offeredDeck)].filter(id => id !== MISSING_OFFERED_PICTURE)) },
+    'offered-twice': { deck: offeredTwice, ledger: ledgerFile(RICH_LEDGER), ...all(offeredTwice) },
+    'offered-maybe': { deck: offeredMaybe, ledger: ledgerFile(RICH_LEDGER), ...all(offeredMaybe) },
+    'offered-nameless': { deck: offeredNameless, ledger: ledgerFile(RICH_LEDGER), ...all(offeredNameless) },
     'offered-unheaded': { deck: offeredUnheaded, ledger: ledgerFile(SEVERAL_LEDGER), ...all(offeredUnheaded) },
     'offered-unheaded-total': { deck: offeredUnheadedTotal, ledger: ledgerFile(SEVERAL_LEDGER), ...all(offeredUnheadedTotal) },
     'offer-no-groups': { deck: offerNoGroups, ledger: ledgerFile(SEVERAL_LEDGER), ...all(offerNoGroups) },

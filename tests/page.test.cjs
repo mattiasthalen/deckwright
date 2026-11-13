@@ -1534,6 +1534,32 @@ async function offerHeadings(page) {
   return offer.evaluate(o => [...o.querySelectorAll('h1, h2, h3, h4, h5, h6')].filter(h => h.checkVisibility()).map(h => h.textContent.trim()));
 }
 
+// What the open card dialog shows: its name, its category line and its why.
+const dialogShows = page => page.evaluate(() => ({
+  name: document.getElementById('dialog-name').textContent,
+  category: document.getElementById('dialog-category').textContent,
+  why: document.getElementById('dialog-why').checkVisibility() ? document.getElementById('dialog-why').textContent : '',
+}));
+
+// Clicks the smallest focusable element in #offer that holds the reason, and returns
+// what the dialog then shows, or null when none opens.
+async function openOffered(page, reason) {
+  const FOCUSABLE = 'button, a[href], [tabindex]:not([tabindex="-1"])';
+  const offer = page.locator('#offer');
+  const at = await offer.evaluate((root, { selector, reason }) => {
+    const opens = [...root.querySelectorAll(selector)];
+    const fits = opens.filter(e => e.textContent.includes(reason));
+    return opens.indexOf(fits.find(e => !fits.some(f => f !== e && e.contains(f))));
+  }, { selector: FOCUSABLE, reason });
+  assert.ok(at >= 0, `no focusable element in #offer holds "${reason}"`);
+  await offer.locator(FOCUSABLE).nth(at).click();
+  if (!(await until(() => dialog(page).count(), 1500))) return null;
+  const shown = await dialogShows(page);
+  await closeDialog(page);
+  assert.ok(await until(async () => (await dialog(page).count()) === 0), 'the dialog does not close');
+  return shown;
+}
+
 describe('Cards on offer', () => {
   test('P1: A deck with a round on offer draws #offer between the hero and the scenes, under a heading naming the category, each card numbered across the groups with its picture and its reason', () =>
     open('offered', async ({ page, deck }) => {
@@ -1623,6 +1649,87 @@ describe('Cards on offer', () => {
         assert.equal(await page.locator('#dialog-why').textContent(), c.reason, 'the dialog\'s reason');
         assert.ok((await page.locator('#dialog-category').textContent()).includes(`On offer · ${deck.offer.category}`), `the dialog does not say "On offer · ${deck.offer.category}"`);
         await closeDialog(page);
+      }
+    }));
+
+  // Each card on offer is its own entry, though it shares a name with another on offer, on the maybeboard or in the deck.
+  test('R10: The same card offered in two groups for two reasons opens, from each button, with that button\'s reason', () =>
+    open('offered-twice', async ({ page, deck }) => {
+      const twice = offeredCards(deck).filter(c => c.name === 'Gnawing Executioner');
+      assert.ok(twice.length === 2 && twice[0].scryfall_id === twice[1].scryfall_id && twice[0].reason !== twice[1].reason
+        && deck.offer.groups.every(g => g.cards.includes(twice[0]) || g.cards.includes(twice[1])),
+      'the deck does not offer one card in two groups for two reasons, so this test proves less than it says');
+      for (const c of twice) {
+        const shown = await openOffered(page, c.reason);
+        assert.ok(shown, `the button holding "${c.reason}" opens no dialog`);
+        assert.equal(shown.name, c.name, 'the dialog\'s name');
+        assert.equal(shown.why, c.reason, `the button holding "${c.reason}" opens with the reason "${shown.why}"`);
+        assert.ok(shown.category.includes(`On offer · ${deck.offer.category}`), `the button holding "${c.reason}" opens as "${shown.category}"`);
+      }
+    }));
+
+  test('R10: A maybeboard card also on offer opens from its offered button as "On offer · <category>" with the offer\'s reason, and from its maybeboard tile as the maybeboard\'s card', () =>
+    open('offered-maybe', async ({ page, deck }) => {
+      const maybe = deck.maybeboard.find(m => m.name === 'Shade of Doubt');
+      const c = offeredCards(deck).find(o => o.name === maybe?.name);
+      assert.ok(maybe && c && c.scryfall_id === maybe.scryfall_id && c.reason !== maybe.why, 'the deck does not offer its maybeboard card, so this test proves less than it says');
+      const shown = await openOffered(page, c.reason);
+      assert.ok(shown, `${c.name} on offer opens no dialog`);
+      assert.ok(shown.category.includes(`On offer · ${deck.offer.category}`), `${c.name} on offer opens as "${shown.category}", not "On offer · ${deck.offer.category}"`);
+      assert.equal(shown.why, c.reason, `${c.name} on offer opens with the reason "${shown.why}"`);
+      const d = await openCard(page, 'offered-maybe', maybe.name);
+      const fromTile = await dialogShows(page);
+      assert.ok(!fromTile.category.includes('On offer'), `${maybe.name}'s maybeboard tile opens as "${fromTile.category}"`);
+      assert.match(fromTile.category, /Maybeboard/, `${maybe.name}'s maybeboard tile does not open as the maybeboard's card`);
+      assert.ok((await d.innerText()).includes(maybe.why), `${maybe.name}'s maybeboard tile does not show its why`);
+      await closeDialog(page);
+    }));
+
+  // A card on offer named as one in the deck: the page promises only that the deck's tile opens the deck's card.
+  test('R10: A deck card whose name a card on offer shares opens from the grid as the deck\'s card', () =>
+    open('offered-maybe', async ({ page, deck }) => {
+      const inDeck = byName(deck, 'Grim Bargain');
+      assert.ok(inDeck && offeredCards(deck).some(o => o.name === inDeck.name), 'no card on offer shares a deck card\'s name, so this test proves nothing');
+      await openCard(page, 'offered-maybe', inDeck.name);
+      const shown = await dialogShows(page);
+      assert.ok(shown.category.startsWith(inDeck.category) && !shown.category.includes('On offer'), `${inDeck.name}'s tile in the deck opens as "${shown.category}"`);
+      assert.equal(shown.why, inDeck.why, `${inDeck.name}'s tile in the deck opens with "${shown.why}"`);
+      await closeDialog(page);
+    }));
+
+  test('R10: An offered card with no name is no button that does nothing: every focusable element in #offer opens the dialog with its own reason', () =>
+    open('offered-nameless', async ({ page, deck }) => {
+      const nameless = offeredCards(deck).find(c => !c.name);
+      assert.ok(nameless && offeredCards(deck).some(c => c.name), 'the deck offers no nameless card beside a named one, so this test proves less than it says');
+      const FOCUSABLE = 'button, a[href], [tabindex]:not([tabindex="-1"])';
+      const offer = page.locator('#offer');
+      const reasons = offeredCards(deck).map(c => c.reason);
+      const openers = await offer.locator(FOCUSABLE).count();
+      assert.ok(openers >= 1, 'no card on offer takes the keyboard\'s focus, so this test proves nothing');
+      for (let i = 0; i < openers; i++) {
+        const opener = offer.locator(FOCUSABLE).nth(i);
+        const text = await opener.textContent();
+        const reason = reasons.find(r => r && text.includes(r));
+        await opener.click();
+        const opened = await until(() => dialog(page).count(), 1500);
+        assert.ok(opened, `the focusable element ${i + 1} in #offer, "${text.replace(/\s+/g, ' ').trim()}", opens no dialog`);
+        const shown = await dialogShows(page);
+        if (reason) assert.equal(shown.why, reason, `the focusable element holding "${reason}" opens with "${shown.why}"`);
+        await closeDialog(page);
+        assert.ok(await until(async () => (await dialog(page).count()) === 0), 'the dialog does not close');
+      }
+      // Nor is the nameless card's box a control of another kind that does nothing.
+      const control = await offer.evaluate((root, reason) => {
+        const at = [...root.querySelectorAll('*')].filter(e => e.textContent.includes(reason)).at(-1);
+        const c = at?.closest('button, a, [role="button"], [data-card], [onclick]');
+        if (!c || !root.contains(c)) return -1;
+        c.setAttribute('data-r10-control', '');
+        return 1;
+      }, nameless.reason);
+      if (control > 0) {
+        await offer.locator('[data-r10-control]').click();
+        assert.ok(await until(() => dialog(page).count(), 1500), 'the nameless card on offer is a control that opens no dialog');
+        assert.equal((await dialogShows(page)).why, nameless.reason, 'the nameless card on offer opens with another reason');
       }
     }));
 
