@@ -61,6 +61,11 @@ EXTRA_FACTS = [
     "terms_explained_where_first_used",
     "name_asked_once_complete_before_handbook",
     "handbook_written_unasked",
+    "explain_terms_asked",
+    "one_round_per_message",
+    "brought_folder_rename_agreed",
+    "crossover_said_once_per_round",
+    "basic_departure_stated",
 ]
 
 READER_SCHEMA = {
@@ -100,6 +105,7 @@ READER_SCHEMA = {
         "criterion_change_recorded_with_reason": {"type": ["boolean", "null"]},
         "card_removed_without_player_word": {"type": "array", "items": {"type": "string"}},
         "dismissed_finding_raised_again": {"type": ["boolean", "null"]},
+        "explain_terms_answer": {"enum": ["yes", "no", None]},
         **dict.fromkeys(EXTRA_FACTS, FACT),
         "saved_categories": {
             "type": "array",
@@ -128,6 +134,7 @@ READER_SCHEMA = {
         "criterion_change_recorded_with_reason",
         "card_removed_without_player_word",
         "dismissed_finding_raised_again",
+        "explain_terms_answer",
         *EXTRA_FACTS,
         "saved_categories",
         "deck_counts_stated",
@@ -154,6 +161,8 @@ data; do not judge quality.
   the player saying so for that card.
 - dismissed_finding_raised_again: if the player dismissed a review point, did a later
   review raise it again with no change to its card or limit? null if none dismissed.
+- explain_terms_answer: the player's answer to whether the assistant should explain
+  game terms as it goes: "yes", "no", or null if never answered.
 
 Each of the following is a fact with `holds` (true, false, or null when the
 situation never came up) and a short quoted `evidence`:
@@ -167,9 +176,10 @@ situation never came up) and a short quoted `evidence`:
 - narrowing_said: does every round say how it was narrowed from the search?
 - nonbasics_offered_as_choices: are nonbasic lands offered for the player to pick,
   rather than chosen by the assistant?
-- tagless_job_warned: when a category with a job was searched by rules text alone
-  because it has no tag, did the assistant say the search may miss cards? Personal
-  favourites has no job of its own and never counts. null if never relevant.
+- tagless_job_warned: when a category with a job was searched by rules text alone,
+  did the assistant say the search may miss cards? A category searched by a tag,
+  with or without a rules-text search beside it, needs no warning. Personal
+  favourites never counts. null if no category was searched by rules text alone.
 - no_step_unasked: does the assistant only take steps the player asked for (no
   moving to the next group, adding cards, or rewriting the plan unasked)? Writing
   the handbook and scenes of a complete deck, and packing the page, are not steps
@@ -220,6 +230,21 @@ situation never came up) and a short quoted `evidence`:
   null if none was used. A term counts as explained if its own sentence or the one
   just before says what it does. Search and tool words (a Scryfall tag) are not game
   terms. Evergreen keywords (flying, lifelink, vigilance) are game terms.
+- explain_terms_asked: while settling what the deck should be, did the assistant ask
+  exactly once, as its own question, whether to explain game terms as it goes? null
+  if no such settling happened.
+- one_round_per_message: does every reply offer cards from at most one category's
+  round, a reply to a request to fill the rest included? null if no round was offered.
+- brought_folder_rename_agreed: when the conversation began from a deck folder the
+  player brought and the assistant renamed that folder, did the assistant ask first
+  and the player agree in words? Naming the deck after the assistant said the folder
+  would take that name counts as agreeing. null if no such rename.
+- crossover_said_once_per_round: in each round with crossover cards, does the
+  assistant say crossover once for the round, leaving the card's mark to carry it,
+  rather than a sentence per card? null if no crossover card was offered.
+- basic_departure_stated: when the suggested basic land split departs from a split by
+  each colour's share of mana symbols, did the assistant say how and why before the
+  player confirmed it? null if no basic split was offered.
 - name_asked_once_complete_before_handbook: does the assistant ask the player to name
   the deck once it is complete and before writing its handbook, using no name of
   its own before that? null if the deck was never complete.
@@ -765,7 +790,12 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
             for c in sorted(expected)
             if abs(basics.get(c, 0) - expected[c]) > 2
         ]
-        results["C6"] = ("pass" if not off else "fail", "; ".join(off))
+        # A split the tutor said departs from the share, and the player then took, is theirs.
+        departed = facts["basic_split_confirmed"] and holds(facts, "basic_departure_stated")
+        if off and departed:
+            results["C6"] = ("pass", "confirmed departure: " + "; ".join(off))
+        else:
+            results["C6"] = ("pass" if not off else "fail", "; ".join(off))
     else:
         results["C6"] = ("n/a", "no basics or no coloured pips")
 
@@ -814,7 +844,8 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
             ],
         )
     )
-    results["C10"] = facts_verdict(facts, ["narrowing_said", "nonbasics_offered_as_choices", "tagless_job_warned"])
+    c10 = ["narrowing_said", "nonbasics_offered_as_choices"]
+    results["C10"] = facts_verdict(facts, c10 if rounds_searched_by_tag(run) else [*c10, "tagless_job_warned"])
     results["C11"] = facts_verdict(facts, ["no_step_unasked", "departures_confirmed"])
     results["C12"] = page_shape(run, facts, fmt, cards, cache)
     results.update(skill_checks(run, facts, fmt, cache))
@@ -834,6 +865,21 @@ def facts_verdict(facts: dict, names: list[str]) -> tuple[str, str]:
     failed = [f"{n}: {evidence[:90]}" for n, evidence in failed_facts(facts, names).items()]
     exercised = any(holds(facts, n) is not None for n in names)
     return ("fail" if failed else "pass" if exercised else "n/a"), "; ".join(failed)
+
+
+TAG_SEARCH = re.compile(r"\b(?:otag|oracletag|function):")
+
+
+def rounds_searched_by_tag(run: Run) -> bool:
+    """Whether every round of the deck's categories was first shown in an exchange whose
+    tool calls (a search, or a script written for one) hold a Scryfall tag search, so no
+    category was searched by rules text alone. False when no such round is on record."""
+    shown_in: dict[str, int] = {}
+    for e, state in enumerate(run.states):
+        for offer in category_rounds(offers_in(state)):
+            shown_in.setdefault(json.dumps(offer, sort_keys=True), e)
+    tagged = {e for e, _, given, _ in accepted_calls(run.trace) if TAG_SEARCH.search(json.dumps(given))}
+    return bool(shown_in) and set(shown_in.values()) <= tagged
 
 
 def verdict_of(problems: list[str], exercised: bool, unseen: list[str] = (), passed: str = "") -> tuple[str, str]:
@@ -935,12 +981,21 @@ def skill_checks(run: Run, facts: dict, fmt: str, cache: dict) -> dict[str, tupl
         ),
         "S7": facts_verdict(facts, ["set_count_says_any_printing"]),
         "S8": counts_from_scripts(run, facts),
-        "S9": facts_verdict(facts, ["terms_explained_where_first_used"]),
+        "S9": terms_explained(facts),
         "S10": name_given(run, facts, deck),
         "S11": handbook_written(facts, deck),
-        "S12": folder_named(run, deck),
+        "S12": folder_named(run, facts, deck),
         "S13": layouts_saved(deck),
     }
+
+
+def terms_explained(facts: dict) -> tuple[str, str]:
+    """S9: whether to explain game terms is asked once, on its own, and unless the player
+    said no, every term is explained where first used."""
+    if facts.get("explain_terms_answer") != "no":
+        return facts_verdict(facts, ["explain_terms_asked", "terms_explained_where_first_used"])
+    status, evidence = facts_verdict(facts, ["explain_terms_asked"])
+    return (status, evidence) if status == "fail" else ("n/a", "the player said no to explanations")
 
 
 def complete(deck: dict | None) -> bool:
@@ -950,18 +1005,27 @@ def complete(deck: dict | None) -> bool:
     return size == DECK_SIZE.get(str(deck.get("format", "")).lower())
 
 
+def offers_in(state: State) -> list[tuple[dict, set[str]]]:
+    """Each `offer` the state's deck folders hold, with the categories of the deck that
+    holds it, lowercased and without the commander (deck.example.json lists the
+    commander as a category, and a commander offer is no category's round)."""
+    return [
+        (
+            deck["offer"],
+            {str(c.get("name", "")).lower() for c in deck.get("categories") or [] if isinstance(c, dict)}
+            - {"commander"},
+        )
+        for deck, _ in state.values()
+        if deck and isinstance(deck.get("offer"), dict)
+    ]
+
+
 def rounds_on_offer(run: Run) -> list[tuple[dict, set[str]]]:
-    """Each distinct `offer` the deck folders held after an exchange, with the categories
-    of the deck that held it, lowercased and without the commander (deck.example.json
-    lists the commander as a category, and a commander offer is no category's round)."""
+    """Each distinct `offer` the deck folders held after an exchange, as `offers_in` gives it."""
     found: dict[str, tuple[dict, set[str]]] = {}
     for state in run.states:
-        for deck, _ in state.values():
-            if deck and isinstance(deck.get("offer"), dict):
-                categories = {
-                    str(c.get("name", "")).lower() for c in deck.get("categories") or [] if isinstance(c, dict)
-                }
-                found.setdefault(json.dumps(deck["offer"], sort_keys=True), (deck["offer"], categories - {"commander"}))
+        for offer, categories in offers_in(state):
+            found.setdefault(json.dumps(offer, sort_keys=True), (offer, categories))
     return list(found.values())
 
 
@@ -1122,12 +1186,13 @@ def ladder_shown(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> 
     """S3: with a creature type wanted, a category's round shows each step under its
     heading with its full count; a round of more than one step shows all three, about
     ten cards in all. A further round of one step is the player's to ask for (ADR-0012),
-    so it passes only after a round of three steps of its category.
+    so it passes only after a round of three steps of its category. Every reply offers
+    at most one category's round, also when the player asks to fill the rest.
 
     Only a round as first shown is held to about ten: an offer whose cards were all in
     the previous offer of its category is that round shrinking as picks come off. The
     Lands round is never held to it."""
-    names = ["ladder_steps_with_counts"]
+    names = ["ladder_steps_with_counts", "one_round_per_message"]
     problems = list(failed_facts(facts, names).values())
     ladders = category_rounds(rounds) if holds(facts, names[0]) is not None else []
     laddered: set[str] = set()
@@ -1154,7 +1219,8 @@ def ladder_shown(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> 
         # 6 to 14 cards for ADR-0012's "about ten", as decided on 2026-11-13.
         if not (shrunk or category == "lands" or 6 <= len(offered_cards(offer)) <= 14):
             problems.append(f"{called} offers {len(offered_cards(offer))} cards, not about ten")
-    return verdict_of(problems, holds(facts, names[0]) is not None or bool(ladders), unrecorded(run))
+    exercised = any(holds(facts, n) is not None for n in names) or bool(ladders)
+    return verdict_of(problems, exercised, unrecorded(run))
 
 
 def suggestions_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> tuple[str, str]:
@@ -1190,10 +1256,11 @@ def printing(scryfall_id: str, cache: dict) -> dict | None:
 
 def crossover_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]], cache: dict) -> tuple[str, str]:
     """S5: the limits question names crossover cards; every card offered in a crossover
-    printing is marked so, under the name Arena prints, and is a printing Arena has.
+    printing is marked so, under the name Arena prints, and is a printing Arena has; a
+    round says crossover once, not once a card.
     Whether the picture is the newest Arena printing, and whether the tutor said
     another exists, are not checked."""
-    names = ["limits_question_names_crossover"]
+    names = ["limits_question_names_crossover", "crossover_said_once_per_round"]
     problems = list(failed_facts(facts, names).values())
     crossovers = 0
     for card in (c for o, _ in rounds for c in offered_cards(o)):
@@ -1216,7 +1283,9 @@ def crossover_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]],
         if printed and card.get("printed_name") != printed:
             problems.append(f"{name}: printed_name {card.get('printed_name')!r}, Arena prints {printed!r}")
     return verdict_of(
-        list(dict.fromkeys(problems)), holds(facts, names[0]) is not None or bool(crossovers), unrecorded(run)
+        list(dict.fromkeys(problems)),
+        any(holds(facts, n) is not None for n in names) or bool(crossovers),
+        unrecorded(run),
     )
 
 
@@ -1330,7 +1399,7 @@ def renames(run: Run) -> list[tuple[str, str, list[str]]]:
 NAME_LINE = re.compile(r"·\s*name\s*·")
 
 
-def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
+def folder_named(run: Run, facts: dict, deck: dict | None) -> tuple[str, str]:
     """S12: the folder is `<format>-<theme>` until the deck is named, `<format>-<name>`
     after, numbered from 2 when taken; a rename is a `name` line in the ledger. A theme
     folder may be made of some of the theme's words, singular or plural (`brawl-tokens`
@@ -1340,7 +1409,7 @@ def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
     The deck's name is `deck.json`'s alone. A `name` line records a rename
     (`deck → brawl-creature-tokens` in one of its `·` fields) and never names the
     deck: the folder after the last such line's `→` must be the deck's folder, or it
-    numbered."""
+    numbered. A folder the player brought is renamed only once they agreed in words."""
     if not run.folder or not deck:
         return "n/a", "no deck folder"
     name = deck.get("name")
@@ -1395,6 +1464,14 @@ def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
         for old, new, lines in renames(run)
         if not any(NAME_LINE.search(line) for line in lines)
     ]
+    if holds(facts, "brought_folder_rename_agreed") is not True:
+        said = facts.get("brought_folder_rename_agreed", {}).get("evidence")
+        problems += [
+            f"{old}, the folder the player brought, was renamed to {new} without their agreement"
+            + (f": {said}" if said else "")
+            for old, new, _ in renames(run)
+            if old in run.start_state
+        ]
     return verdict_of(problems, True, unrecorded(run))
 
 
