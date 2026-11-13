@@ -555,9 +555,6 @@ TAG_AND_TEXT_SEARCHES = {
         *bash("python3 -I round.py brawl-creature-tokens/deck.json", exchange=1),
     ],
 }
-TEXT_ONLY_SEARCH = bash(
-    """python3 -I sf.py 'o:"draw" (o:creature or o:token) legal:brawl game:arena id<=gw'""", exchange=1
-)
 UNWARNED = fact(False, "Message 3 ran a rules-text search for draw alongside the tag search and never warned")
 
 
@@ -572,13 +569,14 @@ def searched_round(trace):
     return fake_run([], trace, states=states)
 
 
-def test_c10_ignores_an_unwarned_job_whose_round_was_searched_by_a_tag():
+def test_c10_judges_the_warning_from_the_reader_whatever_tags_the_round_was_searched_by():
     f = facts(narrowing_said=fact(True, "Colour is the criterion that narrows most"), tagless_job_warned=UNWARNED)
     for round_of, trace in TAG_AND_TEXT_SEARCHES.items():
         status, evidence = verdict(searched_round(trace), "C10", f)
-        assert status == "pass", f"the round of {round_of} searched its category by an otag: {(status, evidence)}"
-    status, evidence = verdict(searched_round(TEXT_ONLY_SEARCH), "C10", f)
-    assert status == "fail", f"a round searched by rules text alone, unwarned: {(status, evidence)}"
+        assert status == "fail", (
+            f"the round of {round_of} searched by an otag, and the reader found no warning: {(status, evidence)}"
+        )
+        assert UNWARNED["evidence"] in evidence, f"the evidence does not quote the reader: {evidence}"
 
 
 def test_c5_accepts_a_count_without_the_commander():
@@ -2906,6 +2904,20 @@ def test_s12_fails_a_brought_folder_renamed_without_the_players_agreement():
     assert status == "fail", f"no agreement was found for the rename: {(status, evidence)}"
     status, evidence = verdict(r, "S12", facts(**RENAME_AGREED))
     assert status == "pass", f"the player agreed to the rename: {(status, evidence)}"
+
+
+def test_s12_fails_a_brought_folder_renamed_unasked_even_without_a_name_line():
+    r = renamed_from_a_start("brawl-creature-tokens", line=GRASP_LINE)
+    status, evidence = verdict(r, "S12", facts(brought_folder_rename_agreed=fact(False, UNASKED_RENAME)))
+    assert status == "fail", (
+        f"the start's folder was renamed on silence, its ledger naming no rename: {(status, evidence)}"
+    )
+
+
+def test_s12_is_not_applicable_to_an_unnamed_start_never_renamed():
+    r = renamed_from_a_start("deck", line=GRASP_LINE)
+    status, evidence = verdict(r, "S12", facts(brought_folder_rename_agreed=fact(False, UNASKED_RENAME)))
+    assert status == "n/a", f"the start stayed in its folder, so there was no rename to agree to: {(status, evidence)}"
 
 
 def test_s12_asks_agreement_only_for_a_folder_the_player_brought():
