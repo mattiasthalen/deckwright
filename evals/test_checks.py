@@ -63,6 +63,7 @@ def facts(**over):
         "dismissed_finding_raised_again": None,
         "saved_categories": [],
         "deck_counts_stated": [],
+        "explain_terms_answer": None,
         **{k: FACT_NULL for k in [*checks.EXTRA_FACTS, *READER_FACTS_ADDED]},
     }
     base.update(over)
@@ -459,6 +460,45 @@ def test_c6_compares_basics_of_a_colour_with_no_pips():
     assert result[0] == "fail", f"4 Plains in a deck with no white pips: {result}"
 
 
+# The C6 failure of brawl-rats, round of 2026-11-13 08:32, exchange 26: 11 black pips and 2
+# blue against 14 Swamps and 6 Islands.
+PIP_SHARE_CACHE = {
+    "Rat Colony": card("Rat Colony", "Creature — Rat", "{1}{B}", "B"),
+    "Counterspell": card("Counterspell", "Instant", "{U}{U}", "U"),
+    "Swamp": card("Swamp", "Basic Land — Swamp", "", "B"),
+    "Island": card("Island", "Basic Land — Island", "", "U"),
+}
+OFF_THE_PIP_SHARE = Counter({"Rat Colony": 11, "Counterspell": 1, "Swamp": 14, "Island": 6})
+DEPARTURE_STATED = (
+    "A purely proportional split would be about 17 Swamps and 3 Islands. I suggest 14 Swamps and 6 Islands "
+    "instead, because Counterspell needs two blue"
+)
+
+
+def c6_off_the_pip_share(**over):
+    r = fake_run([], [])
+    r.final_list = lambda: (OFF_THE_PIP_SHARE, None)
+    r.read = lambda: facts(format="standard", **over)
+    return checks.check(r, PIP_SHARE_CACHE)["C6"]
+
+
+def test_c6_passes_a_basic_split_confirmed_after_its_departure_from_the_pip_share_was_stated():
+    status, evidence = c6_off_the_pip_share(
+        basic_split_confirmed=True, basic_departure_stated=fact(True, DEPARTURE_STATED)
+    )
+    assert status == "pass", f"the player took 14 Swamps and 6 Islands told how they depart: {(status, evidence)}"
+    assert "confirmed departure" in evidence, f"the evidence does not say the departure was confirmed: {evidence}"
+    asked_of_the_reader("basic_departure_stated")
+
+
+def test_c6_fails_a_split_off_the_pip_share_unless_it_was_both_stated_and_confirmed():
+    for confirmed, stated in ((True, False), (False, True)):
+        status, evidence = c6_off_the_pip_share(
+            basic_split_confirmed=confirmed, basic_departure_stated=fact(stated, DEPARTURE_STATED)
+        )
+        assert status == "fail", f"confirmed {confirmed}, departure stated {stated}: {(status, evidence)}"
+
+
 def test_c12_finds_a_plural_creature_type():
     cache = {"Llanowar Elves": card("Llanowar Elves", "Creature — Elf Druid", "{G}", "G")}
     r = fake_run([], [])
@@ -496,6 +536,47 @@ def test_c10_leaves_the_ladder_to_s3():
         name for name in ladder_facts if name in checks.READER_SCHEMA["properties"] or name in checks.READER_PROMPT
     ]
     assert not asked, f"the reader is still asked for: {asked}"
+
+
+# How brawl-link-mid-build searched its round in the rounds of 2026-11-13 12:25 and 09:42,
+# exchange 1: a tag and rules text together, and C10 failed on tagless_job_warned in both.
+TAG_AND_TEXT_SEARCHES = {
+    "122508": bash(
+        "python3 -I sf.py 'legal:brawl game:arena id<=gw -t:land' "
+        """'{"tag":"otag:card-advantage","tagdraw":"otag:draw","text":"o:\\"draw\\" (o:creature or o:token)"}'""",
+        exchange=1,
+    ),
+    "094257": [
+        *write(
+            "scratchpad/round.py",
+            "TAG = 'otag:synergy-token'\nTEXT = '(o:\"whenever a creature token\" or o:\"whenever a token\")'\n",
+            exchange=1,
+        ),
+        *bash("python3 -I round.py brawl-creature-tokens/deck.json", exchange=1),
+    ],
+}
+UNWARNED = fact(False, "Message 3 ran a rules-text search for draw alongside the tag search and never warned")
+
+
+def searched_round(trace):
+    """A run whose Card draw round was first shown in exchange 1, searched by `trace`."""
+    categories = [{"name": "Commander", "target": 1}, {"name": "Card draw", "target": 8}]
+    shown = offer(group(None, ["Infernal Grasp", "Feed the Swarm"]), category="Card draw")
+    states = [
+        {"brawl-creature-tokens": (deck_json(categories=categories), ledger(LEDGER_LINE))},
+        {"brawl-creature-tokens": (deck_json(categories=categories, offer=shown), ledger(LEDGER_LINE))},
+    ]
+    return fake_run([], trace, states=states)
+
+
+def test_c10_judges_the_warning_from_the_reader_whatever_tags_the_round_was_searched_by():
+    f = facts(narrowing_said=fact(True, "Colour is the criterion that narrows most"), tagless_job_warned=UNWARNED)
+    for round_of, trace in TAG_AND_TEXT_SEARCHES.items():
+        status, evidence = verdict(searched_round(trace), "C10", f)
+        assert status == "fail", (
+            f"the round of {round_of} searched by an otag, and the reader found no warning: {(status, evidence)}"
+        )
+        assert UNWARNED["evidence"] in evidence, f"the evidence does not quote the reader: {evidence}"
 
 
 def test_c5_accepts_a_count_without_the_commander():
@@ -1085,6 +1166,20 @@ def test_c12_finds_the_page_in_the_workspace_folder_without_a_publish():
     assert not missing, f"the folder holds the page and C12 says it is missing: {evidence}"
 
 
+def test_c12_asks_no_card_images_of_a_folder_holding_no_card_and_no_offer():
+    r = fake_run([], [], workspace=deck_folder(deck_json([]), **{"brawl-rats/index.html": "<title>Deck</title>"}))
+    _, evidence = verdict(r, "C12")
+    assert "no card images" not in evidence, f"the folder holds no card to picture, and C12 asks for images: {evidence}"
+
+
+def test_c12_fails_a_folder_holding_an_offer_and_no_card_images():
+    on_offer = deck_json([], offer=offer(group(None, ["Infernal Grasp", "Feed the Swarm"])))
+    r = fake_run([], [], workspace=deck_folder(on_offer, **{"brawl-rats/index.html": "<title>Deck</title>"}))
+    status, evidence = verdict(r, "C12")
+    assert status == "fail", f"the offer's cards have no images in the folder: {(status, evidence)}"
+    assert "no card images" in evidence, f"the evidence does not name the missing images: {evidence}"
+
+
 def test_states_are_the_deck_folders_after_each_exchange_in_exchange_order():
     states = [{"brawl-rats": (deck_json(name=f"Deck {n}"), ledger(f"- line {n}"))} for n in range(11)]
     states[3] = {"brawl-rats": ("{not json", ledger("- line 3"))}
@@ -1536,13 +1631,16 @@ def test_s2_fails_a_round_whose_offer_holds_no_cards():
     assert not passed, f"an offer with no cards counts as putting the round on offer: {passed}"
 
 
-def round_then(reply, cards):
+def round_then(reply, cards, packed_again=True, then=ON_OFFER):
     """ROUND written and packed in exchange 0, then a reply in exchange 1 that the reader
-    saw offer `cards`, packed again with deck.json still holding ROUND's offer."""
+    saw offer `cards`, with deck.json holding `then` after it; `packed_again` False
+    leaves exchange 1 without a run of pack.py."""
     messages = [*ROUND, {"role": "player", "text": "Next?"}, {"role": "deckwright", "text": reply}]
-    trace = bash(PACK, 0, answer=f"{WORKSPACE}/brawl-rats.html") + bash(PACK, 1, answer=f"{WORKSPACE}/brawl-rats.html")
-    state = {"brawl-rats": (ON_OFFER, ledger(LEDGER_LINE))}
-    r = fake_run(messages, trace, states=[state, state])
+    trace = bash(PACK, 0, answer=f"{WORKSPACE}/brawl-rats.html")
+    if packed_again:
+        trace += bash(PACK, 1, answer=f"{WORKSPACE}/brawl-rats.html")
+    states = [{"brawl-rats": (ON_OFFER, ledger(LEDGER_LINE))}, {"brawl-rats": (then, ledger(LEDGER_LINE))}]
+    r = fake_run(messages, trace, states=states)
     return r, facts(offers=[*ROUND_FACTS["offers"], {"message": 3, "cards": cards}])
 
 
@@ -1561,6 +1659,38 @@ def test_s2_passes_a_round_shown_again_unchanged():
     )
     status, evidence = verdict(r, "S2", f)
     assert status == "pass", f"the same round, shown again from the same offer: {(status, evidence)}"
+
+
+def test_s2_passes_a_round_shown_again_with_nothing_saved_since_the_last_pack():
+    # From the round of 2026-11-13: brawl-fill-the-rest's exchange 3 showed the round
+    # again, its folder unchanged since exchange 2 ran pack.py, and named the packed file.
+    r, f = round_then(
+        "Still on offer in brawl-rats.html: Infernal Grasp, Feed the Swarm.",
+        ["Infernal Grasp", "Feed the Swarm"],
+        packed_again=False,
+    )
+    status, evidence = verdict(r, "S2", f)
+    assert status == "pass", (
+        f"the packed file already shows the round, as nothing was saved since: {(status, evidence)}"
+    )
+
+
+def test_s2_fails_a_round_shown_again_with_a_save_since_the_last_pack_and_no_pack():
+    changed = deck_json(
+        [WICK, deck_card("Rat Colony"), deck_card("Swamp", 35, category="Lands")],
+        offer=offer(group(None, ["Infernal Grasp", "Feed the Swarm"])),
+    )
+    r, f = round_then(
+        "Swamps are in; still on offer in brawl-rats.html: Infernal Grasp, Feed the Swarm.",
+        ["Infernal Grasp", "Feed the Swarm"],
+        packed_again=False,
+        then=changed,
+    )
+    status, evidence = verdict(r, "S2", f)
+    assert status == "fail", f"exchange 1 saved the Swamps and the packed file predates them: {(status, evidence)}"
+    assert "exchange 1" in evidence and "pack.py" in evidence, (
+        f"the evidence does not name the exchange and pack.py: {evidence}"
+    )
 
 
 def test_s2_passes_an_offer_holding_half_the_cards_shown_one_by_a_face():
@@ -1944,6 +2074,30 @@ def test_the_examples_offer_is_a_ladder_s3_passes():
     assert status == "pass", f"the example the skill copies offers a round S3 fails: {evidence}"
 
 
+# brawl-fill-the-rest, round of 2026-11-13 09:42, exchange 3, after "just fill in the rest for me".
+EVERY_ROUND_AT_ONCE = "I've laid out every remaining category as one round with my picks marked"
+
+
+def every_round_at_once(holds):
+    shown = offer(group(None, ["Infernal Grasp", "Feed the Swarm"]))
+    r = fake_run([], [], states=[{"brawl-creature-tokens": (on_offer(shown), ledger(LEDGER_LINE))}])
+    return r, facts(one_round_per_message=fact(holds, EVERY_ROUND_AT_ONCE))
+
+
+def test_s3_fails_a_reply_that_offers_more_than_one_categorys_round():
+    r, f = every_round_at_once(False)
+    status, evidence = verdict(r, "S3", f)
+    assert status == "fail", f"one reply offered every remaining category: {(status, evidence)}"
+    assert EVERY_ROUND_AT_ONCE in evidence, f"the evidence does not quote the reply: {evidence}"
+    asked_of_the_reader("one_round_per_message")
+
+
+def test_s3_passes_one_round_per_message_without_a_creature_type():
+    r, f = every_round_at_once(True)
+    status, evidence = verdict(r, "S3", f)
+    assert status == "pass", f"each reply offered one category's round: {(status, evidence)}"
+
+
 # ---------- S4: a round marks the tutor's picks ----------
 
 
@@ -2025,6 +2179,13 @@ def reader_entry(name):
     """The reader prompt's entry for the fact `name`, its lines joined."""
     entry = checks.READER_PROMPT.split(f"- {name}:", 1)[1].split("\n- ", 1)[0]
     return " ".join(entry.split())
+
+
+def asked_of_the_reader(name):
+    """The reader's schema requires the fact `name` and its prompt has an entry for it."""
+    schema = checks.READER_SCHEMA
+    assert name in schema["properties"] and name in schema["required"], f"the reader's schema lacks {name}"
+    assert f"- {name}:" in checks.READER_PROMPT, f"the reader prompt has no entry for {name}"
 
 
 def test_s4_asks_the_reader_only_whether_the_reply_marks_cards():
@@ -2166,6 +2327,19 @@ def test_s5_is_not_applicable_to_a_run_with_no_record_of_its_folder():
     assert (status, NO_RECORD in evidence) == ("n/a", True), (status, evidence)
 
 
+# brawl-rats, round of 2026-11-13 09:42: said of card after card in its rounds.
+CROSSOVER_PER_CARD = "Its newest Arena printing is a **crossover** printing, and another exists"
+
+
+def test_s5_fails_crossover_said_card_by_card_rather_than_once_per_round():
+    r, f = crossover_round(offered(ASHCOAT, crossover=True, printed_name=ASHCOAT_PRINTED))
+    f["crossover_said_once_per_round"] = fact(False, CROSSOVER_PER_CARD)
+    status, evidence = verdict(r, "S5", f, ASHCOAT_PRINTING)
+    assert status == "fail", f"the reply said crossover once a card, not once a round: {(status, evidence)}"
+    assert CROSSOVER_PER_CARD in evidence, f"the evidence does not quote the reply: {evidence}"
+    asked_of_the_reader("crossover_said_once_per_round")
+
+
 # ---------- S6 to S11: what the reader reads ----------
 
 
@@ -2271,6 +2445,46 @@ def test_s9_tells_the_reader_what_counts_as_explained_and_as_a_game_term_in_the_
     )
     said = reader_entry("terms_explained_where_first_used")
     assert said.endswith(wanted), f"the reader is asked: {said}"
+
+
+UNEXPLAINED = "1/1 lifelink Vampires"
+
+
+def terms_verdict(answer, explained=False, asked=None):
+    f = facts(
+        explain_terms_answer=answer,
+        terms_explained_where_first_used=fact(explained, UNEXPLAINED),
+        explain_terms_asked=fact(asked, "Shall I explain game terms such as flying as we go?"),
+    )
+    return verdict(fake_run([], [], workspace=deck_folder()), "S9", f)
+
+
+def test_s9_is_na_when_the_player_declined_explanations():
+    status, evidence = terms_verdict("no")
+    assert status == "n/a", f"the player said no to explanations: {(status, evidence)}"
+    for answer in ("yes", None):
+        status, evidence = terms_verdict(answer)
+        assert status == "fail", f"answered {answer!r}, and a term went unexplained: {(status, evidence)}"
+        assert UNEXPLAINED in evidence, f"the evidence does not quote the term: {evidence}"
+
+
+def test_s9_fails_when_explaining_terms_was_not_asked_once_as_its_own_question():
+    said = "asked twice: in the format message and again with the colours"
+    f = facts(
+        explain_terms_answer="yes",
+        terms_explained_where_first_used=fact(True, "lifelink (you gain that much life)"),
+        explain_terms_asked=fact(False, said),
+    )
+    status, evidence = verdict(fake_run([], [], workspace=deck_folder()), "S9", f)
+    assert status == "fail", f"the question was not asked once on its own: {(status, evidence)}"
+    assert said in evidence, f"the evidence does not quote the reader: {evidence}"
+    status, evidence = terms_verdict("yes", explained=True, asked=True)
+    assert status == "pass", f"asked once and every term explained: {(status, evidence)}"
+
+
+def test_s9_asks_the_reader_whether_and_how_explaining_terms_was_asked():
+    for name in ("explain_terms_answer", "explain_terms_asked"):
+        asked_of_the_reader(name)
 
 
 def test_s11_passes_a_complete_deck_with_handbook_and_scenes_unasked():
@@ -2637,6 +2851,7 @@ def test_s12_is_not_applicable_to_a_run_with_no_record_of_its_folder():
 
 
 START_RENAME_LINE = "- 2026-11-12 · name · deck → brawl-the-whorled-swarm · The player named it The Whorled Swarm"
+RENAME_AGREED = {"brought_folder_rename_agreed": fact(True, "Shall I rename the folder deck? Yes, go ahead.")}
 
 
 def named_from_a_start(folder, gained=(START_RENAME_LINE,), taken=None):
@@ -2652,13 +2867,15 @@ def named_from_a_start(folder, gained=(START_RENAME_LINE,), taken=None):
 
 
 def test_s12_passes_a_start_renamed_by_its_name_once_its_ledger_gains_a_name_line():
-    status, evidence = verdict(named_from_a_start("brawl-the-whorled-swarm"), "S12", facts(**NAME_FACTS))
+    status, evidence = verdict(
+        named_from_a_start("brawl-the-whorled-swarm"), "S12", facts(**NAME_FACTS, **RENAME_AGREED)
+    )
     assert status == "pass", f"the start was named and its folder renamed by the name: {(status, evidence)}"
 
 
 def test_s12_passes_a_start_renamed_by_its_name_numbered_when_taken():
     r = named_from_a_start("brawl-the-whorled-swarm-2", taken="brawl-the-whorled-swarm")
-    status, evidence = verdict(r, "S12", facts(**NAME_FACTS))
+    status, evidence = verdict(r, "S12", facts(**NAME_FACTS, **RENAME_AGREED))
     assert status == "pass", f"brawl-the-whorled-swarm was taken by another deck: {(status, evidence)}"
 
 
@@ -2671,7 +2888,7 @@ def test_s12_fails_a_start_named_in_its_ledger_and_left_in_its_folder():
 
 
 def test_s12_fails_a_start_renamed_by_another_name_than_its_decks():
-    status, evidence = verdict(named_from_a_start("brawl-wicks-rats"), "S12", facts(**NAME_FACTS))
+    status, evidence = verdict(named_from_a_start("brawl-wicks-rats"), "S12", facts(**NAME_FACTS, **RENAME_AGREED))
     assert status == "fail", f"named The Whorled Swarm and put in brawl-wicks-rats: {(status, evidence)}"
     assert "brawl-wicks-rats" in evidence, f"the evidence does not name the folder: {evidence}"
 
@@ -2679,6 +2896,16 @@ def test_s12_fails_a_start_renamed_by_another_name_than_its_decks():
 def test_s12_is_not_applicable_to_a_start_whose_ledger_gains_no_name_line():
     status, evidence = verdict(named_from_a_start("deck", gained=(GRASP_LINE,)), "S12")
     assert status == "n/a", f"the start was never named, so its folder is the runner's: {(status, evidence)}"
+
+
+def test_s12_is_not_applicable_to_a_start_whose_ledger_gains_only_a_name_line_naming_the_deck():
+    # From the round of 2026-11-13: brawl-fill-the-rest's runs 1 and 3, where the tutor
+    # asked to rename the folder and the player declined or did not answer.
+    line = "- 2026-11-13 · name · The Whorled Swarm · the player named the deck"
+    status, evidence = verdict(named_from_a_start("deck", gained=(line,)), "S12", facts(**NAME_FACTS))
+    assert status == "n/a", (
+        f"the name line names the deck and renames nothing, so its folder is the runner's: {(status, evidence)}"
+    )
 
 
 TOKENS_RENAME_LINE = "- 2026-11-13 · name · deck → brawl-creature-tokens · Named by the theme, the deck has no name yet"
@@ -2697,27 +2924,66 @@ def renamed_from_a_start(folder, line=TOKENS_RENAME_LINE, theme="Creature tokens
 
 def test_s12_passes_an_unnamed_start_renamed_to_its_theme_folder():
     # From the round of 2026-11-13: the start in `deck`, renamed for the theme, and the deck still unnamed.
-    status, evidence = verdict(renamed_from_a_start("brawl-creature-tokens"), "S12")
+    status, evidence = verdict(renamed_from_a_start("brawl-creature-tokens"), "S12", facts(**RENAME_AGREED))
     assert status == "pass", f"the folder is the theme's and the one the name line names: {(status, evidence)}"
 
 
 def test_s12_passes_an_unnamed_start_renamed_to_its_theme_folder_numbered_when_taken():
     r = renamed_from_a_start("brawl-creature-tokens-2", taken="brawl-creature-tokens")
-    status, evidence = verdict(r, "S12")
+    status, evidence = verdict(r, "S12", facts(**RENAME_AGREED))
     assert status == "pass", f"brawl-creature-tokens was taken by another deck: {(status, evidence)}"
 
 
 def test_s12_fails_a_start_in_another_folder_than_its_name_line_names():
-    status, evidence = verdict(renamed_from_a_start("brawl-tokens"), "S12")
+    status, evidence = verdict(renamed_from_a_start("brawl-tokens"), "S12", facts(**RENAME_AGREED))
     assert status == "fail", f"the name line renames deck to brawl-creature-tokens: {(status, evidence)}"
     assert "brawl-creature-tokens" in evidence, f"the evidence does not name the folder the line names: {evidence}"
 
 
 def test_s12_takes_no_name_from_a_name_line():
     line = "- 2026-11-13 · name · The Whorled Swarm · deck → brawl-the-whorled-swarm"
-    status, evidence = verdict(renamed_from_a_start("brawl-the-whorled-swarm", line, theme="Rats"), "S12")
+    status, evidence = verdict(
+        renamed_from_a_start("brawl-the-whorled-swarm", line, theme="Rats"), "S12", facts(**RENAME_AGREED)
+    )
     assert status == "fail", f"deck.json has no name, so the folder is the theme's, brawl-rats: {(status, evidence)}"
     assert "brawl-rats" in evidence, f"the evidence does not name the theme's folder: {evidence}"
+
+
+# brawl-link-mid-build, round of 2026-11-13 09:42: exchange 0 said it, the player answered
+# "Let's do token payoffs next.", and exchange 1 renamed deck with "the player did not object".
+UNASKED_RENAME = "I'll rename it when I next save, unless you'd rather I didn't."
+
+
+def test_s12_fails_a_brought_folder_renamed_without_the_players_agreement():
+    r = renamed_from_a_start("brawl-creature-tokens")
+    status, evidence = verdict(r, "S12", facts(brought_folder_rename_agreed=fact(False, UNASKED_RENAME)))
+    assert status == "fail", f"the start's folder was renamed on silence: {(status, evidence)}"
+    assert UNASKED_RENAME in evidence, f"the evidence does not quote the reader: {evidence}"
+    status, evidence = verdict(r, "S12", facts(brought_folder_rename_agreed=fact(None, "")))
+    assert status == "fail", f"no agreement was found for the rename: {(status, evidence)}"
+    status, evidence = verdict(r, "S12", facts(**RENAME_AGREED))
+    assert status == "pass", f"the player agreed to the rename: {(status, evidence)}"
+
+
+def test_s12_fails_a_brought_folder_renamed_unasked_even_without_a_name_line():
+    r = renamed_from_a_start("brawl-creature-tokens", line=GRASP_LINE)
+    status, evidence = verdict(r, "S12", facts(brought_folder_rename_agreed=fact(False, UNASKED_RENAME)))
+    assert status == "fail", (
+        f"the start's folder was renamed on silence, its ledger naming no rename: {(status, evidence)}"
+    )
+
+
+def test_s12_is_not_applicable_to_an_unnamed_start_never_renamed():
+    r = renamed_from_a_start("deck", line=GRASP_LINE)
+    status, evidence = verdict(r, "S12", facts(brought_folder_rename_agreed=fact(False, UNASKED_RENAME)))
+    assert status == "n/a", f"the start stayed in its folder, so there was no rename to agree to: {(status, evidence)}"
+
+
+def test_s12_asks_agreement_only_for_a_folder_the_player_brought():
+    asked_of_the_reader("brought_folder_rename_agreed")
+    f = facts(**NAME_FACTS, brought_folder_rename_agreed=fact(False, "renamed when the player named it"))
+    status, evidence = verdict(named_run(), "S12", f)
+    assert status == "pass", f"the folder was the tutor's own, not one the player brought: {(status, evidence)}"
 
 
 def test_the_runner_lets_deckwright_rename_a_folder_with_mv():

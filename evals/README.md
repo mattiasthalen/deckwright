@@ -44,13 +44,13 @@ got no check.
 | C3 | Every card shown was looked up on Scryfall earlier in that conversation | AC13, AC22 |
 | C4 | Every pick is written to `deck.json` in the exchange it is made | AC28, AC29, AC32 |
 | C5 | The review's type counts match Scryfall's type lines | AC34 |
-| C6 | The basic split is within two of each colour's share of mana symbols | AC25 |
+| C6 | The basic split is within two of each colour's share of mana symbols, or the player confirmed it after the tutor said how and why it departs | AC25 |
 | C7 | The brief's pressure holds (illegal card out, no blind fill, change recorded, dismissal kept) | AC19, AC37, AC42, AC43 |
 | C8 | The final list is the right size, with a commander for Brawl, and every card is on Arena | AC40 |
 | C9 | One question at a time, what is left said after each answer, no card search before the criteria, no question about strength or price | AC1, AC2, AC3 |
-| C10 | Narrowing said, nonbasics offered, tagless gaps warned; the ladder is S3's | AC14, AC15, AC16, AC24 |
+| C10 | Narrowing said, nonbasics offered, a category searched by rules text alone warned, each as the reader finds it; the ladder is S3's | AC14, AC15, AC16, AC24 |
 | C11 | No step unasked; every departure from the template said, reasoned and confirmed | AC11, AC26, the intent's "never assume what the player wants next" |
-| C12 | A deck folder with `index.html`, `deck.json`, `LEDGER.md` and card images; the template's land count and number of categories; no creature-type category | AC8, AC9, AC10, AC23, AC27, AC30 |
+| C12 | A deck folder with `index.html`, `deck.json`, `LEDGER.md`, and card images once it holds a card or an offer; the template's land count and number of categories; no creature-type category | AC8, AC9, AC10, AC23, AC27, AC30 |
 
 Free-text outcomes (which cards the player confirmed, what a review counted) are
 extracted once per run by a reader model into `reader.json`, and code decides C1 to
@@ -74,17 +74,20 @@ and a start as copied in into `after/start/`. The checks read these as `Run.stat
 
 - a **save** is an exchange that changed a `deck.json` or made a new deck folder,
   not a publish (C4); S2 needs every save, as every exchange that offers cards, to
-  run `pack.py` and name the packed file in its reply, a link beside it or not. The
-  packed file is `<deck folder name>.html` as `pack.py` prints it: the printed page
-  of the folder argument's name, else the last printed page that is not `index.html`;
+  run `pack.py` and name the packed file in its reply, a link beside it or not; an
+  exchange that offers cards with nothing saved since the last run of `pack.py` may
+  name the file that run packed instead. The packed file is `<deck folder name>.html`
+  as `pack.py` prints it: the printed page of the folder argument's name, else the
+  last printed page that is not `index.html`;
 - a **pick** is saved when its card is in `deck.json` after its exchange and was not
   before (or its count rose), and the ledger gained a line naming it (S1);
 - a **round** is each distinct `offer` the states hold; S2 needs one after every
   exchange that offers cards, or review swaps the maybeboard gained in it (entries
   of `kind: "swap"`); S3 and S4 judge the rounds of the deck's categories other
-  than Commander (S3 only when a creature type was wanted, and holds a round as
-  first shown to 6 to 14 cards: an offer whose cards were all in the previous offer
-  of its category is that round shrinking, and the Lands round is exempt; S4 needs
+  than Commander (S3's ladder only when a creature type was wanted; one round per
+  message in every run. S3 holds a round as first shown to 6 to 14 cards: an offer
+  whose cards were all in the previous offer of its category is that round
+  shrinking, and the Lands round is exempt; S4 needs
   a card marked `suggested` and a `reason` on every card, and the reader judges
   only that the reply marks them), and S5 judges every offered card;
 - a **review** is judged against the deck as it stood after the review's exchange
@@ -96,7 +99,10 @@ and a start as copied in into `after/start/`. The checks read these as `Run.stat
   the last line's `→` must be the deck's, numbered or not. The deck's name comes only
   from `deck.json`, so while it is null the folder is judged by the theme. A run
   from a start is judged for its folder only once its ledger gains a `name` line
-  that `after/start` lacks; until then the folder is the runner's, and S12 is n/a.
+  recording a rename that `after/start` lacks or its folder is renamed; until then
+  the folder is the runner's, and S12 is n/a.
+  Renaming the folder of a start needs the player's agreement in words, which the
+  reader finds.
 
 S7 is the reader's alone: a set limit is saved as a criterion of kind `limit`, like
 any other, so no saved field says a set was named.
@@ -153,6 +159,10 @@ into `start/`, which the checks read.
   no count. A count said without digits is not judged, and a stated 0 passes when
   any python3 command printed in that exchange, since a count by category leaves out
   the category that has none.
+- Whether a category was searched by rules text alone is the reader's to say, from
+  the conversation; C10 reads no tool call for a tag search, because tool text
+  cannot tell which category a search was for, nor a round that shrinks as picks
+  come off from a new one.
 - When several rounds are shown in one exchange, only the last `offer` is on
   record, so S3, S4 and S5 see only that round.
 - S2 cannot see a file sent into the chat, since runs may not send one; it checks
