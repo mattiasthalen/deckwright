@@ -42,3 +42,20 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: node --test tests/*.test.cjs
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      # npm run lint runs ruff through uvx.
+      - uses: astral-sh/setup-uv@v7
+      - run: npm ci
+      - run: npm run lint
