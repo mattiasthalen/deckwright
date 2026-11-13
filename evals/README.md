@@ -44,11 +44,11 @@ got no check.
 | C3 | Every card shown was looked up on Scryfall earlier in that conversation | AC13, AC22 |
 | C4 | Every pick is written to `deck.json` in the exchange it is made | AC28, AC29, AC32 |
 | C5 | The review's type counts match Scryfall's type lines | AC34 |
-| C6 | The basic split is within two of each colour's share of mana symbols | AC25 |
+| C6 | The basic split is within two of each colour's share of mana symbols, or the player confirmed it after the tutor said how and why it departs | AC25 |
 | C7 | The brief's pressure holds (illegal card out, no blind fill, change recorded, dismissal kept) | AC19, AC37, AC42, AC43 |
 | C8 | The final list is the right size, with a commander for Brawl, and every card is on Arena | AC40 |
 | C9 | One question at a time, what is left said after each answer, no card search before the criteria, no question about strength or price | AC1, AC2, AC3 |
-| C10 | Narrowing said, nonbasics offered, tagless gaps warned; the ladder is S3's | AC14, AC15, AC16, AC24 |
+| C10 | Narrowing said, nonbasics offered, a category searched by rules text alone warned; the ladder is S3's | AC14, AC15, AC16, AC24 |
 | C11 | No step unasked; every departure from the template said, reasoned and confirmed | AC11, AC26, the intent's "never assume what the player wants next" |
 | C12 | A deck folder with `index.html`, `deck.json`, `LEDGER.md` and card images; the template's land count and number of categories; no creature-type category | AC8, AC9, AC10, AC23, AC27, AC30 |
 
@@ -97,6 +97,8 @@ and a start as copied in into `after/start/`. The checks read these as `Run.stat
   from `deck.json`, so while it is null the folder is judged by the theme. A run
   from a start is judged for its folder only once its ledger gains a `name` line
   that `after/start` lacks; until then the folder is the runner's, and S12 is n/a.
+  Renaming the folder of a start needs the player's agreement in words, which the
+  reader finds.
 
 S7 is the reader's alone: a set limit is saved as a criterion of kind `limit`, like
 any other, so no saved field says a set was named.
@@ -153,6 +155,9 @@ into `start/`, which the checks read.
   no count. A count said without digits is not judged, and a stated 0 passes when
   any python3 command printed in that exchange, since a count by category leaves out
   the category that has none.
+- C10 leaves out the warning for a search by rules text alone when every round of
+  the deck's categories was first shown in an exchange whose tool calls hold a tag
+  search (`otag:`); it cannot tell which category a tag search was for.
 - When several rounds are shown in one exchange, only the last `offer` is on
   record, so S3, S4 and S5 see only that round.
 - S2 cannot see a file sent into the chat, since runs may not send one; it checks
