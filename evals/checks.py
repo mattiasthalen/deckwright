@@ -237,8 +237,7 @@ situation never came up) and a short quoted `evidence`:
   round, a reply to a request to fill the rest included? null if no round was offered.
 - brought_folder_rename_agreed: when the conversation began from a deck folder the
   player brought and the assistant renamed that folder, did the assistant ask first
-  and the player agree in words? Naming the deck after the assistant said the folder
-  would take that name counts as agreeing. null if no such rename.
+  and the player agree in words? null if no such rename.
 - crossover_said_once_per_round: in each round with crossover cards, does the
   assistant say crossover once for the round, leaving the card's mark to carry it,
   rather than a sentence per card? null if no crossover card was offered.
@@ -844,8 +843,7 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
             ],
         )
     )
-    c10 = ["narrowing_said", "nonbasics_offered_as_choices"]
-    results["C10"] = facts_verdict(facts, c10 if rounds_searched_by_tag(run) else [*c10, "tagless_job_warned"])
+    results["C10"] = facts_verdict(facts, ["narrowing_said", "nonbasics_offered_as_choices", "tagless_job_warned"])
     results["C11"] = facts_verdict(facts, ["no_step_unasked", "departures_confirmed"])
     results["C12"] = page_shape(run, facts, fmt, cards, cache)
     results.update(skill_checks(run, facts, fmt, cache))
@@ -856,6 +854,11 @@ def holds(facts: dict, name: str) -> bool | None:
     return facts.get(name, {"holds": None})["holds"]
 
 
+def exercised(facts: dict, names: list[str]) -> bool:
+    """Whether the run came to the situation of any named fact."""
+    return any(holds(facts, n) is not None for n in names)
+
+
 def failed_facts(facts: dict, names: list[str]) -> dict[str, str]:
     """The evidence of each named fact that does not hold, by name."""
     return {n: facts[n]["evidence"] for n in names if holds(facts, n) is False}
@@ -863,23 +866,7 @@ def failed_facts(facts: dict, names: list[str]) -> dict[str, str]:
 
 def facts_verdict(facts: dict, names: list[str]) -> tuple[str, str]:
     failed = [f"{n}: {evidence[:90]}" for n, evidence in failed_facts(facts, names).items()]
-    exercised = any(holds(facts, n) is not None for n in names)
-    return ("fail" if failed else "pass" if exercised else "n/a"), "; ".join(failed)
-
-
-TAG_SEARCH = re.compile(r"\b(?:otag|oracletag|function):")
-
-
-def rounds_searched_by_tag(run: Run) -> bool:
-    """Whether every round of the deck's categories was first shown in an exchange whose
-    tool calls (a search, or a script written for one) hold a Scryfall tag search, so no
-    category was searched by rules text alone. False when no such round is on record."""
-    shown_in: dict[str, int] = {}
-    for e, state in enumerate(run.states):
-        for offer in category_rounds(offers_in(state)):
-            shown_in.setdefault(json.dumps(offer, sort_keys=True), e)
-    tagged = {e for e, _, given, _ in accepted_calls(run.trace) if TAG_SEARCH.search(json.dumps(given))}
-    return bool(shown_in) and set(shown_in.values()) <= tagged
+    return ("fail" if failed else "pass" if exercised(facts, names) else "n/a"), "; ".join(failed)
 
 
 def verdict_of(problems: list[str], exercised: bool, unseen: list[str] = (), passed: str = "") -> tuple[str, str]:
@@ -1005,27 +992,18 @@ def complete(deck: dict | None) -> bool:
     return size == DECK_SIZE.get(str(deck.get("format", "")).lower())
 
 
-def offers_in(state: State) -> list[tuple[dict, set[str]]]:
-    """Each `offer` the state's deck folders hold, with the categories of the deck that
-    holds it, lowercased and without the commander (deck.example.json lists the
-    commander as a category, and a commander offer is no category's round)."""
-    return [
-        (
-            deck["offer"],
-            {str(c.get("name", "")).lower() for c in deck.get("categories") or [] if isinstance(c, dict)}
-            - {"commander"},
-        )
-        for deck, _ in state.values()
-        if deck and isinstance(deck.get("offer"), dict)
-    ]
-
-
 def rounds_on_offer(run: Run) -> list[tuple[dict, set[str]]]:
-    """Each distinct `offer` the deck folders held after an exchange, as `offers_in` gives it."""
+    """Each distinct `offer` the deck folders held after an exchange, with the categories
+    of the deck that held it, lowercased and without the commander (deck.example.json
+    lists the commander as a category, and a commander offer is no category's round)."""
     found: dict[str, tuple[dict, set[str]]] = {}
     for state in run.states:
-        for offer, categories in offers_in(state):
-            found.setdefault(json.dumps(offer, sort_keys=True), (offer, categories))
+        for deck, _ in state.values():
+            if deck and isinstance(deck.get("offer"), dict):
+                categories = {
+                    str(c.get("name", "")).lower() for c in deck.get("categories") or [] if isinstance(c, dict)
+                }
+                found.setdefault(json.dumps(deck["offer"], sort_keys=True), (deck["offer"], categories - {"commander"}))
     return list(found.values())
 
 
@@ -1219,8 +1197,7 @@ def ladder_shown(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> 
         # 6 to 14 cards for ADR-0012's "about ten", as decided on 2026-11-13.
         if not (shrunk or category == "lands" or 6 <= len(offered_cards(offer)) <= 14):
             problems.append(f"{called} offers {len(offered_cards(offer))} cards, not about ten")
-    exercised = any(holds(facts, n) is not None for n in names) or bool(ladders)
-    return verdict_of(problems, exercised, unrecorded(run))
+    return verdict_of(problems, exercised(facts, names) or bool(ladders), unrecorded(run))
 
 
 def suggestions_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> tuple[str, str]:
@@ -1237,7 +1214,7 @@ def suggestions_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]
         unreasoned = [c.get("name") for c in offered_cards(o) if not str(c.get("reason") or "").strip()]
         if unreasoned:
             problems.append(f"{called} gives no reason for: {unreasoned[:8]}")
-    return verdict_of(problems, any(holds(facts, n) is not None for n in names) or bool(judged), unrecorded(run))
+    return verdict_of(problems, exercised(facts, names) or bool(judged), unrecorded(run))
 
 
 def printing(scryfall_id: str, cache: dict) -> dict | None:
@@ -1284,7 +1261,7 @@ def crossover_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]],
             problems.append(f"{name}: printed_name {card.get('printed_name')!r}, Arena prints {printed!r}")
     return verdict_of(
         list(dict.fromkeys(problems)),
-        any(holds(facts, n) is not None for n in names) or bool(crossovers),
+        exercised(facts, names) or bool(crossovers),
         unrecorded(run),
     )
 
@@ -1404,7 +1381,8 @@ def folder_named(run: Run, facts: dict, deck: dict | None) -> tuple[str, str]:
     after, numbered from 2 when taken; a rename is a `name` line in the ledger. A theme
     folder may be made of some of the theme's words, singular or plural (`brawl-tokens`
     for "Creature tokens", `brawl-rats` for "Rat typal"). A run from a start is judged
-    only once its ledger gains a `name` line: until then its folder is the runner's.
+    only once its ledger gains a `name` line or its folder is renamed: until then its
+    folder is the runner's.
 
     The deck's name is `deck.json`'s alone. A `name` line records a rename
     (`deck → brawl-creature-tokens` in one of its `·` fields) and never names the
@@ -1420,7 +1398,8 @@ def folder_named(run: Run, facts: dict, deck: dict | None) -> tuple[str, str]:
         for line in (ledger.read_text(errors="replace").splitlines() if ledger.is_file() else [])
         if NAME_LINE.search(line) and line not in at_start
     ]
-    if run.summary.get("start") and not name_lines:
+    moved = renames(run)
+    if run.summary.get("start") and not name_lines and not any(old in run.start_state for old, _, _ in moved):
         return "n/a", "began from a start, in the folder the runner names"
     theme = next(
         (c.get("text") for c in deck.get("criteria") or [] if isinstance(c, dict) and c.get("kind") == "theme"), None
@@ -1461,7 +1440,7 @@ def folder_named(run: Run, facts: dict, deck: dict | None) -> tuple[str, str]:
             problems.append(f"the deck is in {folder}, and its ledger's last name line renames it to {target}")
     problems += [
         f"the rename of {old} to {new} is not a name line in its ledger"
-        for old, new, lines in renames(run)
+        for old, new, lines in moved
         if not any(NAME_LINE.search(line) for line in lines)
     ]
     if holds(facts, "brought_folder_rename_agreed") is not True:
@@ -1469,7 +1448,7 @@ def folder_named(run: Run, facts: dict, deck: dict | None) -> tuple[str, str]:
         problems += [
             f"{old}, the folder the player brought, was renamed to {new} without their agreement"
             + (f": {said}" if said else "")
-            for old, new, _ in renames(run)
+            for old, new, _ in moved
             if old in run.start_state
         ]
     return verdict_of(problems, True, unrecorded(run))

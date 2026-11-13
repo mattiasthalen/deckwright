@@ -47,3 +47,12 @@ packed file now shows them) and #57 (deck folders named by date, which collide
 when two decks are built on one day). The `layout` field of a card's display copy
 (#22) is in the skill because the page's Arena list needs it to write each card
 under the name Arena imports, not because a run failed without it.
+
+## Addendum 2026-11-13
+
+Whether the tutor should explain evergreen keywords like flying and menace was
+settled on a decision card, with three options: explain every keyword, explain
+only terms that are not evergreen, or ask the player once. Asking the player once,
+in the intent interview, was chosen, so the skill's question comes from that
+decision. S9 follows the answer: the question is asked once, and every term is
+explained where first used unless the player said no.
