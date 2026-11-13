@@ -73,17 +73,26 @@ at its path, into `after/<exchange>/` (exchanges counted from 0, as in the trace
 and a start as copied in into `after/start/`. The checks read these as `Run.states`:
 
 - a **save** is an exchange that changed a `deck.json` or made a new deck folder,
-  not a publish (C4);
+  not a publish (C4); S2 needs every save, as every exchange that offers cards, to
+  run `pack.py` and name the packed file in its reply, a link beside it or not;
 - a **pick** is saved when its card is in `deck.json` after its exchange and was not
   before (or its count rose), and the ledger gained a line naming it (S1);
 - a **round** is each distinct `offer` the states hold; S2 needs one after every
   exchange that offers cards, S3 and S4 judge the rounds of the deck's categories
-  other than Commander (S3 only when a creature type was wanted), and S5 judges
-  every offered card;
+  other than Commander (S3 only when a creature type was wanted; S4 needs a card
+  marked `suggested` and a `reason` on every card, and the reader judges only that
+  the reply marks them), and S5 judges every offered card;
+- a **review** is judged against the deck as it stood after the review's exchange
+  (C5), and against the final list in a run with no record;
 - the **name** must be absent from every state before the first complete one, and be
   said by the player after it (S10);
 - a **rename** is a deck folder gone while a new one's ledger starts with its lines,
-  and needs a `name` line (S12).
+  and needs a `name` line (S12). A run from a start is judged for its folder only
+  once its ledger gains a `name` line that `after/start` lacks; until then the
+  folder is the runner's, and S12 is n/a.
+
+S7 is the reader's alone: a set limit is saved as a criterion of kind `limit`, like
+any other, so no saved field says a set was named.
 
 Publishes, `pack.py` runs and the scripts behind a stated count (S8) are read from
 the trace. A run recorded before the record began has no `after/`: what only the
@@ -98,8 +107,9 @@ into `start/`, which the checks read.
 
 ## Known limits
 
-- C5 compares a review's counts with the final list, so a review made before a
-  later swap can fail on a count that was right when it was written.
+- In a run with no record, C5 compares a review's counts with the final list, so a
+  review made before a later swap can fail on a count that was right when it was
+  written.
 - C6's tolerance of two basics is an inference; the design set none.
 - No brief takes Scryfall down, so "an unchecked card blocks approval" (C7) is not
   exercised yet, and the skill says nothing about it (ADR-0002).
