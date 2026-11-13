@@ -110,7 +110,9 @@ def stand_in_turn(message: str, session: str, first: bool, player: str, cwd: pat
 def record_deck_folders(workspace: pathlib.Path, into: pathlib.Path) -> None:
     """Copy every `deck.json` and `LEDGER.md` in the workspace into `into`, at the same
     relative paths: the checks read the deck folders as each exchange left them.
-    Claude Code's own `.claude` folder is not a deck's."""
+    Claude Code's own `.claude` folder is not a deck's. `into` is made even when there
+    is nothing to copy, so an exchange that leaves no deck folder reads as empty."""
+    into.mkdir(parents=True, exist_ok=True)
     for path in [*workspace.rglob("deck.json"), *workspace.rglob("LEDGER.md")]:
         relative = path.relative_to(workspace)
         if ".claude" in relative.parts or not path.is_file():
@@ -188,12 +190,16 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int,
             log(conversation, {"role": "player", "conversation": conversation_no, "text": message})
             # Each conversation remembers nothing of the one before: a resumed deck comes from its page.
             memory = out / "memory" / f"deckwright-{conversation_no}"
-            events = deckwright_turn(message, deckwright_session, first_deckwright, arm, workspace, memory)
-            first_deckwright = False
-            record_deck_folders(workspace, out / "after" / str(exchange))
+            try:
+                events = deckwright_turn(message, deckwright_session, first_deckwright, arm, workspace, memory)
+                first_deckwright = False
+                # The trace goes first, so a failure in recording loses only the record.
+                for event in events:
+                    log(trace, {"conversation": conversation_no, "exchange": exchange, **event})
+            finally:
+                # A turn that raised (a timeout) still leaves the workspace as it stopped.
+                record_deck_folders(workspace, out / "after" / str(exchange))
             budget.count(events)
-            for event in events:
-                log(trace, {"conversation": conversation_no, "exchange": exchange, **event})
             result = result_of(events)
             # A resumed session reports its whole running total, not this turn's.
             totals = [e["total_cost_usd"] for e in events

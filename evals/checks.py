@@ -366,7 +366,9 @@ class Run:
         self.states: list[State] = []
         recorded = sorted((int(p.name), p) for p in after.iterdir() if p.name.isdigit()) if after.is_dir() else []
         for exchange, folder in recorded:
-            # An exchange the runner could not record (its turn crashed) is taken to have changed nothing.
+            # An empty after/<n> is an exchange that left no deck folder. A missing one is
+            # from a runner before 2026-11-13, which made none for such an exchange or a turn
+            # that raised; it is taken to have changed nothing.
             while len(self.states) < exchange:
                 self.states.append(self.state_before(len(self.states)))
             self.states.append(read_state(folder))
@@ -387,10 +389,10 @@ class Run:
         return self.states[exchange - 1] if exchange > 0 else self.start_state
 
     def changed_in(self, exchange: int) -> list[str]:
-        """The deck folders whose `deck.json` the exchange changed or made."""
+        """The deck folders whose `deck.json` the exchange changed or made, and left parseable."""
         before = self.state_before(exchange)
         return [folder for folder, (deck, _) in self.states[exchange].items()
-                if deck != before.get(folder, (None, []))[0]]
+                if deck is not None and deck != before.get(folder, (None, []))[0]]
 
     def saves_by_exchange(self) -> Counter:
         return Counter(e for e in range(len(self.states)) if self.changed_in(e))
@@ -614,9 +616,12 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
 
     saves = run.saves_by_exchange()
     pick_exchanges = {message_to_exchange(run, c["message"]) for c in facts["confirmations"] if c["cards"]}
-    unsaved = sorted(pick_exchanges - set(saves))
+    # A pick in an exchange the runner never recorded (the run died in its turn) is unseen, not unsaved.
+    never_recorded = sorted(e for e in pick_exchanges if e >= len(run.states)) if run.states else []
+    unsaved = sorted(pick_exchanges - set(saves) - set(never_recorded))
     saved = f"{len(saves)} exchanges with a save; picks not saved in their exchange: {len(unsaved)} of {len(pick_exchanges)}"
-    results["C4"] = verdict_of([saved] if unsaved and run.states else [], bool(pick_exchanges), unrecorded(run), saved)
+    unseen = unrecorded(run) + [f"exchange {e} has a pick and no record of its folder" for e in never_recorded]
+    results["C4"] = verdict_of([saved] if unsaved and run.states else [], bool(pick_exchanges), unseen, saved)
 
     if facts["review_type_counts"] and cards:
         # A two-faced card may be counted by its front face or by every face: a
@@ -840,7 +845,11 @@ def saved_and_published(run: Run, facts: dict) -> tuple[str, str]:
     naming it, in its exchange; a publish only once the player asks for a link, and
     always to the same artifact. That a failed publish is said in one line is the
     conversation's, and not checked."""
-    picks = {message_to_exchange(run, c["message"]): c["cards"] for c in facts["confirmations"] if c["cards"]}
+    picks: dict[int, list[str]] = {}
+    # The reader may split one message's picks over several confirmations.
+    for c in facts["confirmations"]:
+        if c["cards"]:
+            picks.setdefault(message_to_exchange(run, c["message"]), []).extend(c["cards"])
     problems = []
     for e, names in sorted(picks.items()):
         if e >= len(run.states):
@@ -867,10 +876,11 @@ def saved_and_published(run: Run, facts: dict) -> tuple[str, str]:
 
 
 def round_shown(run: Run, facts: dict) -> tuple[str, str]:
-    """S2: after each exchange that offers cards the deck folder holds them as `offer`,
-    and the exchange ran `pack.py` and its reply names the packed file; no reply gives
-    a Scryfall URL or shows a picture. A file sent into the chat is not judged: the
-    runner disallows the tool."""
+    """S2: after each exchange that offers cards the deck folder holds them as `offer`
+    (at least half of the cards the reader saw offered in it, a two-faced card matched
+    by a face), and the exchange ran `pack.py` and its reply names the packed file; no
+    reply gives a Scryfall URL or shows a picture. A file sent into the chat is not
+    judged: the runner disallows the tool."""
     problems = []
     packed: dict[int, str] = {}
     for e, name, given, _, _, answer in accepted_calls(run.trace):
@@ -878,12 +888,27 @@ def round_shown(run: Run, facts: dict) -> tuple[str, str]:
         if "pack.py" not in command:
             continue
         printed = re.findall(r"[^\s'\"]+\.html", answer)
+        # A command that exited non-zero packed only if it printed the page: a later step of a chain may have failed.
+        if answer.startswith("Exit code") and not printed:
+            continue
         folder = re.search(r"pack\.py\s+['\"]?([^\s'\";&|]+)", command)
         packed[e] = (pathlib.PurePath(printed[-1]).name if printed
                      else f"{pathlib.PurePath(folder.group(1)).name}.html" if folder else "the packed file")
-    for e, message in sorted({message_to_exchange(run, o["message"]): o["message"] for o in facts["offers"] if o["cards"]}.items()):
-        if e < len(run.states) and not any(offered_cards(deck.get("offer")) for deck, _ in run.states[e].values() if deck):
-            problems.append(f"exchange {e} offers cards and its deck folder holds no offer after it")
+    shown: dict[int, tuple[int, list[str]]] = {}
+    for o in sorted(facts["offers"], key=lambda o: o["message"]):
+        if o["cards"]:
+            e = message_to_exchange(run, o["message"])
+            shown[e] = (o["message"], [*shown.get(e, (0, []))[1], *o["cards"]])
+    for e, (message, names) in sorted(shown.items()):
+        if e < len(run.states):
+            held = [c["name"] for deck, _ in run.states[e].values() if deck
+                    for c in offered_cards(deck.get("offer")) if isinstance(c.get("name"), str)]
+            on_offer = [n for n in names if any(faces(n) & faces(h) for h in held)]
+            if not held:
+                problems.append(f"exchange {e} offers cards and its deck folder holds no offer after it")
+            elif 2 * len(on_offer) < len(names):
+                problems.append(f"exchange {e} offers {names[:6]} and its deck folder's offer holds "
+                                f"{len(on_offer)} of them after it")
         if e not in packed:
             problems.append(f"exchange {e} offers cards and never runs pack.py")
         elif packed[e] not in (run.messages[message]["text"] if message < len(run.messages) else ""):
@@ -897,11 +922,14 @@ def round_shown(run: Run, facts: dict) -> tuple[str, str]:
 def ladder_shown(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> tuple[str, str]:
     """S3: with a creature type wanted, a category's round shows each step under its
     heading with its full count; a round of more than one step shows all three, about
-    ten cards in all. A further round of one step is the player's to ask for (ADR-0012)."""
+    ten cards in all. A further round of one step is the player's to ask for (ADR-0012),
+    so it passes only after a round of three steps of its category."""
     names = ["ladder_steps_with_counts"]
     problems = list(failed_facts(facts, names).values())
     ladders = category_rounds(rounds) if holds(facts, names[0]) is not None else []
+    laddered: set[str] = set()
     for offer in ladders:
+        category = str(offer.get("category", "")).lower()
         steps, called = groups_of(offer), f"the {offer.get('category', 'unnamed')} round"
         for step in steps:
             if not step.get("heading"):
@@ -909,8 +937,12 @@ def ladder_shown(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> 
             if not isinstance(step.get("total"), int):
                 problems.append(f"{called}: '{step.get('heading')}' states no full count")
         if len(steps) == 1:
+            if category not in laddered:
+                problems.append(f"{called} is of one step, and no earlier round of its category showed three")
             continue
-        if len(steps) != 3:
+        if len(steps) == 3:
+            laddered.add(category)
+        else:
             problems.append(f"{called} shows {len(steps)} steps of the ladder, not 3")
         # [inferred] 8 to 12 cards for ADR-0012's "about ten".
         if not 8 <= len(offered_cards(offer)) <= 12:
@@ -971,6 +1003,14 @@ def crossover_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]],
 
 # A file name printed beside a count ("backup-31.json") holds no count.
 FILE_NAME = re.compile(r"\S+\.(?:json|md|html?|py|jpe?g|png|txt|csv)\b", re.I)
+TRACEBACK = "Traceback (most recent call last):"
+
+
+def script_output(answer: str) -> str:
+    """What a command printed itself: without the "Exit code N" line Claude Code puts
+    before a command that failed, and without a Python traceback, from its first line
+    on, whose line numbers are no count. What a failed command printed before it stays."""
+    return re.sub(r"\AExit code \d+\n?", "", answer).split(TRACEBACK)[0]
 
 
 def counts_from_scripts(run: Run, facts: dict) -> tuple[str, str]:
@@ -990,6 +1030,7 @@ def counts_from_scripts(run: Run, facts: dict) -> tuple[str, str]:
             unsure.setdefault(e, []).append(answer)
 
     def printed(outputs: list[str], number: str) -> bool:
+        outputs = [script_output(out) for out in outputs]
         if number == "0":
             return any(out.strip() for out in outputs)
         return any(re.search(rf"(?<![\w.]){number}(?!\w|\.\d)", FILE_NAME.sub(" ", out)) for out in outputs)

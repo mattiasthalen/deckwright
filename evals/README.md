@@ -133,6 +133,8 @@ into `start/`, which the checks read.
   n/a, a count said without digits is not judged, and a stated 0 passes when any
   python3 script over `deck.json` printed in that exchange, since a count by
   category leaves out the category that has none.
+- When several rounds are shown in one exchange, only the last `offer` is on
+  record, so S3, S4 and S5 see only that round.
 - S2 cannot see a file sent into the chat, since runs may not send one; it checks
   that the reply names the packed file `pack.py` printed.
 - The Arena check searches `!"name"`, which breaks on a name holding a quote
