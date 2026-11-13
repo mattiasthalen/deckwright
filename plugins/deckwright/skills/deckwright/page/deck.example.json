@@ -63,11 +63,11 @@
     "category": "Removal",
     "groups": [
       {"heading": "Rats that remove", "total": 6, "cards": [
-        {"scryfall_id": "00000000-0000-0000-0000-000000000007", "name": "Gnawing Executioner", "reason": "Kills a blocker and leaves a Rat behind.", "suggested": true,
+        {"scryfall_id": "00000000-0000-0000-0000-000000000007", "name": "Gnawing Executioner", "reason": "Kills a blocker and leaves a Rat behind; a crossover printing on Arena.", "suggested": true, "crossover": true, "printed_name": "Executioner of the Undercity",
          "copy": {"mana_cost": "{1}{B}", "type_line": "Creature — Rat Assassin", "text": "Deathtouch."}}
       ]},
       {"heading": "Other removal", "cards": [
-        {"scryfall_id": "00000000-0000-0000-0000-000000000008", "name": "Sewer Verdict", "reason": "Kills anything that blocks; a crossover printing on Arena.", "crossover": true, "printed_name": "Verdict of the Undercity",
+        {"scryfall_id": "00000000-0000-0000-0000-000000000008", "name": "Sewer Verdict", "reason": "Kills anything that blocks.",
          "copy": {"mana_cost": "{2}{B}", "type_line": "Instant", "text": "Destroy target creature."}}
       ]}
     ]

@@ -350,7 +350,7 @@ const offeredNameless = { ...offeredDeck, name: 'Offered Nameless', offer: { cat
   OFFER.groups[0].cards[0],
   (({ name, ...c }) => c)(offered(65, 'Unnamed', 'A card offered with no name saved.')),
 ] }] } };
-const offerNoGroups ={ ...several, name: 'No Groups', offer: { category: 'Spells', groups: [] } };
+const offerNoGroups = { ...several, name: 'No Groups', offer: { category: 'Spells', groups: [] } };
 const offerNoCards = { ...several, name: 'No Cards', offer: { category: 'Spells', groups: [{ heading: 'Rats that remove', total: 3, cards: [] }] } };
 
 // Decks with no name: the hero falls back to the format and the first theme criterion.
