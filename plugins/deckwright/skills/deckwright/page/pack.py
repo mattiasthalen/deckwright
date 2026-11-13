@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import html
 import json
+import os
 import pathlib
 import re
 import sys
@@ -29,7 +30,8 @@ def read_deck(folder: pathlib.Path) -> tuple[str, dict]:
     try:
         text = (folder / "deck.json").read_text(encoding="utf-8-sig")
         deck = json.loads(text)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+    # json.JSONDecodeError is a ValueError, as is Python's refusal of an integer of over 4300 digits.
+    except (OSError, UnicodeDecodeError, ValueError, RecursionError) as e:
         raise Unpackable(f"{folder / 'deck.json'} could not be read: {e}") from None
     if not isinstance(deck, dict):
         raise Unpackable(f"{folder / 'deck.json'} holds no deck")
@@ -87,14 +89,27 @@ def pack(folder: pathlib.Path) -> pathlib.Path:
     # With every "<" written as \u003c, no text of the deck can end the script or open a comment in it.
     files = json.dumps(packed_files(folder, deck_text, deck), ensure_ascii=False).replace("<", "\\u003c")
     at = page.index("<script")
-    # Both pages are encoded in full before either is written, so a deck that cannot
-    # be written leaves no page cut short; a lone surrogate is written as "?".
+    # A lone surrogate is written as "?".
     written = page.encode("utf-8", errors="replace")
     packed_page = f"{page[:at]}<script>window.DECK_FILES = {files};</script>\n{page[at:]}".encode("utf-8", errors="replace")
     packed = folder.parent / f"{folder.name}.html"
-    (folder / "index.html").write_bytes(written)
-    packed.write_bytes(packed_page)
+    write_all({folder / "index.html": written, packed: packed_page})
     return packed
+
+
+def write_all(pages: dict[pathlib.Path, bytes]) -> None:
+    """Replace every page only once each is written in full beside it, so a write that
+    fails leaves the last good pages and no file of its own."""
+    temps: dict[pathlib.Path, pathlib.Path] = {}
+    try:
+        for target, content in pages.items():
+            temps[target] = target.with_name(f".{target.name}.tmp")
+            temps[target].write_bytes(content)
+        for target, temp in temps.items():
+            os.replace(temp, target)
+    finally:
+        for temp in temps.values():
+            temp.unlink(missing_ok=True)
 
 
 def main(argv: list[str]) -> int:
