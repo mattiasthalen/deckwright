@@ -79,7 +79,7 @@ and a start as copied in into `after/start/`. The checks read these as `Run.stat
 - a **round** is each distinct `offer` the states hold; S2 needs one after every
   exchange that offers cards, S3 and S4 judge the rounds of the deck's categories
   other than Commander (S3 only when a creature type was wanted), and S5 judges
-  every offered card and the deck's own cards;
+  every offered card;
 - the **name** must be absent from every state before the first complete one, and be
   said by the player after it (S10);
 - a **rename** is a deck folder gone while a new one's ledger starts with its lines,

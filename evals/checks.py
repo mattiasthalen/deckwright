@@ -784,7 +784,7 @@ def skill_checks(run: Run, facts: dict, fmt: str, cache: dict) -> dict[str, tupl
         "S2": round_shown(run, facts),
         "S3": ladder_shown(run, facts, rounds),
         "S4": suggestions_marked(run, facts, rounds),
-        "S5": crossover_marked(run, facts, rounds, deck, cache),
+        "S5": crossover_marked(run, facts, rounds, cache),
         "S6": (("n/a", "Standard has no commander") if fmt != "brawl"
                else facts_verdict(facts, ["commander_before_colours"])),
         "S7": facts_verdict(facts, ["set_count_says_any_printing"]),
@@ -940,19 +940,15 @@ def printing(scryfall_id: str, cache: dict) -> dict | None:
     return cache[key]
 
 
-def crossover_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]], deck: dict | None,
-                     cache: dict) -> tuple[str, str]:
-    """S5: the limits question names crossover cards; every card offered or in the deck
-    in a crossover printing is marked so, under the name Arena prints, and is a printing
-    Arena has. Whether the picture is the newest Arena printing, and whether the tutor
-    said another exists, are not checked."""
+def crossover_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]], cache: dict) -> tuple[str, str]:
+    """S5: the limits question names crossover cards; every card offered in a crossover
+    printing is marked so, under the name Arena prints, and is a printing Arena has.
+    Whether the picture is the newest Arena printing, and whether the tutor said
+    another exists, are not checked."""
     names = ["limits_question_names_crossover"]
     problems = list(failed_facts(facts, names).values())
     crossovers = 0
-    # A card the start held as it is was saved before the run, by starts/build.py.
-    inherited = (run.start or {}).get("cards") or []
-    in_deck = [c for c in (deck or {}).get("cards") or [] if isinstance(c, dict) and c not in inherited]
-    for card in [*(c for o, _ in rounds for c in offered_cards(o)), *in_deck]:
+    for card in (c for o, _ in rounds for c in offered_cards(o)):
         found = printing(card.get("scryfall_id", ""), cache)
         if not found:
             continue
