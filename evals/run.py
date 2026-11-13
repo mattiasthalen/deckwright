@@ -107,6 +107,18 @@ def stand_in_turn(message: str, session: str, first: bool, player: str, cwd: pat
     return result_of(claude(args, message, cwd, cwd.parent / "memory" / "stand-in"))
 
 
+def record_deck_folders(workspace: pathlib.Path, into: pathlib.Path) -> None:
+    """Copy every `deck.json` and `LEDGER.md` in the workspace into `into`, at the same
+    relative paths: the checks read the deck folders as each exchange left them.
+    Claude Code's own `.claude` folder is not a deck's."""
+    for path in [*workspace.rglob("deck.json"), *workspace.rglob("LEDGER.md")]:
+        relative = path.relative_to(workspace)
+        if ".claude" in relative.parts or not path.is_file():
+            continue
+        (into / relative).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, into / relative)
+
+
 class PublishBudget:
     """The publishes a round may make, shared by its runs, which play in threads at once.
 
@@ -171,12 +183,14 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int,
             shutil.copytree(STARTS_DIR / start, workspace / "deck", ignore=shutil.ignore_patterns("*.py"))
             # The checks read the start as the run began, not as starts/ is later.
             shutil.copytree(STARTS_DIR / start, out / "start", ignore=shutil.ignore_patterns("*.py"))
+            record_deck_folders(workspace, out / "after" / "start")
         for exchange in range(max_exchanges):
             log(conversation, {"role": "player", "conversation": conversation_no, "text": message})
             # Each conversation remembers nothing of the one before: a resumed deck comes from its page.
             memory = out / "memory" / f"deckwright-{conversation_no}"
             events = deckwright_turn(message, deckwright_session, first_deckwright, arm, workspace, memory)
             first_deckwright = False
+            record_deck_folders(workspace, out / "after" / str(exchange))
             budget.count(events)
             for event in events:
                 log(trace, {"conversation": conversation_no, "exchange": exchange, **event})
