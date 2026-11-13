@@ -328,7 +328,8 @@ const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').match
 
 // deck.json is read once into this shape, so that nothing below meets a value of
 // a type it does not expect: a field not of the type the shape gives it is left
-// out, as if missing, and a list keeps only the entries that fit. A field the
+// out, as if missing, and a list keeps only the entries that fit; a list that is
+// missing, or not a list, reads as empty. A field the
 // shape does not name is kept as written, as a scene's steps and a chapter's
 // blocks are: one the page cannot draw leaves its section out (drawSection)
 // rather than being drawn as something else.
@@ -341,7 +342,7 @@ const DECK = {
   criteria: [{kind: String, text: String}],
   categories: [{name: String, count_reason: String}],
   cards: [CARD], maybeboard: [CARD], tokens: [{name: String, scryfall_id: String}],
-  offer: {category: String, groups: [{heading: String, total: Number, cards: [{...CARD, reason: String, printed_name: String}]}]},
+  offer: {category: String, groups: [{heading: String, total: Number, cards: [{...CARD, reason: String, printed_name: String, suggested: Boolean, crossover: Boolean}]}]},
   scenes: [{title: String, lede: String}],
   handbook: [{title: String}],
 };
@@ -350,7 +351,7 @@ function shaped(value, shape) {
   if (shape === String) return typeof value === 'string' ? value : undefined;
   if (shape === Number) return Number.isFinite(value) ? value : undefined;
   if (shape === Boolean) return typeof value === 'boolean' ? value : undefined;
-  if (Array.isArray(shape)) return Array.isArray(value) ? value.map(v => shaped(v, shape[0])).filter(v => v !== undefined) : undefined;
+  if (Array.isArray(shape)) return Array.isArray(value) ? value.map(v => shaped(v, shape[0])).filter(v => v !== undefined) : [];
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const out = {...value};
   for (const [key, of] of Object.entries(shape)) {
@@ -364,8 +365,8 @@ function readDeck(text) {
   const read = shaped(JSON.parse(text), DECK);
   if (!read) throw new Error('it holds no deck');
   // A card is known by its name; one at count 0 was taken out of the deck.
-  read.cards = (read.cards || []).filter(c => c.name && copiesOf(c) > 0);
-  read.maybeboard = (read.maybeboard || []).filter(c => c.name);
+  read.cards = read.cards.filter(c => c.name && copiesOf(c) > 0);
+  read.maybeboard = read.maybeboard.filter(c => c.name);
   return read;
 }
 
@@ -507,7 +508,7 @@ function headlineNumbers() {
 // A deck not yet named is titled by what it is: its format and its first theme.
 // pack.py titles the packed page the same way.
 function deckTitle() {
-  const theme = (deck.criteria || []).find(c => c.kind === 'theme' && c.text?.trim());
+  const theme = deck.criteria.find(c => c.kind === 'theme' && c.text?.trim());
   return deck.name?.trim() || [format().name, theme?.text].filter(Boolean).join(' · ');
 }
 
@@ -519,7 +520,7 @@ function drawHero() {
   $('hero-line').innerHTML = `${format().name} · ${size} of ${format().size} cards · <b>${deck.approved ? 'Approved' : 'In progress'}</b>`;
   $('pitch').textContent = deck.pitch || '';
   $('pitch').hidden = !deck.pitch;
-  $('criteria').innerHTML = (deck.criteria || []).map(c => `<span>${esc(c.text)}</span>`).join('');
+  $('criteria').innerHTML = deck.criteria.map(c => `<span>${esc(c.text)}</span>`).join('');
   const heroCard = deck.hero && deck.cards.find(c => c.scryfall_id === deck.hero);
   const src = deck.hero && url(`art/${deck.hero}.jpg`);
   if (src) {
@@ -541,7 +542,7 @@ function drawHero() {
 // deck, so nothing else on the page counts them; they are numbered across the
 // groups as the chat numbers them.
 function drawOffered(c, number) {
-  const marks = [c.suggested === true ? '<span class="mark suggested">Suggested</span>' : '', c.crossover === true ? '<span class="mark">Crossover</span>' : ''].join('');
+  const marks = [c.suggested ? '<span class="mark suggested">Suggested</span>' : '', c.crossover ? '<span class="mark">Crossover</span>' : ''].join('');
   return `<figure class="offered"><span class="number">${number}</span><div class="face">${picture(c.scryfall_id, c.name || '')}</div>`
     + `<figcaption>${marks ? `<span class="marks">${marks}</span>` : ''}${c.name ? `<b>${esc(c.name)}</b>` : ''}`
     + `${c.reason ? `<span class="reason">${esc(c.reason)}</span>` : ''}`
@@ -549,7 +550,7 @@ function drawOffered(c, number) {
 }
 
 function drawOffer() {
-  const groups = (deck.offer?.groups || []).filter(g => g.cards?.length);
+  const groups = (deck.offer?.groups ?? []).filter(g => g.cards.length);
   if (!groups.length) return;
   let numbered = 0;
   const drawGroup = g => `<div class="offer-group">${g.heading ? `<div class="category-head"><h3>${esc(g.heading)}</h3>`
@@ -588,7 +589,7 @@ function dealtCards(drawn) {
 
 // A damage or draw thing takes no badge: its −N or +N mark is its badge.
 function drawThing(t) {
-  const token = t.token && (deck.tokens || []).find(k => k.name === t.token);
+  const token = t.token && deck.tokens.find(k => k.name === t.token);
   const marked = t.damage !== undefined || t.draw !== undefined;
   const body = t.card ? cardPicture(t.card)
     : t.token ? (token ? picture(token.scryfall_id, `${t.token} token`) : blankCard(`${t.token} token`))
@@ -622,7 +623,7 @@ function playScene(box, scene) {
 }
 
 function drawScenes() {
-  const scenes = (deck.scenes || []).filter(s => (s.steps || []).length);
+  const scenes = deck.scenes.filter(s => (s.steps || []).length);
   if (!scenes.length) return;
   const [main, ...rest] = scenes, section = $('engine');
   section.hidden = false;
@@ -657,13 +658,12 @@ function drawCategory(name, members, category = {}) {
 }
 
 function drawCards() {
-  const categories = deck.categories || [];
-  const members = new Map(categories.map(c => [c.name, []]));
+  const members = new Map(deck.categories.map(c => [c.name, []]));
   deck.cards.forEach(c => { if (!members.has(c.category)) members.set(c.category, []); members.get(c.category).push(c); });
-  const jobs = categories.filter(c => !['Commander', 'Lands'].includes(c.name)).length;
+  const jobs = deck.categories.filter(c => !['Commander', 'Lands'].includes(c.name)).length;
   $('cards').innerHTML = `<div class="section-head"><span class="label">The cards</span><h2>${jobs ? `${inWords(jobs)} ${jobs === 1 ? 'category' : 'categories'}` : 'The cards'}</h2>`
     + '<p class="lede">Each category is a job the cards in it do. Tap a card to read its rules text and why it is in the deck. Rares and mythics are marked.</p></div>'
-    + `<div class="categories">${[...members].map(([name, list]) => drawCategory(name, list, categories.find(c => c.name === name))).join('')}`
+    + `<div class="categories">${[...members].map(([name, list]) => drawCategory(name, list, deck.categories.find(c => c.name === name))).join('')}`
     + `${deck.maybeboard.length ? drawCategory('Maybeboard', deck.maybeboard) : ''}</div>`;
 }
 
@@ -715,7 +715,7 @@ function drawBlock(b) {
 }
 
 // A version 1 chapter is one text string; nothing reads version 1, so it is not a chapter.
-const chapters = () => (deck.handbook || []).filter(c => Array.isArray(c.blocks));
+const chapters = () => deck.handbook.filter(c => Array.isArray(c.blocks));
 
 function drawHandbook() {
   const list = chapters();
