@@ -21,6 +21,7 @@ jobs:
           python-version: "3.13"
       - run: python3 evals/test_checks.py
       - run: python3 tests/test_pack.py
+      - run: python3 tests/test_repo.py
 
   browser-tests:
     name: browser tests
