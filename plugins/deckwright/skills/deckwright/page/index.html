@@ -61,6 +61,24 @@ section[hidden] { display: none; }
 .criteria span { font-size: .82rem; color: var(--fog); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; background: rgba(17,19,29,.5); }
 @keyframes drift { from { transform: scale(1.06) translate(0, 0); } to { transform: scale(1.12) translate(-1.5%, -1%); } }
 
+/* Cards on offer */
+.offer-groups { display: grid; gap: 36px; }
+.offer-group { display: grid; gap: 18px; }
+.offer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 26px 18px; }
+.offered { position: relative; margin: 0; display: grid; gap: 8px; align-content: start; }
+.offered .face { display: block; border-radius: 4.75% / 3.5%; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.45); }
+.offered .face img { display: block; width: 100%; aspect-ratio: 488 / 680; }
+.offered .face .blank-card { padding: 10px; font-size: 1.1rem; border-radius: 0; }
+.offered .number { position: absolute; top: -10px; left: -10px; z-index: 1; min-width: 2.1rem; height: 2.1rem; padding: 0 8px; border-radius: 999px; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink); font-family: var(--font-display); font-size: 1.3rem; line-height: 1; font-variant-numeric: tabular-nums; box-shadow: 0 2px 8px rgba(0,0,0,.55); }
+.offered figcaption { display: grid; gap: 6px; font-size: .92rem; line-height: 1.4; overflow-wrap: anywhere; }
+.offered figcaption b { font-weight: 500; }
+.offered .marks { display: flex; flex-wrap: wrap; gap: 6px; }
+.offered .mark { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--accent); color: var(--accent); }
+.offered .mark.suggested { background: var(--accent); color: var(--accent-ink); }
+.offered .reason { color: var(--fog); }
+.offered .printed-name { color: var(--fog); font-size: .84rem; font-style: italic; }
+
 /* Scenes */
 .scene { background: var(--dusk); border: 1px solid var(--line); border-radius: 18px; padding: clamp(14px, 3vw, 26px); display: grid; gap: 14px; overflow: hidden; }
 .scene h3 { font-size: 1.25rem; }
@@ -230,6 +248,8 @@ dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); 
   .card-dialog .picture { max-width: 240px; width: 100%; justify-self: center; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 10px; }
   .card .caption { font-size: .78rem; }
+  .offer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 14px; }
+  .offered figcaption { font-size: .86rem; }
   .curve { height: 170px; gap: 6px; } .curve-axis { gap: 6px; }
   .thing, .more-scenes .thing { width: 88px; --life: 72px; } .scene .row, .more-scenes .row { gap: 8px; min-height: 150px; }
   .thing .chip, .more-scenes .thing .chip { width: 72px; font-size: 1.3rem; margin-bottom: 18px; }
@@ -258,6 +278,7 @@ dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); 
   </div>
 </header>
 <main class="wrap">
+  <section id="offer" hidden></section>
   <section id="engine" hidden></section>
   <section id="cards"></section>
   <section id="curve"></section>
@@ -300,6 +321,51 @@ const inWords = k => NUMBER_WORDS[k - 1] || String(k);
 const BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'];
 const COLOUR_WORDS = {W: 'white', U: 'blue', B: 'black', R: 'red', G: 'green', C: 'colourless', T: 'tap', X: 'X'};
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- reading deck.json ----------
+
+// deck.json is read once into this shape, so that nothing below meets a value of
+// a type it does not expect: a field not of the type the shape gives it is left
+// out, as if missing, and a list keeps only the entries that fit. A field the
+// shape does not name is kept as written, as a scene's steps and a chapter's
+// blocks are: one the page cannot draw leaves its section out (drawSection)
+// rather than being drawn as something else.
+const CARD = {
+  scryfall_id: String, name: String, count: Number, category: String, why: String, bends: String, kind: String, out: String,
+  copy: {mana_cost: String, mana_value: Number, type_line: String, text: String, rarity: String, layout: String},
+};
+const DECK = {
+  name: String, format: String, hero: String, pitch: String, curve_note: String, approved: Boolean,
+  criteria: [{kind: String, text: String}],
+  categories: [{name: String, count_reason: String}],
+  cards: [CARD], maybeboard: [CARD], tokens: [{name: String, scryfall_id: String}],
+  offer: {category: String, groups: [{heading: String, total: Number, cards: [{...CARD, reason: String, printed_name: String}]}]},
+  scenes: [{title: String, lede: String}],
+  handbook: [{title: String}],
+};
+
+function shaped(value, shape) {
+  if (shape === String) return typeof value === 'string' ? value : undefined;
+  if (shape === Number) return Number.isFinite(value) ? value : undefined;
+  if (shape === Boolean) return typeof value === 'boolean' ? value : undefined;
+  if (Array.isArray(shape)) return Array.isArray(value) ? value.map(v => shaped(v, shape[0])).filter(v => v !== undefined) : undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const out = {...value};
+  for (const [key, of] of Object.entries(shape)) {
+    const v = shaped(value[key], of);
+    if (v === undefined) delete out[key]; else out[key] = v;
+  }
+  return out;
+}
+
+function readDeck(text) {
+  const read = shaped(JSON.parse(text), DECK);
+  if (!read) throw new Error('it holds no deck');
+  // A card is known by its name; one at count 0 was taken out of the deck.
+  read.cards = (read.cards || []).filter(c => c.name && copiesOf(c) > 0);
+  read.maybeboard = (read.maybeboard || []).filter(c => c.name);
+  return read;
+}
 
 let deck;
 // A deck's format is read whatever its case; one that is not Brawl is drawn as Standard.
@@ -360,6 +426,7 @@ const withManaDrawn = text => esc(text).replace(/(\{[^}]+\})+/g, manaRun);
 const missingPictures = new Set();
 const blankCard = name => `<div class="blank-card">${esc(name)}</div>`;
 const picture = (id, alt) => {
+  if (!id) return blankCard(alt);
   const src = url(`cards/${id}.jpg`);
   return missingPictures.has(src) ? blankCard(alt) : `<img loading="lazy" src="${esc(src)}" alt="${esc(alt)}">`;
 };
@@ -381,8 +448,13 @@ function toast(message) {
 
 // ---------- Arena list ----------
 
+// Arena knows a card of these layouts by its front face alone, and any other
+// card, a split card among them, by its full name (docs/assumptions.md).
+const FRONT_FACE_LAYOUTS = ['modal_dfc', 'transform', 'adventure', 'prepare'];
+const arenaName = c => FRONT_FACE_LAYOUTS.includes(c.copy?.layout) ? c.name.split(' // ')[0] : c.name;
+
 function arenaList() {
-  const line = c => `${copiesOf(c)} ${c.name}`;
+  const line = c => `${copiesOf(c)} ${arenaName(c)}`;
   const commander = deck.cards.filter(c => c.category === 'Commander'), rest = deck.cards.filter(c => c.category !== 'Commander');
   return (commander.length ? `Commander\n${commander.map(line).join('\n')}\n\n` : '') + `Deck\n${rest.map(line).join('\n')}`;
 }
@@ -431,9 +503,16 @@ function headlineNumbers() {
   ].filter(Boolean);
 }
 
+// A deck not yet named is titled by what it is: its format and its first theme.
+// pack.py titles the packed page the same way.
+function deckTitle() {
+  const theme = (deck.criteria || []).find(c => c.kind === 'theme' && c.text?.trim());
+  return deck.name?.trim() || [format().name, theme?.text].filter(Boolean).join(' · ');
+}
+
 function drawHero() {
   const size = total(deck.cards);
-  const words = String(deck.name || '').match(/\S+/g) || ['Deck'];
+  const words = deckTitle().match(/\S+/g);
   document.title = words.join(' ');
   $('deck-name').innerHTML = `${words.length > 1 ? esc(words.slice(0, -1).join(' ')) + ' ' : ''}<em>${esc(words.at(-1))}</em>`;
   $('hero-line').innerHTML = `${format().name} · ${size} of ${format().size} cards · <b>${deck.approved ? 'Approved' : 'In progress'}</b>`;
@@ -452,6 +531,33 @@ function drawHero() {
   }
   $('stats').innerHTML = headlineNumbers().map(([number, label]) => `<div class="stat"><b>${esc(number)}</b><span>${esc(label)}</span></div>`).join('');
   $('copy-top').onclick = copyArenaList;
+}
+
+// ---------- cards on offer ----------
+
+// The round the player is choosing from (ADR-0013). Its cards are not in the
+// deck, so nothing else on the page counts them; they are numbered across the
+// groups as the chat numbers them.
+function drawOffered(c, number) {
+  const marks = [c.suggested === true ? '<span class="mark suggested">Suggested</span>' : '', c.crossover === true ? '<span class="mark">Crossover</span>' : ''].join('');
+  return `<figure class="offered"><span class="number">${number}</span><div class="face">${picture(c.scryfall_id, c.name || '')}</div>`
+    + `<figcaption>${marks ? `<span class="marks">${marks}</span>` : ''}${c.name ? `<b>${esc(c.name)}</b>` : ''}`
+    + `${c.reason ? `<span class="reason">${esc(c.reason)}</span>` : ''}`
+    + `${c.printed_name ? `<span class="printed-name">Printed on Arena as ${esc(c.printed_name)}</span>` : ''}</figcaption></figure>`;
+}
+
+function drawOffer() {
+  const groups = (deck.offer?.groups || []).filter(g => g.cards?.length);
+  if (!groups.length) return;
+  let numbered = 0;
+  const drawGroup = g => `<div class="offer-group">${g.heading ? `<div class="category-head"><h3>${esc(g.heading)}</h3>`
+    + `${g.total !== undefined ? `<span class="count-of">${g.cards.length} of ${g.total} shown</span>` : ''}</div>` : ''}`
+    + `<div class="offer-grid">${g.cards.map(c => drawOffered(c, ++numbered)).join('')}</div></div>`;
+  const section = $('offer');
+  section.innerHTML = `<div class="section-head"><span class="label">On offer</span><h2>${esc(deck.offer.category || 'This round')}</h2>`
+    + '<p class="lede">The cards to choose from this round, numbered as in the chat. None of them is in the deck yet.</p></div>'
+    + `<div class="offer-groups">${groups.map(drawGroup).join('')}</div>`;
+  section.hidden = false;
 }
 
 // ---------- scenes ----------
@@ -553,11 +659,10 @@ function drawCards() {
   const members = new Map(categories.map(c => [c.name, []]));
   deck.cards.forEach(c => { if (!members.has(c.category)) members.set(c.category, []); members.get(c.category).push(c); });
   const jobs = categories.filter(c => !['Commander', 'Lands'].includes(c.name)).length;
-  const maybeboard = deck.maybeboard || [];
   $('cards').innerHTML = `<div class="section-head"><span class="label">The cards</span><h2>${jobs ? `${inWords(jobs)} ${jobs === 1 ? 'category' : 'categories'}` : 'The cards'}</h2>`
     + '<p class="lede">Each category is a job the cards in it do. Tap a card to read its rules text and why it is in the deck. Rares and mythics are marked.</p></div>'
     + `<div class="categories">${[...members].map(([name, list]) => drawCategory(name, list, categories.find(c => c.name === name))).join('')}`
-    + `${maybeboard.length ? drawCategory('Maybeboard', maybeboard) : ''}</div>`;
+    + `${deck.maybeboard.length ? drawCategory('Maybeboard', deck.maybeboard) : ''}</div>`;
 }
 
 // ---------- curve ----------
@@ -650,8 +755,14 @@ function drawLedger(text) {
 
 // ---------- Arena import ----------
 
+const FORMAT_NOTES = {
+  Brawl: 'In Arena, set the deck\'s format to Brawl. When you craft missing cards, Arena can show cards as not valid in Standard or Alchemy. That is normal for a Brawl deck, because Brawl allows older cards.',
+  Standard: 'In Arena, set the deck\'s format to Standard.',
+};
+
 function drawImport() {
   $('import').innerHTML = `<div class="section-head"><span class="label">Arena import</span><h2>Paste it into Arena</h2><p class="lede">In Arena, go to Decks, then Import.${format().name === 'Brawl' ? ' The Commander section comes first, so Brawl picks up the commander.' : ''}</p></div>`
+    + `<p class="note">${esc(FORMAT_NOTES[format().name])}</p>`
     + '<div><button class="btn primary" type="button" id="copy-bottom">Copy for Arena</button></div><pre id="arena-list"></pre>';
   $('arena-list').textContent = arenaList();
   $('copy-bottom').onclick = copyArenaList;
@@ -713,20 +824,18 @@ function drawSection(id, draw) {
 
 async function main() {
   try {
-    deck = JSON.parse(await read('deck.json'));
-    if (!deck || typeof deck !== 'object' || Array.isArray(deck)) throw new Error('it holds no deck');
+    deck = readDeck(await read('deck.json'));
   } catch (e) {
     $('to-handbook').hidden = $('copy-top').hidden = true;
     $('pitch').textContent = `Could not read deck.json: ${e.message}`;
     return;
   }
-  // A card at count 0 was taken out of the deck.
-  deck.cards = (deck.cards || []).filter(c => copiesOf(c) > 0);
   deck.cards.forEach(c => cardsInDeck.set(c.name, c));
-  [...(deck.maybeboard || []), ...deck.cards].forEach(c => cardsToOpen.set(c.name, c));
+  [...deck.maybeboard, ...deck.cards].forEach(c => cardsToOpen.set(c.name, c));
   matchCardNames();
   paintAccent();
   drawSection('top', drawHero);
+  drawSection('offer', drawOffer);
   drawSection('engine', drawScenes);
   drawSection('cards', drawCards);
   drawSection('curve', drawCurve);
