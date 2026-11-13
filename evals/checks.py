@@ -949,7 +949,9 @@ def crossover_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]],
     names = ["limits_question_names_crossover"]
     problems = list(failed_facts(facts, names).values())
     crossovers = 0
-    in_deck = [c for c in (deck or {}).get("cards") or [] if isinstance(c, dict)]
+    # A card the start held as it is was saved before the run, by starts/build.py.
+    inherited = (run.start or {}).get("cards") or []
+    in_deck = [c for c in (deck or {}).get("cards") or [] if isinstance(c, dict) and c not in inherited]
     for card in [*(c for o, _ in rounds for c in offered_cards(o)), *in_deck]:
         found = printing(card.get("scryfall_id", ""), cache)
         if not found:
