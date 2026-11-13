@@ -6,13 +6,15 @@ Each check reads outcomes, never wording. Where an outcome sits in free text (wh
 cards the player confirmed, what a review counted) a reader model extracts it as
 data once per run, and code decides C1 to C8 and C12. C9 to C11 are the reader's
 yes or no on a stated fact, with quoted evidence. S1 to S13 are the skill's
-close-out criteria, decided from the trace and the deck folder where they can be,
+close-out criteria, decided from the deck folders and the trace where they can be,
 and by the reader's facts where only the conversation says. Card facts come from
 Scryfall.
 
-The deck is read from its folder in the run's workspace (ADR-0011): the folder of
-the last `deck.json` the trace wrote, else the one the workspace holds. A save is
-a write of `deck.json`, not a publish.
+What a run saved is read from the runner's record of the workspace after each
+exchange (`after/<exchange>/`, `Run.states`), never guessed from the commands in
+the trace: a save is an exchange whose `deck.json` changed, not a publish. A run
+recorded before that record began has no `after/`, and what only the record shows
+is n/a there. The deck is read from its folder in the run's workspace (ADR-0011).
 """
 
 from __future__ import annotations
@@ -130,8 +132,9 @@ situation never came up) and a short quoted `evidence`:
   for a group show three steps under their own headings (cards of the type that do
   the job, cards that reward the type and do the job, the strongest cards for the
   job), each with how many cards that step holds in all? A further round of one
-  step the player asked for needs only its heading and count. null if no creature
-  type was wanted.
+  step the player asked for needs only its heading and count. The steps overlap by
+  design; do not compare their counts with each other or with a total, and do not
+  judge which step a card belongs in. null if no creature type was wanted.
 - suggestions_marked_with_reasons: does every round offered for a group mark the
   ones the assistant would take, each with a reason? Commanders and swaps are not a
   group's round. null if none was offered.
@@ -156,13 +159,16 @@ situation never came up) and a short quoted `evidence`:
   the deck once it is complete and before writing its handbook, using no name of
   its own before that? null if the deck was never complete.
 - handbook_written_unasked: once the deck is complete, does the assistant write the
-  handbook and scenes without first asking whether to? null if the deck was never
-  complete.
+  handbook and scenes without first asking whether to? Announcing that the handbook
+  comes next is not asking. It fails only if the assistant asked whether to write
+  it. null if the deck was never complete.
 - saved_categories: the card groups the SAVED FILES record, each with its planned
   number of cards (null when none is recorded). Empty if the files hold none.
-- deck_counts_stated: every number the assistant states about the deck as it stands
-  (its cards, lands, creatures, cards of a type or of a group), with the message it
-  is in and the words that state it ("31 Rats"). Not counts of search results.
+- deck_counts_stated: every count the assistant states of the deck as it stands now
+  (cards in the deck, in a group, of a type), one count per entry, with the message
+  it is in and the words that state it ("31 Rats"). Not the template's sizes or
+  targets, not the format's fixed numbers (100, 60, 35 lands), not totals of a
+  search or an offer, and not sums or differences.
 
 {transcript}
 """
@@ -228,7 +234,12 @@ def scryfall(name: str, cache: dict) -> dict | None:
 
 
 def calls(trace: list[dict]):
-    """Every tool call: (exchange, conversation, name, input, refused, answer)."""
+    """Every tool call: (exchange, conversation, name, input, refused, answer).
+
+    A Bash command that exits non-zero ran, and Claude Code reports it as an error
+    whose answer begins "Exit code"; any other Bash error is a command refused before
+    it ran (needs approval, blocked). A publish over the account's limit is refused.
+    """
     answers = {block.get("tool_use_id"): block for event in trace if event.get("type") == "user"
                for block in event.get("message", {}).get("content", [])
                if isinstance(block, dict) and block.get("type") == "tool_result"}
@@ -240,7 +251,8 @@ def calls(trace: list[dict]):
                 answer = answers.get(block.get("id"), {})
                 content = answer.get("content")
                 text = content if isinstance(content, str) else json.dumps(content)
-                refused = bool(answer.get("is_error")) or "publish 429" in str(content)[:300]
+                ran = block.get("name") == "Bash" and text.startswith("Exit code")
+                refused = (bool(answer.get("is_error")) and not ran) or "publish 429" in str(content)[:300]
                 yield (event.get("exchange", 0), event.get("conversation", 1), block.get("name"),
                        block.get("input", {}), refused, text)
 
@@ -302,45 +314,6 @@ def publishes_by_exchange(trace: list[dict]) -> Counter:
     return Counter(exchange for exchange, _ in publishes(trace))
 
 
-def written_in(text: str, filename: str) -> bool:
-    """A command or script writes a file named `filename`, by what it says: the write
-    names the file, in quotes or through a variable assigned its path."""
-    name = re.escape(filename)
-    target = rf"['\"]?[^\s'\"();&|]*{name}"
-    quoted = rf"['\"][^'\"\n]*{name}['\"]"
-    held = re.findall(rf"\b(\w+)\s*=\s*(?:(?:pathlib\.)?Path\(|os\.path\.join\()?[^\n()=]*{name}", text)
-    refs = [quoted, *(rf"\b{re.escape(variable)}\b" for variable in held)]
-    return bool(re.search(rf">>?\s*{target}", text)
-                or re.search(rf"\btee\s+(?:-a\s+)?{target}", text)
-                or re.search(rf"\bsed\s+-i\b[^;&|]*{name}", text)
-                or any(re.search(rf"open\([^)]*?{ref}\)?\s*,\s*['\"][wa]|{ref}\)?\s*\.(?:write_text\(|open\(\s*['\"][wa])", text)
-                       for ref in refs))
-
-
-def writes(trace: list[dict], filename: str):
-    """Each accepted write of a file named `filename`: (exchange, path, text).
-
-    `path` is as the call names it, None when a command names the file without its
-    folder. `text` is what wrote it: the content, the edit's new text, or the
-    command with its scripts; None for a command running a script the trace does
-    not show, which may or may not have written the file.
-    """
-    for exchange, name, given, text, unseen, _ in accepted_calls(trace):
-        if name == "Bash":
-            if written_in(text, filename):
-                found = re.search(rf"[^\s'\"();&|=]*{re.escape(filename)}", text)
-                yield exchange, (found.group(0) if found and "/" in found.group(0) else None), text
-            elif unseen:
-                yield exchange, None, None
-        elif name in ("Write", "Edit") and pathlib.PurePath(str(given.get("file_path", ""))).name == filename:
-            yield exchange, given["file_path"], text
-
-
-def saves_by_exchange(trace: list[dict]) -> Counter:
-    """Writes of `deck.json` the trace shows, by exchange."""
-    return Counter(exchange for exchange, _, text in writes(trace, "deck.json") if text is not None)
-
-
 def copies(card: dict) -> int:
     """A saved card's count; one that is null or not a number counts as none, so one bad
     card does not stop the checks of the whole round."""
@@ -358,6 +331,27 @@ def parsed(text: str | None) -> dict | None:
     return value if isinstance(value, dict) else None
 
 
+NO_RECORD = "this run has no record of the deck folder after each exchange"
+
+# The deck folders as one exchange left them: by path relative to the workspace, the
+# parsed `deck.json` (None when it is missing or does not parse) and the ledger's lines.
+State = dict[str, tuple[dict | None, list[str]]]
+
+
+def read_state(folder: pathlib.Path) -> State:
+    """The deck folders the runner copied under `folder`."""
+    state: State = {}
+    for path in sorted(p for p in folder.rglob("*") if p.is_file() and p.name in ("deck.json", "LEDGER.md")):
+        deck, lines = state.get(path.parent.relative_to(folder).as_posix(), (None, []))
+        text = path.read_text(errors="replace")
+        if path.name == "deck.json":
+            deck = parsed(text)
+        else:
+            lines = text.splitlines()
+        state[path.parent.relative_to(folder).as_posix()] = (deck, lines)
+    return state
+
+
 class Run:
     def __init__(self, path: pathlib.Path):
         self.path = path
@@ -367,6 +361,15 @@ class Run:
         self.files = {p.relative_to(path / "workspace").as_posix(): p.read_text(errors="replace")
                       for p in (path / "workspace").rglob("*")
                       if p.is_file() and p.suffix in {".json", ".md", ".txt", ".html"} and ".claude" not in p.parts}
+        after = path / "after"
+        self.start_state = read_state(after / "start") if (after / "start").is_dir() else {}
+        self.states: list[State] = []
+        recorded = sorted((int(p.name), p) for p in after.iterdir() if p.name.isdigit()) if after.is_dir() else []
+        for exchange, folder in recorded:
+            # An exchange the runner could not record (its turn crashed) is taken to have changed nothing.
+            while len(self.states) < exchange:
+                self.states.append(self.state_before(len(self.states)))
+            self.states.append(read_state(folder))
         self.published = self.last_published()
         self.folder = self.deck_folder()
         # Runs before ADR-0011 kept the deck only as a published page.
@@ -379,12 +382,29 @@ class Run:
     def tool_uses(self):
         return tool_uses(self.trace)
 
+    def state_before(self, exchange: int) -> State:
+        """The deck folders as the exchange found them: a run from a start begins at the start."""
+        return self.states[exchange - 1] if exchange > 0 else self.start_state
+
+    def changed_in(self, exchange: int) -> list[str]:
+        """The deck folders whose `deck.json` the exchange changed or made."""
+        before = self.state_before(exchange)
+        return [folder for folder, (deck, _) in self.states[exchange].items()
+                if deck != before.get(folder, (None, []))[0]]
+
+    def saves_by_exchange(self) -> Counter:
+        return Counter(e for e in range(len(self.states)) if self.changed_in(e))
+
     def deck_folder(self) -> pathlib.Path | None:
-        """The folder of the last `deck.json` the trace wrote, else the one the workspace holds."""
+        """The folder of the last state's most recently changed deck, else the workspace's
+        most recently written `deck.json`."""
         workspace = self.path / "workspace"
-        named = [path for _, path, text in writes(self.trace, "deck.json") if path and text is not None]
-        if named and (workspace / named[-1]).is_file():  # an absolute path joins as itself
-            return (workspace / named[-1]).parent
+        if self.states:
+            changed = {folder: e for e in range(len(self.states)) for folder in self.changed_in(e)}
+            held = [folder for folder, (deck, _) in self.states[-1].items()
+                    if deck is not None and (workspace / folder / "deck.json").is_file()]
+            if held:
+                return workspace / max(held, key=lambda folder: (changed.get(folder, -1), folder))
         held = [p.parent for p in workspace.rglob("deck.json") if ".claude" not in p.parts]
         # A tie goes to the name that sorts last, not to the listing's order.
         return max(held, key=lambda folder: ((folder / "deck.json").stat().st_mtime, folder.name), default=None)
@@ -468,19 +488,17 @@ class Run:
                     out.append(content if isinstance(content, str) else json.dumps(content))
         return "\n".join(out)
 
-    def saves_by_exchange(self) -> Counter:
-        return saves_by_exchange(self.trace)
-
     def final_list(self) -> tuple[Counter, str | None]:
         """The deck as last saved, else the last Arena import list in a reply or a
-        saved file: cards and commander."""
+        saved file: cards and commander. A saved card with no name is no card."""
         deck = self.deck()
         if deck and deck.get("cards"):
+            named = [c for c in deck["cards"] if isinstance(c, dict) and isinstance(c.get("name"), str)]
             cards = Counter()
-            for card in deck["cards"]:
+            for card in named:
                 cards[card["name"]] += copies(card)
             cards = +cards  # a card at count 0 was taken out
-            commander = next((c["name"] for c in deck["cards"] if str(c.get("category", "")).lower() == "commander"), None)
+            commander = next((c["name"] for c in named if str(c.get("category", "")).lower() == "commander"), None)
             return cards, commander
         candidates = self.deckwright_texts() + list(self.files.values())
         for text in reversed(candidates):
@@ -557,7 +575,9 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     confirmed = {face for name in started | {n for c in facts["confirmations"] for n in c["cards"]} for face in faces(name)}
     unseen = sorted(n for n in cards if n not in BASICS and not faces(n) & confirmed)
     basics_ok = facts["basic_split_confirmed"] or not any(n in BASICS for n in cards)
-    if not cards:
+    if not cards and run.summary.get("ends") and not any(c["cards"] for c in facts["confirmations"]):
+        results["C1"] = ("n/a", f"the brief ends at the {run.summary['ends']}, before any card is picked")
+    elif not cards:
         results["C1"] = ("fail", "no final deck list")
     else:
         results["C1"] = ("pass" if not unseen and basics_ok else "fail",
@@ -594,10 +614,9 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
 
     saves = run.saves_by_exchange()
     pick_exchanges = {message_to_exchange(run, c["message"]) for c in facts["confirmations"] if c["cards"]}
-    unsaved, unseen = unsaved_picks(run, pick_exchanges, "deck.json")
+    unsaved = sorted(pick_exchanges - set(saves))
     saved = f"{len(saves)} exchanges with a save; picks not saved in their exchange: {len(unsaved)} of {len(pick_exchanges)}"
-    results["C4"] = verdict_of([saved] if unsaved else [], bool(pick_exchanges),
-                               [f"a script may have saved exchanges {unseen}"] if unseen else [], saved)
+    results["C4"] = verdict_of([saved] if unsaved and run.states else [], bool(pick_exchanges), unrecorded(run), saved)
 
     if facts["review_type_counts"] and cards:
         # A two-faced card may be counted by its front face or by every face: a
@@ -687,23 +706,18 @@ def facts_verdict(facts: dict, names: list[str]) -> tuple[str, str]:
 
 
 def verdict_of(problems: list[str], exercised: bool, unseen: list[str] = (), passed: str = "") -> tuple[str, str]:
-    """Fail on any problem; n/a when nothing was exercised, or when what could not be
-    told from the trace is all that stands between the run and a pass."""
+    """Fail on any problem; n/a when nothing was exercised, or when what the run does
+    not show (`unseen`, each said as why) is all that stands between it and a pass."""
     if problems:
         return "fail", "; ".join(problems)
     if unseen:
-        return "n/a", "cannot tell from the trace: " + "; ".join(unseen)
+        return "n/a", "; ".join(unseen)
     return ("pass", passed) if exercised else ("n/a", passed or "never came up")
 
 
-def unsaved_picks(run: Run, pick_exchanges: set[int], filename: str) -> tuple[list[int], list[int]]:
-    """The pick exchanges that wrote no `filename`, and those where only a script the trace does not show may have."""
-    by_exchange: dict[int, list] = {}
-    for e, _, text in writes(run.trace, filename):
-        by_exchange.setdefault(e, []).append(text)
-    missing = sorted(e for e in pick_exchanges if e not in by_exchange)
-    unseen = sorted(e for e in pick_exchanges if e in by_exchange and all(t is None for t in by_exchange[e]))
-    return missing, unseen
+def unrecorded(run: Run) -> list[str]:
+    """What a check cannot see in a run with no record of its deck folders, as `verdict_of`'s unseen."""
+    return [] if run.states else [NO_RECORD]
 
 
 def type_line_of(name: str, cache: dict) -> str:
@@ -754,21 +768,23 @@ def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> 
 
 DECK_SIZE = {"brawl": 100, "standard": 60}
 LINK_ASKED = re.compile(r"\b(link|url)\b", re.I)
-# Any Scryfall address, with or without its scheme: a card page, a search, the API, a picture.
-SCRYFALL_LINK = re.compile(r"(?:https?://)?(?:[\w-]+\.)*scryfall\.(?:com|io)(?:/[^\s)\]>\"'<]*)?", re.I)
+# Any Scryfall address: one with its scheme, or a host with a path ("api.scryfall.com/cards/…").
+# A bare "Scryfall.com" in prose names the site and links nowhere.
+SCRYFALL_LINK = re.compile(r"https?://(?:[\w-]+\.)*scryfall\.(?:com|io)(?:/[^\s)\]>\"'<]*)?"
+                           r"|(?:[\w-]+\.)*scryfall\.(?:com|io)/[^\s)\]>\"'<]*", re.I)
 PICTURE = re.compile(r"!\[[^\]]*\]\([^)]*\)|<img\b[^>]*>", re.I)
 SCRYFALL_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
 def skill_checks(run: Run, facts: dict, fmt: str, cache: dict) -> dict[str, tuple[str, str]]:
     deck = run.deck()
-    rounds = offers_seen(run)
+    rounds = rounds_on_offer(run)
     return {
         "S1": saved_and_published(run, facts),
         "S2": round_shown(run, facts),
-        "S3": ladder_shown(facts, rounds),
-        "S4": suggestions_marked(facts, rounds, deck),
-        "S5": crossover_marked(facts, rounds, cache),
+        "S3": ladder_shown(run, facts, rounds),
+        "S4": suggestions_marked(run, facts, rounds),
+        "S5": crossover_marked(run, facts, rounds, deck, cache),
         "S6": (("n/a", "Standard has no commander") if fmt != "brawl"
                else facts_verdict(facts, ["commander_before_colours"])),
         "S7": facts_verdict(facts, ["set_count_says_any_printing"]),
@@ -788,34 +804,55 @@ def complete(deck: dict | None) -> bool:
     return size == DECK_SIZE.get(str(deck.get("format", "")).lower())
 
 
-def offers_seen(run: Run) -> list[dict]:
-    """Every round the run put on offer that the trace's writes or the deck folder show in full."""
-    decks = [parsed(text) for _, _, text in writes(run.trace, "deck.json")] + [run.deck()]
-    found = {}
-    for deck in decks:
-        if deck and isinstance(deck.get("offer"), dict):
-            found[json.dumps(deck["offer"], sort_keys=True)] = deck["offer"]
+def rounds_on_offer(run: Run) -> list[tuple[dict, set[str]]]:
+    """Each distinct `offer` the deck folders held after an exchange, with the categories
+    of the deck that held it, lowercased and without the commander (deck.example.json
+    lists the commander as a category, and a commander offer is no category's round)."""
+    found: dict[str, tuple[dict, set[str]]] = {}
+    for state in run.states:
+        for deck, _ in state.values():
+            if deck and isinstance(deck.get("offer"), dict):
+                categories = {str(c.get("name", "")).lower() for c in deck.get("categories") or [] if isinstance(c, dict)}
+                found.setdefault(json.dumps(deck["offer"], sort_keys=True), (deck["offer"], categories - {"commander"}))
     return list(found.values())
 
 
-def groups_of(offer: dict) -> list[dict]:
-    return [g for g in offer.get("groups") or [] if isinstance(g, dict)]
+def category_rounds(rounds: list[tuple[dict, set[str]]]) -> list[dict]:
+    return [o for o, categories in rounds if str(o.get("category", "")).lower() in categories]
 
 
-def offered_cards(offer: dict) -> list[dict]:
+def groups_of(offer) -> list[dict]:
+    return [g for g in offer.get("groups") or [] if isinstance(g, dict)] if isinstance(offer, dict) else []
+
+
+def offered_cards(offer) -> list[dict]:
     return [c for g in groups_of(offer) for c in g.get("cards") or [] if isinstance(c, dict)]
 
 
+def copies_held(name: str, state: State) -> int:
+    """Copies of the card `name` across the deck folders of a state."""
+    return sum(copies(c) for deck, _ in state.values() if deck for c in deck.get("cards") or []
+               if isinstance(c, dict) and isinstance(c.get("name"), str) and faces(c["name"]) & faces(name))
+
+
 def saved_and_published(run: Run, facts: dict) -> tuple[str, str]:
-    """S1: each pick writes `deck.json` and `LEDGER.md`; a publish only once the player
-    asks for a link, and always to the same artifact. That a failed publish is said in
-    one line is the conversation's, and not checked."""
+    """S1: each pick adds the card to `deck.json` (or raises its count) and a ledger line
+    naming it, in its exchange; a publish only once the player asks for a link, and
+    always to the same artifact. That a failed publish is said in one line is the
+    conversation's, and not checked."""
     picks = {message_to_exchange(run, c["message"]): c["cards"] for c in facts["confirmations"] if c["cards"]}
-    problems, unseen = [], []
-    for filename in ("deck.json", "LEDGER.md"):
-        missing, unsure = unsaved_picks(run, set(picks), filename)
-        problems += [f"{', '.join(picks[e][:3])} (exchange {e}) never written to {filename}" for e in missing]
-        unseen += [f"{filename} in exchange {e} may have been written by a script" for e in unsure]
+    problems = []
+    for e, names in sorted(picks.items()):
+        if e >= len(run.states):
+            continue
+        before, after = run.state_before(e), run.states[e]
+        gained = Counter(line for _, lines in after.values() for line in lines)
+        gained -= Counter(line for _, lines in before.values() for line in lines)
+        for name in names:
+            if copies_held(name, after) <= copies_held(name, before):
+                problems.append(f"{name} (exchange {e}) not added to deck.json")
+            if not any(named_in(name, line.lower()) for line in gained):
+                problems.append(f"{name} (exchange {e}) has no new line in LEDGER.md")
     asked = [message_to_exchange(run, i) for i, m in enumerate(run.messages)
              if m["role"] == "player" and LINK_ASKED.search(m["text"])]
     done = list(publishes(run.trace))
@@ -825,18 +862,16 @@ def saved_and_published(run: Run, facts: dict) -> tuple[str, str]:
     artifacts = list(dict.fromkeys(a for _, a in done if a))
     if len(artifacts) > 1:
         problems.append(f"published to {len(artifacts)} artifacts: {artifacts}")
-    return verdict_of(problems, bool(picks or done), unseen,
-                      f"{len(picks)} picks written to deck.json and LEDGER.md; {len(done)} publishes")
+    return verdict_of(problems, bool(picks or done), unrecorded(run) if picks else [],
+                      f"{len(picks)} picks added to deck.json and LEDGER.md; {len(done)} publishes")
 
 
 def round_shown(run: Run, facts: dict) -> tuple[str, str]:
-    """S2: each exchange that offers cards writes them to `deck.json` as `offer`, runs
-    `pack.py` and names the packed file; no reply gives a Scryfall URL or shows a
-    picture. A file sent into the chat is not judged: the runner disallows the tool."""
-    problems, unseen = [], []
-    written: dict[int, list] = {}
-    for e, _, text in writes(run.trace, "deck.json"):
-        written.setdefault(e, []).append(text)
+    """S2: after each exchange that offers cards the deck folder holds them as `offer`,
+    and the exchange ran `pack.py` and its reply names the packed file; no reply gives
+    a Scryfall URL or shows a picture. A file sent into the chat is not judged: the
+    runner disallows the tool."""
+    problems = []
     packed: dict[int, str] = {}
     for e, name, given, _, _, answer in accepted_calls(run.trace):
         command = str(given.get("command", "")) if name == "Bash" else ""
@@ -847,12 +882,8 @@ def round_shown(run: Run, facts: dict) -> tuple[str, str]:
         packed[e] = (pathlib.PurePath(printed[-1]).name if printed
                      else f"{pathlib.PurePath(folder.group(1)).name}.html" if folder else "the packed file")
     for e, message in sorted({message_to_exchange(run, o["message"]): o["message"] for o in facts["offers"] if o["cards"]}.items()):
-        texts = written.get(e, [])
-        if not any(puts_on_offer(t) for t in texts if t is not None):
-            if None in texts:
-                unseen.append(f"exchange {e}'s offer may have been written by a script")
-            else:
-                problems.append(f"exchange {e} offers cards and writes no offer to deck.json")
+        if e < len(run.states) and not any(offered_cards(deck.get("offer")) for deck, _ in run.states[e].values() if deck):
+            problems.append(f"exchange {e} offers cards and its deck folder holds no offer after it")
         if e not in packed:
             problems.append(f"exchange {e} offers cards and never runs pack.py")
         elif packed[e] not in (run.messages[message]["text"] if message < len(run.messages) else ""):
@@ -860,33 +891,16 @@ def round_shown(run: Run, facts: dict) -> tuple[str, str]:
     for text in run.deckwright_texts():
         problems += [f"a Scryfall URL in a reply: {link}" for link in SCRYFALL_LINK.findall(text)]
         problems += [f"a card picture in a reply: {image}" for image in PICTURE.findall(text)]
-    return verdict_of(problems, bool(facts["offers"]), unseen)
+    return verdict_of(problems, bool(facts["offers"]), unrecorded(run) if facts["offers"] else [])
 
 
-def puts_on_offer(text: str) -> bool:
-    """A write of `deck.json` holds an offer: a whole file by its content, an edit or a
-    command by setting `offer` (removing it is no offer)."""
-    deck = parsed(text)
-    if deck is not None:
-        return bool(deck.get("offer"))
-    return bool(re.search(r"['\"]offer['\"]\s*(?:\]\s*=(?!=)|:)|\boffer\s*=(?!=)", text))
-
-
-def unread_rounds(facts: dict, rounds: list[dict], names: list[str]) -> list[str]:
-    """What stands unseen when the reader saw cards offered, says the round held, and no
-    round can be read from the trace or the deck (a script wrote it and it was removed)."""
-    if facts["offers"] and not rounds and any(holds(facts, n) for n in names):
-        return ["no round the reader saw on offer can be read from the trace or the deck folder"]
-    return []
-
-
-def ladder_shown(facts: dict, rounds: list[dict]) -> tuple[str, str]:
-    """S3: a round with a creature type shows each step under its heading with its full
-    count; a round of more than one step shows all three, about ten cards in all. A
-    further round of one step is the player's to ask for (ADR-0012)."""
+def ladder_shown(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> tuple[str, str]:
+    """S3: with a creature type wanted, a category's round shows each step under its
+    heading with its full count; a round of more than one step shows all three, about
+    ten cards in all. A further round of one step is the player's to ask for (ADR-0012)."""
     names = ["ladder_steps_with_counts"]
     problems = list(failed_facts(facts, names).values())
-    ladders = [o for o in rounds if any(g.get("heading") for g in groups_of(o))]
+    ladders = category_rounds(rounds) if holds(facts, names[0]) is not None else []
     for offer in ladders:
         steps, called = groups_of(offer), f"the {offer.get('category', 'unnamed')} round"
         for step in steps:
@@ -901,22 +915,18 @@ def ladder_shown(facts: dict, rounds: list[dict]) -> tuple[str, str]:
         # [inferred] 8 to 12 cards for ADR-0012's "about ten".
         if not 8 <= len(offered_cards(offer)) <= 12:
             problems.append(f"{called} offers {len(offered_cards(offer))} cards, not about ten")
-    return verdict_of(problems, holds(facts, names[0]) is not None or bool(ladders), unread_rounds(facts, rounds, names))
+    return verdict_of(problems, holds(facts, names[0]) is not None or bool(ladders), unrecorded(run))
 
 
-def suggestions_marked(facts: dict, rounds: list[dict], deck: dict | None) -> tuple[str, str]:
+def suggestions_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> tuple[str, str]:
     """S4: every round of one of the deck's categories marks the cards the tutor would
-    take; "you pick" takes those. A commander or swap offer is no category's round."""
+    take; "you pick" takes those."""
     names = ["suggestions_marked_with_reasons", "you_pick_takes_the_suggested"]
     problems = list(failed_facts(facts, names).values())
-    # deck.example.json lists the commander as a category.
-    categories = {str(c.get("name", "")).lower() for c in (deck or {}).get("categories") or [] if isinstance(c, dict)}
-    categories.discard("commander")
-    category_rounds = [o for o in rounds if str(o.get("category", "")).lower() in categories]
+    judged = category_rounds(rounds)
     problems += [f"the {o.get('category', 'unnamed')} round on offer marks no card suggested"
-                 for o in category_rounds if not any(c.get("suggested") for c in offered_cards(o))]
-    return verdict_of(problems, any(holds(facts, n) is not None for n in names) or bool(category_rounds),
-                      unread_rounds(facts, rounds, names))
+                 for o in judged if not any(c.get("suggested") for c in offered_cards(o))]
+    return verdict_of(problems, any(holds(facts, n) is not None for n in names) or bool(judged), unrecorded(run))
 
 
 def printing(scryfall_id: str, cache: dict) -> dict | None:
@@ -930,15 +940,17 @@ def printing(scryfall_id: str, cache: dict) -> dict | None:
     return cache[key]
 
 
-def crossover_marked(facts: dict, rounds: list[dict], cache: dict) -> tuple[str, str]:
-    """S5: the limits question names crossover cards; every card offered in a crossover
-    printing is marked so, under the name Arena prints, and is a printing Arena has.
-    Whether the picture is the newest Arena printing, and whether the tutor said another
-    exists, are not checked."""
+def crossover_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]], deck: dict | None,
+                     cache: dict) -> tuple[str, str]:
+    """S5: the limits question names crossover cards; every card offered or in the deck
+    in a crossover printing is marked so, under the name Arena prints, and is a printing
+    Arena has. Whether the picture is the newest Arena printing, and whether the tutor
+    said another exists, are not checked."""
     names = ["limits_question_names_crossover"]
     problems = list(failed_facts(facts, names).values())
     crossovers = 0
-    for card in (c for o in rounds for c in offered_cards(o)):
+    in_deck = [c for c in (deck or {}).get("cards") or [] if isinstance(c, dict)]
+    for card in [*(c for o, _ in rounds for c in offered_cards(o)), *in_deck]:
         found = printing(card.get("scryfall_id", ""), cache)
         if not found:
             continue
@@ -950,18 +962,25 @@ def crossover_marked(facts: dict, rounds: list[dict], cache: dict) -> tuple[str,
         crossovers += 1
         printed = found.get("flavor_name") or next((f.get("flavor_name") for f in (found.get("card_faces") or [])[:1]), None)
         if not card.get("crossover"):
-            problems.append(f"{name}: a crossover printing offered unmarked")
+            problems.append(f"{name}: a crossover printing unmarked")
         if "arena" not in (found.get("games") or []):
             problems.append(f"{name}: a crossover printing Arena does not have, so its printed name is not Arena's")
         if printed and card.get("printed_name") != printed:
             problems.append(f"{name}: printed_name {card.get('printed_name')!r}, Arena prints {printed!r}")
-    return verdict_of(problems, holds(facts, names[0]) is not None or bool(crossovers),
-                      unread_rounds(facts, rounds, names))
+    return verdict_of(list(dict.fromkeys(problems)), holds(facts, names[0]) is not None or bool(crossovers),
+                      unrecorded(run))
+
+
+# A file name printed beside a count ("backup-31.json") holds no count.
+FILE_NAME = re.compile(r"\S+\.(?:json|md|html?|py|jpe?g|png|txt|csv)\b", re.I)
 
 
 def counts_from_scripts(run: Run, facts: dict) -> tuple[str, str]:
     """S8: an exchange that states a count of the deck ran a python3 script over `deck.json`
-    that printed the number stated, the first whole number in the reader's `said`."""
+    that printed the number stated, the first whole number in the reader's `said`. A
+    stated 0 needs only that such a script printed something: a count by category
+    often leaves out the category that has none. A count said without digits is not
+    judged, since no number can be found for it."""
     over_deck: dict[int, list[str]] = {}
     unsure: dict[int, list[str]] = {}
     for e, name, _, text, unseen, answer in accepted_calls(run.trace):
@@ -972,19 +991,26 @@ def counts_from_scripts(run: Run, facts: dict) -> tuple[str, str]:
         elif unseen:
             unsure.setdefault(e, []).append(answer)
 
-    def printed(outputs: list[str], number: str | None) -> bool:
-        return bool(outputs) and (number is None or any(re.search(rf"\b{number}\b", out) for out in outputs))
+    def printed(outputs: list[str], number: str) -> bool:
+        if number == "0":
+            return any(out.strip() for out in outputs)
+        return any(re.search(rf"(?<![\w.]){number}(?!\w|\.\d)", FILE_NAME.sub(" ", out)) for out in outputs)
 
-    problems, unseen = [], []
+    problems, unseen, judged = [], [], 0
     for stated in facts.get("deck_counts_stated", []):
-        e = message_to_exchange(run, stated["message"])
         number = re.search(r"\d+", stated["said"])
-        number = number and number.group(0)
+        if not number:
+            continue
+        judged += 1
+        e, number = message_to_exchange(run, stated["message"]), str(int(number.group(0)))
         if printed(over_deck.get(e, []), number):
             continue
-        (unseen if printed(unsure.get(e, []), number) else problems).append(
-            f"'{stated['said']}' (exchange {e}) with no python3 script over deck.json printing it in its exchange")
-    return verdict_of(problems, bool(facts.get("deck_counts_stated")), unseen)
+        if printed(unsure.get(e, []), number):
+            unseen.append(f"'{stated['said']}' (exchange {e}) may have been printed by a script the trace does not show")
+        else:
+            problems.append(f"'{stated['said']}' (exchange {e}) with no python3 script over deck.json printing it in its exchange")
+    return verdict_of(problems, bool(judged), unseen, "" if judged or not facts.get("deck_counts_stated")
+                      else "every count was said without digits")
 
 
 def plain(text: str) -> str:
@@ -992,29 +1018,23 @@ def plain(text: str) -> str:
 
 
 def name_given(run: Run, facts: dict, deck: dict | None) -> tuple[str, str]:
-    """S10: no name before the deck is complete; then the name the player gives, in a
-    message after the exchange whose save first made the deck complete, when the tutor
-    asks for it."""
+    """S10: no deck folder holds a name before the deck is first complete; then the name
+    is one the player gives in a message after the exchange that made it complete, when
+    the tutor asks for it."""
     names = ["name_asked_once_complete_before_handbook"]
-    problems, unseen, completed = [], [], None
-    for e, _, text in writes(run.trace, "deck.json"):
-        saved = parsed(text)
-        if saved and saved.get("name") and not complete(saved):
-            problems.append(f"named {saved['name']!r} before the deck was complete")
-        if completed is None and complete(saved):
-            completed = e
+    completed = next((e for e, state in enumerate(run.states) if any(complete(d) for d, _ in state.values())), None)
+    problems = [f"named {d['name']!r} before the deck was complete" for state in run.states[:completed]
+                for d, _ in state.values() if d and d.get("name") and not complete(d)]
     problems += failed_facts(facts, names).values()
-    name = (deck or {}).get("name")
-    if name and completed is None:
-        unseen.append("no save the trace shows made the deck complete, so when the name was asked for")
-    elif name:
-        said = [plain(m["text"]) for i, m in enumerate(run.messages)
-                if m["role"] == "player" and message_to_exchange(run, i) > completed]
+    name = str((deck or {}).get("name") or "")
+    if name and run.states:
+        said = [plain(m["text"]) for i, m in enumerate(run.messages) if m["role"] == "player"
+                and (completed is None or message_to_exchange(run, i) > completed)]
         if not any(plain(name) in s for s in said):
             problems.append(f"{name!r} is not a name the player gave")
     if complete(deck) and not name:
         problems.append("the complete deck has no name")
-    return verdict_of(list(dict.fromkeys(problems)), bool(name) or holds(facts, names[0]) is not None, unseen)
+    return verdict_of(list(dict.fromkeys(problems)), bool(name) or holds(facts, names[0]) is not None, unrecorded(run))
 
 
 def handbook_written(facts: dict, deck: dict | None) -> tuple[str, str]:
@@ -1030,10 +1050,28 @@ def slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", re.sub(r"['’]", "", text.lower())).strip("-")
 
 
+def renames(run: Run) -> list[tuple[str, str, list[str]]]:
+    """Each deck folder gone after an exchange while a new one carries on its ledger (its
+    ledger starts with the old one's lines, at least one entry among them): the old
+    folder, the new one, and the new one's lines beyond the old, as last recorded."""
+    found = []
+    for e, state in enumerate(run.states):
+        before = run.state_before(e)
+        for old, (_, old_lines) in before.items():
+            if old in state or not any(line.startswith("- ") for line in old_lines):
+                continue
+            for new, (_, lines) in state.items():
+                if new not in before and lines[:len(old_lines)] == old_lines:
+                    last = next(s[new][1] for s in reversed(run.states) if new in s)
+                    found.append((old, new, last[len(old_lines):]))
+    return found
+
+
 def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
     """S12: the folder is `<format>-<theme>` until the deck is named, `<format>-<name>`
-    after, numbered from 2 when taken; a rename is a ledger line. A theme folder may
-    shorten the theme to some of its words (`brawl-tokens` for "Creature tokens")."""
+    after, numbered from 2 when taken; a rename is a `name` line in the ledger. A theme
+    folder may be made of some of the theme's words, singular or plural (`brawl-tokens`
+    for "Creature tokens", `brawl-rats` for "Rat typal")."""
     if run.summary.get("start"):
         return "n/a", "began from a start, in the folder the runner names"
     if not run.folder or not deck:
@@ -1044,9 +1082,12 @@ def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
         return "n/a", "the deck has neither a name nor a theme to name its folder by"
     fmt, folder = str(deck.get("format", "")).lower(), run.folder.name
     base = f"{fmt}-{slug(by)}"
+
+    def theme_word(word: str) -> bool:
+        return any(word == t or word in singulars(t) or t in singulars(word) for t in slug(by).split("-"))
+
     def fits(words: str) -> bool:
-        return words == slug(by) or (not deck.get("name") and bool(words)
-                                     and set(words.split("-")) <= set(slug(by).split("-")))
+        return words == slug(by) or (not deck.get("name") and bool(words) and all(map(theme_word, words.split("-"))))
 
     problems = []
     rest = folder.removeprefix(f"{fmt}-") if folder.startswith(f"{fmt}-") else ""
@@ -1059,13 +1100,9 @@ def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
             problems.append(f"{folder} is numbered though {free} is free")
     else:
         problems.append(f"the deck is in {folder}, not {base}")
-    earlier = {pathlib.PurePath(path).parent.name for _, path, _ in writes(run.trace, "deck.json") if path} - {folder}
-    rename = rf"(?:\bmv\b|\bos\.(?:rename|replace)\(|\bshutil\.move\(|\.rename\()[^\n]*\b{re.escape(folder)}\b"
-    moved = any(name == "Bash" and re.search(rename, text) for _, name, _, text, _, _ in accepted_calls(run.trace))
-    ledger = run.page_files.get("LEDGER.md")
-    if (earlier or moved) and not any(folder in line for line in (ledger.read_text().splitlines() if ledger else [])):
-        problems.append(f"the rename to {folder} is not a line in the ledger")
-    return verdict_of(problems, True)
+    problems += [f"the rename of {old} to {new} is not a name line in its ledger" for old, new, lines in renames(run)
+                 if not any(re.search(r"·\s*name\s*·", line) for line in lines)]
+    return verdict_of(problems, True, unrecorded(run))
 
 
 def layouts_saved(deck: dict | None) -> tuple[str, str]:
