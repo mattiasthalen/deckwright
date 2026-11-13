@@ -5,7 +5,7 @@ A deckbuilding tutor for Claude. AI-assisted, not AI-generated: you choose every
 Deckwright walks you through building a Magic: The Gathering deck for MTG Arena,
 Brawl (100 cards with a commander) or Standard (60 cards). It looks every card up on
 Scryfall, offers a short list per category with reasons, and keeps the deck as a
-folder of plain files, shown to you as one packed page that opens anywhere. You get
+folder of plain files, shown to you as one packed file, a page you open from the chat. You get
 a link to a private page only when you ask for one.
 
 ```

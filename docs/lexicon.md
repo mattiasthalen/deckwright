@@ -29,7 +29,7 @@ strongest cards for the job. See
 [ADR-0012](adr/0012-a-round-shows-every-step-of-the-ladder.md).
 
 **ledger** — The deck's history: every card in, card out, *criteria* change,
-*category* change and dismissed *finding*, each with a reason, only ever added to. Distinct from the deck's current state.
+*category* change, dismissed *finding*, and the deck's name with its folder's rename, each with a reason, only ever added to. Distinct from the deck's current state.
 Not used: change log. See [ADR-0011](adr/0011-a-save-writes-the-deck-folder-and-the-page-is-shown-as-one-packed-file.md).
 
 **maybeboard** — Cards not in the deck that might go in: ones the player saved for
