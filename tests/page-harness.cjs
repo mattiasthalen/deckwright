@@ -5,13 +5,18 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
 
 const REPO = path.resolve(__dirname, '..');
 const PAGE = process.env.DECK_PAGE
   || path.join(REPO, 'plugins/deckwright/skills/deckwright/page/index.html');
 const EXAMPLE = path.join(REPO, 'plugins/deckwright/skills/deckwright/page/deck.example.json');
+const PACK = path.join(path.dirname(PAGE), 'pack.py');
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+// Answers a request to a font host with nothing, so a test stays offline.
+const answerFontHost = route => route.fulfill({ status: 200, body: '',
+  contentType: new URL(route.request().url()).hostname === 'fonts.googleapis.com' ? 'text/css' : 'font/woff2' });
 const CLOCK_START = Date.parse('2026-11-10T12:00:00Z');
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -525,7 +530,7 @@ function deckFolders() {
     'drawn-oddly': { deck: drawnOddly, ...all(drawnOddly) },
     'drawn-capital-brawl': { deck: drawnCapitalBrawl, ...all(drawnCapitalBrawl) },
     'drawn-no-format': { deck: drawnNoFormat, ...all(drawnNoFormat) },
-    // The rich deck with every file given to the page in window.DECK_FILES and none in the folder.
+    // The rich deck packed by pack.py: every file is given to the page in window.DECK_FILES and none is in the folder.
     packed: { deck: rich, packedFrom: 'rich', pictures: new Set(), art: [] },
     'packed-drawn': { deck: drawnBrawl, packedFrom: 'drawn-brawl', pictures: new Set(), art: [] },
     offered: { deck: offeredDeck, ledger: ledgerFile(RICH_LEDGER), art: [rich.hero],
@@ -553,21 +558,6 @@ async function jpeg(browser, width, height, colour) {
   return bytes;
 }
 
-// The page with the deck folder's files set in window.DECK_FILES by a script
-// before the page's own: text files as text, pictures as data URLs.
-function packedPage(page, folder, cardPicture, artCrop, cardBack) {
-  const dataUrl = bytes => `data:image/jpeg;base64,${Buffer.from(bytes).toString('base64')}`;
-  const files = { 'deck.json': JSON.stringify(folder.deck) };
-  if (folder.ledger !== undefined) files['LEDGER.md'] = folder.ledger;
-  for (const id of folder.pictures) files[`cards/${id}.jpg`] = dataUrl(cardPicture);
-  for (const id of folder.art) files[`art/${id}.jpg`] = dataUrl(artCrop);
-  if (savesCardBack(folder)) files['cards/back.jpg'] = dataUrl(cardBack);
-  const script = `<script>window.DECK_FILES = ${JSON.stringify(files).replace(/</g, '\\u003c')};</script>\n`;
-  const at = page.indexOf('<script>');
-  if (at < 0) throw new Error('the page has no inline script to put DECK_FILES before');
-  return page.slice(0, at) + script + page.slice(at);
-}
-
 // The three pictures every test deck saves: a card, an artwork crop and the card back.
 async function testPictures(browser) {
   return {
@@ -593,16 +583,21 @@ async function startDeckServer(browser) {
   const saved = await testPictures(browser);
   const page = fs.readFileSync(PAGE);
   const folders = deckFolders();
+  // A packed deck is the file pack.py makes from its saved folder, served as the page of a folder that holds nothing else.
+  const unpacked = fs.mkdtempSync(path.join(os.tmpdir(), 'deck-unpacked-'));
   for (const [name, f] of Object.entries(folders)) {
     const dir = path.join(root, name);
     if (f.packedFrom) {
+      writeSavedFiles(path.join(unpacked, name), folders[f.packedFrom], saved);
+      const packed = path.resolve(unpacked, execFileSync('python3', [PACK, path.join(unpacked, name)], { cwd: unpacked, encoding: 'utf8' }).trim());
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, 'index.html'), packedPage(page.toString('utf8'), folders[f.packedFrom], saved.cardPicture, saved.artCrop, saved.cardBack));
+      fs.copyFileSync(packed, path.join(dir, 'index.html'));
       continue;
     }
     writeSavedFiles(dir, f, saved);
     fs.writeFileSync(path.join(dir, 'index.html'), page);
   }
+  fs.rmSync(unpacked, { recursive: true, force: true });
   const server = http.createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (pathname === '/favicon.ico') { res.writeHead(204); res.end(); return; }
@@ -639,7 +634,7 @@ async function openDeck(browser, server, name, options = {}) {
     }
     if (FONT_HOSTS.includes(url.hostname)) {
       fonts.push(url.href);
-      return route.fulfill({ status: 200, contentType: url.hostname === 'fonts.googleapis.com' ? 'text/css' : 'font/woff2', body: '' });
+      return answerFontHost(route);
     }
     outside.push(url.href);
     return route.abort();
@@ -682,6 +677,6 @@ async function withDeck(browser, server, name, options, use) {
 }
 
 module.exports = {
-  REPO, PAGE, EXAMPLE, FONT_HOSTS, UUID, chromium, scryfallId, RICH_LEDGER, OFFER, MISSING_OFFERED_PICTURE, offeredCards, deckFolders, testPictures, writeSavedFiles, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
+  REPO, PAGE, PACK, EXAMPLE, FONT_HOSTS, answerFontHost, UUID, chromium, scryfallId, RICH_LEDGER, OFFER, MISSING_OFFERED_PICTURE, offeredCards, deckFolders, testPictures, writeSavedFiles, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
   LONG_WORD, startDeckServer, withDeck, untilDrawn,
 };

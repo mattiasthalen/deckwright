@@ -25,7 +25,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const {
-  REPO, EXAMPLE, FONT_HOSTS, UUID, chromium, scryfallId, RICH_LEDGER, MISSING_OFFERED_PICTURE, offeredCards, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
+  REPO, EXAMPLE, FONT_HOSTS, answerFontHost, UUID, chromium, scryfallId, RICH_LEDGER, MISSING_OFFERED_PICTURE, offeredCards, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
   LONG_WORD, startDeckServer, withDeck, untilDrawn,
 } = require('./page-harness.cjs');
 
@@ -1709,7 +1709,7 @@ describe('Every field of the example', () => {
     const picture = await (await context.request.get(`${server.origin}/example/cards/${example.cards[0].scryfall_id}.jpg`)).body();
     await context.route('**/*', route => {
       const url = new URL(route.request().url());
-      if (FONT_HOSTS.includes(url.hostname)) return route.fulfill({ status: 200, contentType: url.hostname === 'fonts.googleapis.com' ? 'text/css' : 'font/woff2', body: '' });
+      if (FONT_HOSTS.includes(url.hostname)) return answerFontHost(route);
       // Every picture a changed deck names is served, so the console holds only what the page says.
       if (url.origin === server.origin && url.pathname.endsWith('.jpg')) return route.fulfill({ status: 200, contentType: 'image/jpeg', body: picture });
       return url.origin === server.origin ? route.continue() : route.abort();
