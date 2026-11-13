@@ -8,7 +8,7 @@ design interview, 2026-11-11.
 
 **category** — A job that cards in the deck do, such as ramp or removal. Each card
 sits in exactly one. Distinct from a *tag*, of which a card may have several, and
-from a creature type, which is a *criterion*. Not used: stack, package, pack. See
+from a creature type, which is a *criterion*. Not used for a category: stack, package, pack. See
 [ADR-0005](adr/0005-a-category-is-a-job-and-a-creature-type-is-a-criterion.md).
 
 **criterion** — Something the player said the deck must be: the format, a
@@ -19,7 +19,7 @@ judgement with a reason.
 
 **ledger** — The deck's history: every card in, card out, *criteria* change,
 *category* change and dismissed *finding*, each with a reason, only ever added to. Distinct from the deck's current state.
-Not used: change log. See [ADR-0010](adr/0010-a-deck-is-a-folder-of-plain-files-with-its-hero-art-and-tokens.md).
+Not used: change log. See [ADR-0011](adr/0011-a-save-writes-the-deck-folder-and-the-page-is-shown-as-one-packed-file.md).
 
 **maybeboard** — Cards not in the deck that might go in: ones the player saved for
 later, and Deckwright's swap suggestions.
@@ -39,4 +39,4 @@ have several tags.
 **why** — The one sentence saved with a card saying what it does for this deck.
 Distinct from the *ledger*'s reason, which says why a decision was taken.
 
-Proposed, not yet admitted: *shortlist*, *round*, *ladder*, *approved*.
+Proposed, not yet admitted: *shortlist*, *round*, *ladder*, *approved*, *on offer*, *packed file*, *crossover*.
