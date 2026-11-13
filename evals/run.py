@@ -43,7 +43,7 @@ STOPPED_BY_BUDGET = "publish budget"
 # 2026-11-10): a run's picture cards would land there.
 DECKWRIGHT_ALLOWED = ["Read", "Write", "Edit", "Glob", "Grep", "Artifact", "WebFetch",
                       "Bash(curl:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(python3:*)",
-                      "Bash(cp:*)", "Bash(cd:*)"]
+                      "Bash(cp:*)", "Bash(cd:*)", "Bash(mv:*)"]
 DECKWRIGHT_DISALLOWED = ["SendUserFile", "PushNotification", "ScheduleWakeup", "CronCreate"]
 
 STAND_IN_RULES = f"""You are playing a Magic: The Gathering player who is building a deck in a
