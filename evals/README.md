@@ -64,15 +64,37 @@ the same brief and asks fixed teaching questions in both orders; the skill wins 
 question only when picked both times (AC17, AC41, AC45).
 
 S1 to S13 are the skill's close-out criteria (ADR-0011 to ADR-0013 and the first real
-build's tickets), one check each, read off the trace and the deck folder, with the
-reader's facts where only the conversation says. The deck is read from the folder of
-the last `deck.json` the trace wrote; a save is a write of `deck.json`, not a publish.
-Where a command ran a script the trace does not show, a check that depends on it is
-n/a, never a guessed pass.
+build's tickets), one check each, read off the deck folders and the trace, with the
+reader's facts where only the conversation says.
+
+**What a run saved is read from the runner's record, never from the commands.** After
+each exchange the runner copies every `deck.json` and `LEDGER.md` in the workspace,
+at its path, into `after/<exchange>/` (exchanges counted from 0, as in the trace),
+and a start as copied in into `after/start/`. The checks read these as `Run.states`:
+
+- a **save** is an exchange that changed a `deck.json` or made a new deck folder,
+  not a publish (C4);
+- a **pick** is saved when its card is in `deck.json` after its exchange and was not
+  before (or its count rose), and the ledger gained a line naming it (S1);
+- a **round** is each distinct `offer` the states hold; S2 needs one after every
+  exchange that offers cards, S3 and S4 judge the rounds of the deck's categories
+  other than Commander (S3 only when a creature type was wanted), and S5 judges
+  every offered card and the deck's own cards;
+- the **name** must be absent from every state before the first complete one, and be
+  said by the player after it (S10);
+- a **rename** is a deck folder gone while a new one's ledger starts with its lines,
+  and needs a `name` line (S12).
+
+Publishes, `pack.py` runs and the scripts behind a stated count (S8) are read from
+the trace. A run recorded before the record began has no `after/`: what only the
+record shows is n/a there, saying "this run has no record of the deck folder after
+each exchange", and what the trace or the replies show is still judged. The deck
+is the last state's most recently changed one.
 
 A brief may end early (`## Ends`, such as `template`): C8 and C12's land count are
-then n/a. A run that dies still writes `run.json`; the checks list one without it
-as DIED. A started run copies its start into `start/`, which the checks read.
+then n/a, and so is C1 when no card was picked. A run that dies still writes
+`run.json`; the checks list one without it as DIED. A started run copies its start
+into `start/`, which the checks read.
 
 ## Known limits
 
@@ -102,8 +124,15 @@ as DIED. A started run copies its start into `start/`, which the checks read.
   from the traces.
 - Runs `checks.py` flags as CONTAMINATED reached outside their own folder.
 - Every brief builds one deck, so the checks read one deck folder a run, the
-  folder of the last `deck.json` written; a run that builds two decks is checked
-  on the last.
+  last state's most recently changed one; a run that builds two decks is checked
+  on that one.
+- The record is taken once an exchange ends: an offer written and removed within
+  one exchange, or a save undone in it, is not seen. It holds only `deck.json` and
+  `LEDGER.md`; C12's page and pictures are read from the workspace as the run left it.
+- S8 still reads the trace: a count printed by a script the trace does not show is
+  n/a, a count said without digits is not judged, and a stated 0 passes when any
+  python3 script over `deck.json` printed in that exchange, since a count by
+  category leaves out the category that has none.
 - S2 cannot see a file sent into the chat, since runs may not send one; it checks
   that the reply names the packed file `pack.py` printed.
 - The Arena check searches `!"name"`, which breaks on a name holding a quote
