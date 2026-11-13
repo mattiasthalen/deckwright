@@ -4,12 +4,15 @@
 //
 // Hooks the page must keep (everything else is read the way a reader sees it):
 //   #top       the hero
+//   #hero-line the hero's line of format, card count and progress
+//   #offer     the cards on offer section
 //   #engine    the scenes section
 //   #cards     the cards section
 //   #curve     the mana curve section
 //   #handbook  the handbook section, also the hero's handbook link target
 //   #ledger    the ledger section
 //   #import    the Arena list section
+//   #arena-list the Arena list itself
 //   .scene     one scene's box
 //   .thing     one thing in a scene step
 //   .mana      a run of mana symbols, one child element per symbol
@@ -22,7 +25,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const {
-  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
+  REPO, EXAMPLE, FONT_HOSTS, UUID, chromium, scryfallId, RICH_LEDGER, OFFER, MISSING_OFFERED_PICTURE, offeredCards, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
   LONG_WORD, startDeckServer, withDeck,
 } = require('./page-harness.cjs');
 
@@ -175,8 +178,22 @@ const blankCardNamed = (scope, name) => scope.evaluate((root, name) => [...root.
 const controlsNamed = (scope, name) => scope.locator('button, a, [role="button"], [role="link"]').filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) }).count();
 const heroArt = hero => hero.evaluate(h => [h, ...h.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundImage).find(b => b.includes('/art/') || b.includes('data:image')) || null);
 
-// Advances the fake clock in small steps until the caption leaves the scope.
+// Scrolls a scene into view and returns once an IntersectionObserver has seen it
+// there. The page's own observer of the scene was made earlier, so it has been
+// told first, and the scene moves when the clock runs.
+async function onScreen(locator) {
+  await locator.scrollIntoViewIfNeeded();
+  await locator.evaluate(root => new Promise(seen => {
+    const box = root.closest('.scene') || root.querySelector('.scene') || root;
+    new IntersectionObserver((entries, observer) => {
+      if (entries.at(-1).isIntersecting) { observer.disconnect(); seen(); }
+    }).observe(box);
+  }));
+}
+
+// Advances the paused clock in small steps until the caption leaves the scope.
 async function nextStep(page, scope, caption, limit = 4000) {
+  await onScreen(scope);
   for (let spent = 0; spent <= limit; spent += 200) {
     if (!(await scope.innerText()).includes(caption)) return spent;
     await page.clock.runFor(200);
@@ -188,10 +205,8 @@ async function nextStep(page, scope, caption, limit = 4000) {
 // pictures have loaded or failed: the text of each element shown at more than
 // half opacity, its pictures, and its blank cards (card-shaped boxes holding no
 // picture and no smaller card shape). At 'start' every motion in the thing is
-// rewound to its beginning first; at 'end' every motion is finished. The
-// installed clock also runs at real pace and can redraw the step between two
-// calls into the page, so the caption and the thing are read in one; null when
-// the scene shows another step, or redraws it while its pictures settle.
+// rewound to its beginning first; at 'end' every motion is finished. The caption
+// and the thing are read in one call; null when the scene shows another step.
 const readThing = (scene, caption, index, at) => scene.evaluate(async (s, { caption, index, at }) => {
   const t = s.innerText.includes(caption) && s.querySelectorAll('.thing')[index];
   if (!t) return null;
@@ -272,8 +287,7 @@ const partsOfThing = (scene, caption, index) => scene.evaluate((s, { caption, in
 async function toLastStep(page, deckName, sceneIndex) {
   const scene = page.locator('#engine .scene').nth(sceneIndex);
   assert.ok(await visible(scene), `scene ${sceneIndex} of ${deckName} is not drawn`);
-  await scene.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(150);
+  await onScreen(scene);
   const [first, last] = deckOf(deckName).scenes[sceneIndex].steps;
   for (let spent = 0; !(await scene.innerText()).includes(first.caption); spent += 100) {
     assert.ok(spent <= 6000, `"${first.caption}" was not shown within ${spent} ms`);
@@ -315,15 +329,10 @@ const readCurve = page => page.evaluate(() => {
   return { legend: true, creature: creature.colour, other: other.colour, columns: columns.sort((a, b) => a.x - b.x) };
 });
 
-async function steadyCurve(page) {
-  let last = await readCurve(page);
-  for (let i = 0; i < 30 && last?.legend; i++) {
-    await page.waitForTimeout(100);
-    const now = await readCurve(page);
-    if (JSON.stringify(now) === JSON.stringify(last)) return now;
-    last = now;
-  }
-  return last;
+// The curve once every motion in it has finished.
+async function finishedCurve(page) {
+  await page.evaluate(() => document.getElementById('curve')?.getAnimations({ subtree: true }).forEach(a => { try { a.finish(); } catch {} }));
+  return readCurve(page);
 }
 
 const curveBuckets = deck => {
@@ -345,7 +354,7 @@ async function drawnWithout(page, errors, deckName, leftOut) {
   }
   const pre = page.locator('pre').filter({ visible: true });
   assert.equal(await pre.count(), 1, 'the Arena list is not drawn');
-  assert.equal((await pre.innerText()).trim(), arenaList(deck));
+  assert.equal(await page.locator('#arena-list').textContent(), arenaList(deck));
   assert.ok(await until(async () => (await page.locator('#ledger').innerText()).includes('the commander')), 'the ledger entry is not drawn');
   const d = await openCard(page, deckName, 'Quick Shock');
   assert.ok((await d.innerText()).includes('Quick Shock'), 'the card dialog does not open');
@@ -423,7 +432,7 @@ describe('The look', () => {
       await open(name, async ({ page, deck }) => {
         const hero = page.locator('#top');
         assert.ok(await visible(hero), 'the hero is not on the page');
-        const art = await hero.evaluate(h => [h, ...h.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundImage).find(b => b.includes('/art/')) || null);
+        const art = await until(() => hero.evaluate(h => [h, ...h.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundImage).find(b => b.includes('/art/')) || null));
         assert.ok(art, `${name}: no element in the hero has the art file as its background`);
         assert.ok(art.includes(`/${name}/art/${deck.hero}.jpg`), `${name}: the hero background is ${art}`);
         assert.equal((await hero.locator('h1').innerText()).replace(/\s+/g, ' ').trim(), deck.name);
@@ -626,8 +635,7 @@ describe('Scenes', () => {
       const engine = page.locator('#engine');
       assert.ok(await visible(engine), 'the scenes section is not on the page');
       assert.equal(await engine.locator('button, [role="button"], a[href], input').count(), 0, 'the scenes section has a control');
-      await engine.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(150);
+      await onScreen(engine);
       const steps = deck.scenes[0].steps;
       for (const step of steps) {
         assert.ok((await engine.innerText()).includes(step.caption), `the step "${step.caption}" is not shown`);
@@ -739,8 +747,7 @@ describe('Scenes', () => {
     open('rich', { clock: true, reducedMotion: 'reduce' }, async ({ page, deck }) => {
       const engine = page.locator('#engine');
       assert.ok(await visible(engine), 'the scenes section is not on the page');
-      await engine.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(150);
+      await onScreen(engine);
       const shows = async () => {
         const text = await engine.innerText();
         for (const s of deck.scenes) {
@@ -780,7 +787,7 @@ describe('Scenes', () => {
       assert.ok(before >= 1, 'the missing picture was never asked for, so this test proves nothing');
       const steps = deck.scenes[0].steps;
       for (let i = 0; i < 4; i++) await nextStep(page, engine, steps[i % steps.length].caption);
-      await page.waitForTimeout(300);
+      await settlePictures(engine);
       assert.equal(asked(), before, `the missing picture was asked for ${asked() - before} more times over four steps`);
       assert.ok(await blankCardNamed(engine, 'Faded Rat'), 'the scene does not show the name on a blank card');
     }));
@@ -862,7 +869,7 @@ describe('Scenes', () => {
         assert.equal(backs.length, Math.min(draw, 5), `with reduced motion, a draw of ${draw} shows ${backs.length} card backs`);
         assert.equal(hit.running + fan.running, 0, `with reduced motion, ${hit.running} motions run in the damage and ${fan.running} in the draw`);
         const still = [await layout(hitThing), await layout(fanThing)];
-        await page.waitForTimeout(1200);
+        await page.evaluate(() => document.getAnimations().forEach(a => { try { a.finish(); } catch {} }));
         await page.clock.runFor(10000);
         assert.deepEqual([await layout(hitThing), await layout(fanThing)], still, 'with reduced motion, the damage or the draw moves');
       }
@@ -873,6 +880,7 @@ describe('Scenes', () => {
       const scene = page.locator('#main-scene');
       assert.ok(await visible(scene), 'the scene with damage and drawn cards that move is not drawn');
       await settlePictures(scene);
+      await onScreen(scene);
       const [still, leaves, glows] = deck.scenes[0].steps;
       const read = {};
       for (const step of [still, leaves, glows]) {
@@ -1127,7 +1135,7 @@ describe('Cards and dialog', () => {
 describe('Curve', () => {
   test('AC22: Each bar holds a creature part and an other-spells part whose sizes match the test deck, and the legend names both', () =>
     open('rich', { reducedMotion: 'reduce' }, async ({ page, deck }) => {
-      const curve = await steadyCurve(page);
+      const curve = await finishedCurve(page);
       assert.ok(curve, 'the curve section is not on the page');
       assert.ok(curve.legend, 'the legend does not name both creatures and other spells');
       const want = curveBuckets(deck);
@@ -1144,7 +1152,7 @@ describe('Curve', () => {
     const seen = {};
     for (const name of ['rich', 'mono', 'colourless']) {
       await open(name, { reducedMotion: 'reduce' }, async ({ page }) => {
-        const curve = await steadyCurve(page);
+        const curve = await finishedCurve(page);
         assert.ok(curve?.legend, `${name}: the curve has no legend naming both parts`);
         seen[name] = { creature: curve.creature, other: curve.other };
       });
@@ -1158,7 +1166,7 @@ describe('Curve', () => {
 
   test('AC24: The curve note is shown above the bars', () =>
     open('rich', { reducedMotion: 'reduce' }, async ({ page, deck }) => {
-      const curve = await steadyCurve(page);
+      const curve = await finishedCurve(page);
       assert.ok(curve?.legend, 'the curve has no legend naming both parts');
       const note = await page.evaluate(text => {
         const e = [...document.querySelectorAll('#curve *')].filter(e => e.textContent.trim() === text).at(-1);
@@ -1332,7 +1340,7 @@ describe('Ledger', () => {
       await closeDialog(page);
       const pre = page.locator('pre').filter({ visible: true });
       assert.equal(await pre.count(), 1, 'the Arena list is not drawn');
-      assert.equal((await pre.innerText()).trim(), arenaList(deck));
+      assert.equal(await page.locator('#arena-list').textContent(), arenaList(deck));
     }));
 });
 
@@ -1341,22 +1349,20 @@ describe('Written in the repo', () => {
   const skill = () => fs.readFileSync(path.join(REPO, 'plugins/deckwright/skills/deckwright/SKILL.md'), 'utf8');
   const example = () => JSON.parse(fs.readFileSync(EXAMPLE, 'utf8'));
 
-  test('AC33: SKILL.md step 7 and deck.example.json describe scenes as steps played with cards and no longer mention SVG', () => {
-    const step7 = skill().split('\n').find(l => /^7\.\s/.test(l));
-    assert.ok(step7, 'SKILL.md has no step 7');
-    assert.doesNotMatch(step7, /svg/i, 'step 7 mentions SVG');
-    assert.match(step7, /scenes?/i);
-    assert.match(step7, /steps?/i, 'step 7 does not describe scenes as steps');
-    assert.match(step7, /cards?/i, 'step 7 does not say scenes are played with cards');
-    const raw = fs.readFileSync(EXAMPLE, 'utf8');
-    assert.doesNotMatch(raw, /svg/i, 'deck.example.json mentions SVG');
-    const scenes = example().scenes || [];
-    assert.ok(scenes.length, 'deck.example.json has no scenes');
-    for (const s of scenes) {
-      assert.ok((s.steps || []).length, `the example scene "${s.title}" has no steps`);
-      assert.ok(s.steps.some(step => (step.things || []).some(t => t.card)), `the example scene "${s.title}" plays no card`);
-    }
-  });
+  test('P13, AC33: A scene is drawn from whole card pictures: each card or token thing of a step is one image of its picture, and no scene is an SVG drawing', () =>
+    open('rich', { clock: true }, async ({ page, deck }) => {
+      const engine = page.locator('#engine');
+      assert.ok(await visible(engine), 'the scenes section is not on the page');
+      await settlePictures(engine);
+      const idOf = t => t.card ? byName(deck, t.card).scryfall_id : deck.tokens.find(k => k.name === t.token).scryfall_id;
+      const drawn = await engine.evaluate(e => ({
+        svg: e.querySelectorAll('svg').length,
+        scenes: [...e.querySelectorAll('.scene')].map(s => [...s.querySelectorAll('.thing')].map(t => [...t.querySelectorAll('img')].map(i => new URL(i.src, location.href).pathname))),
+      }));
+      assert.equal(drawn.svg, 0, 'a scene draws an SVG');
+      const want = deck.scenes.map(s => s.steps[0].things.map(t => t.card || t.token ? [picturePath('rich', idOf(t))] : []));
+      assert.deepEqual(drawn.scenes, want, 'a scene\'s first step does not draw one picture for each card or token thing and none for any other thing');
+    }));
 
   test('AC34: deck.example.json is version 2 and the page draws it with no console error', () =>
     open('example', async ({ page, errors, deck }) => {
@@ -1383,7 +1389,7 @@ describe('Written in the repo', () => {
       const list = arenaList(deck);
       const pre = page.locator('pre').filter({ hasText: 'Commander' }).filter({ visible: true });
       assert.equal(await pre.count(), 1, 'the Arena list is not shown on the page');
-      assert.equal((await pre.innerText()).trim(), list);
+      assert.equal(await page.locator('#arena-list').textContent(), list);
       const section = pre.locator('xpath=ancestor::section[1]');
       const copy = section.getByRole('button', { name: /copy/i }).filter({ visible: true });
       assert.equal(await copy.count(), 1, 'the Arena list has no copy button beside it');
@@ -1476,7 +1482,7 @@ print((build.HERE / name / "deck.json").read_text())
   test('A page given every file in window.DECK_FILES draws the deck without asking for deck.json, LEDGER.md or any picture', () =>
     open('packed', async ({ page, deck, requested }) => {
       assert.equal((await page.locator('h1').innerText()).replace(/\s+/g, ' ').trim(), deck.name, 'the packed deck is not drawn');
-      assert.ok((await heroArt(page.locator('#top')))?.includes('data:image'), 'the hero does not show the packed art');
+      assert.ok((await until(() => heroArt(page.locator('#top'))))?.includes('data:image'), 'the hero does not show the packed art');
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       const cards = page.locator('#cards');
       await settlePictures(cards);
@@ -1493,8 +1499,7 @@ describe('Edge cases', () => {
   test('The format is read whatever its case, and a format the page does not know is drawn as Standard', async () => {
     for (const [name, format, size, life] of [['drawn-capital-brawl', 'Brawl', 100, 25], ['drawn-no-format', 'Standard', 60, 20]]) {
       await open(name, { reducedMotion: 'reduce' }, async ({ page, deck }) => {
-        const hero = await sectionText(page, 'top');
-        assert.match(hero, new RegExp(`${format} · 10 of ${size} cards`, 'i'), `format "${deck.format}": the hero line reads ${JSON.stringify(hero.split('\n')[0])}`);
+        assert.equal(await page.locator('#hero-line').textContent(), `${format} · 10 of ${size} cards · In progress`, `format "${deck.format}": the hero line`);
         const scene = page.locator('#main-scene');
         await settlePictures(scene);
         const step = deck.scenes[0].steps.at(-1), index = step.things.findIndex(t => t.damage !== undefined);
@@ -1506,11 +1511,10 @@ describe('Edge cases', () => {
     }
   });
 
-  test('The hero shows the format, the card count against the format\'s size, and Approved or In progress', async () => {
-    for (const [name, line] of [['rich', [/Brawl/i, /\b29 of 100\b/i, /In progress/i]], ['mono', [/Standard/i, /\b36 of 60\b/i, /Approved/i]]]) {
+  test('P13: The hero line shows the format, the card count against the format\'s size, and Approved or In progress, exactly as drawn', async () => {
+    for (const [name, line] of [['rich', 'Brawl · 29 of 100 cards · In progress'], ['mono', 'Standard · 36 of 60 cards · Approved']]) {
       await open(name, async ({ page }) => {
-        const text = await sectionText(page, 'top');
-        for (const part of line) assert.match(text, part, `${name}: the hero line lacks ${part}`);
+        assert.equal(await page.locator('#hero-line').textContent(), line, `${name}: the hero line`);
       });
     }
   });
@@ -1568,7 +1572,7 @@ describe('Edge cases', () => {
       const pre = page.locator('pre').filter({ visible: true });
       const inView = await until(() => pre.evaluate(e => { const r = e.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }));
       assert.ok(inView, 'the Arena list is not brought into view');
-      assert.equal((await pre.innerText()).trim(), arenaList(deck));
+      assert.equal(await page.locator('#arena-list').textContent(), arenaList(deck));
     }));
 
   test('The clipboard refused a second time still brings the Arena list into view', () =>
@@ -1598,8 +1602,8 @@ describe('Edge cases', () => {
     open('half-mana-value', { reducedMotion: 'reduce' }, async ({ page, errors }) => {
       const pre = page.locator('pre').filter({ visible: true });
       assert.equal(await pre.count(), 1, `the Arena list is not drawn; errors: ${errors.join(' | ')}`);
-      assert.equal((await pre.innerText()).trim(), arenaList(deckOf('half-mana-value')));
-      const curve = await steadyCurve(page);
+      assert.equal(await page.locator('#arena-list').textContent(), arenaList(deckOf('half-mana-value')));
+      const curve = await finishedCurve(page);
       assert.ok(curve?.legend, 'the curve is not drawn');
       const parts = curve.columns.map(c => c.other > 0 ? 'other' : c.creature > 0 ? 'creature' : '');
       assert.deepEqual(parts.slice(0, 3), ['other', 'other', 'creature'], 'Half Spark (0.5) is not in column 0 beside the two one-mana spells in column 1 and the commander in column 2');

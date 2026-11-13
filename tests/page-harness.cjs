@@ -12,6 +12,7 @@ const PAGE = process.env.DECK_PAGE
   || path.join(REPO, 'plugins/deckwright/skills/deckwright/page/index.html');
 const EXAMPLE = path.join(REPO, 'plugins/deckwright/skills/deckwright/page/deck.example.json');
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+const CLOCK_START = Date.parse('2026-11-10T12:00:00Z');
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 const scryfallId = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -295,6 +296,71 @@ const lostFiles = {
   approved: false,
 };
 
+// The rich deck with a round on offer: two groups, the first with a heading and a
+// total, the second with a heading only; one card each suggested and crossover,
+// one crossover card with the name printed on Arena, and one card whose picture
+// was never saved. Each is a rare creature, so counting one moves every number.
+const offered = (n, name, reason, marks = {}) => ({
+  scryfall_id: scryfallId(n), name, reason, ...marks,
+  copy: { mana_cost: '{1}{B}', mana_value: 2, type_line: 'Creature — Rat Assassin', text: 'Deathtouch.', rarity: 'rare' },
+});
+const OFFER = {
+  category: 'Removal',
+  groups: [
+    { heading: 'Rats that remove', total: 14, cards: [
+      offered(61, 'Gnawing Executioner', 'Kills a blocker and leaves a Rat behind.', { suggested: true }),
+      offered(62, 'Sewer Hexblade', 'Trades with anything & <i>grows</i> the swarm.', { crossover: true, printed_name: 'Hexblade of the Undercity' }),
+      offered(63, 'Burrow Ambusher', 'Ambushes an attacker from the tunnels.', { suggested: false, crossover: false }),
+    ] },
+    { heading: 'Other removal', cards: [
+      offered(64, 'Ashen Verdict', 'Clears the board but spares the swarm.', { crossover: true }),
+    ] },
+  ],
+};
+const MISSING_OFFERED_PICTURE = scryfallId(64);
+const offeredDeck = { ...rich, offer: OFFER };
+
+// A round with no ladder: one group with no heading and no total.
+const offeredUnheaded = { ...several, name: 'One Round', offer: { category: 'Spells', groups: [{ cards: [
+  offered(71, 'Night Bargain', 'Draws two cards for a little life.'),
+  offered(72, 'Cinder Bolt', 'Burns a small flyer.'),
+] }] } };
+const offerNoGroups = { ...several, name: 'No Groups', offer: { category: 'Spells', groups: [] } };
+const offerNoCards = { ...several, name: 'No Cards', offer: { category: 'Spells', groups: [{ heading: 'Rats that remove', total: 3, cards: [] }] } };
+
+// Decks with no name: the hero falls back to the format and the first theme criterion.
+const namelessWithTheme = { ...several, name: undefined, criteria: [
+  { kind: 'format', text: 'Brawl on Arena' }, { kind: 'colours', text: 'Black-red' },
+  { kind: 'theme', text: 'Rats' }, { kind: 'theme', text: 'Snails' }] };
+const namelessEmptyName = { ...mono, name: '', criteria: [{ kind: 'format', text: 'Standard on Arena' }, { kind: 'theme', text: 'Big green creatures' }] };
+const namelessWithoutTheme = { ...several, name: undefined, criteria: [{ kind: 'format', text: 'Brawl on Arena' }] };
+
+// Cards of every layout the Arena list tells apart, each named with " // ".
+const laidOut = (n, name, category, type, layout, extra) => {
+  const c = card(n, name, category, '{1}{R}', type, extra);
+  if (layout) c.copy.layout = layout;
+  return c;
+};
+const layouts = {
+  version: 2,
+  name: 'Two Faced Pack',
+  format: 'brawl',
+  criteria: [{ kind: 'format', text: 'Brawl on Arena' }],
+  categories: [{ name: 'Commander', target: 1 }, { name: 'Spells', target: 8 }, { name: 'Lands', target: 35 }],
+  cards: [
+    laidOut(1201, 'Moorland Watcher // Moorland Howler', 'Commander', 'Legendary Creature — Human Werewolf // Legendary Creature — Werewolf', 'transform'),
+    laidOut(1202, 'Sundering Eruption // Volcanic Fissure', 'Spells', 'Sorcery // Land', 'modal_dfc'),
+    laidOut(1203, 'Ember Giant // Ember Strike', 'Spells', 'Creature — Giant // Instant — Adventure', 'adventure'),
+    laidOut(1204, 'Tidecaller Adept // Tidal Lesson', 'Spells', 'Creature — Merfolk Wizard // Sorcery', 'prepare'),
+    laidOut(1205, 'Fire // Ice', 'Spells', 'Instant // Instant', 'split'),
+    laidOut(1206, 'Odd Shape // Other Shape', 'Spells', 'Sorcery // Sorcery', 'not_a_layout'),
+    laidOut(1207, 'Night // Day', 'Spells', 'Instant // Instant'),
+    laidOut(1208, 'Quick Shock', 'Spells', 'Instant', 'normal'),
+    laidOut(1209, 'Mountain', 'Lands', 'Basic Land — Mountain', 'normal', { count: 5 }),
+  ],
+  approved: false,
+};
+
 const LINE_THE_PAGE_CANNOT_SPLIT = 'Rebuilt the mana base by hand';
 const LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID = `Traded Faded Rat (${scryfallId(701)}) for a cheaper printing`;
 
@@ -418,9 +484,11 @@ const savesCardBack = folder => folder.back ?? (typeof folder.deck === 'object' 
 
 const ledgerFile = entries => '# Ledger\n\n' + entries.map(([date, kind, subject, why]) => `- ${date} · ${kind} · ${subject} · ${why}`).join('\n') + '\n';
 
+const offeredCards = deck => (Array.isArray(deck.offer?.groups) ? deck.offer.groups : []).flatMap(g => Array.isArray(g?.cards) ? g.cards : []);
+
 function pictureIds(deck) {
   const ids = new Set();
-  for (const c of [...(deck.cards || []), ...(deck.maybeboard || []), ...(deck.tokens || [])]) if (c.scryfall_id) ids.add(c.scryfall_id);
+  for (const c of [...(deck.cards || []), ...(deck.maybeboard || []), ...(deck.tokens || []), ...offeredCards(deck)]) if (c.scryfall_id) ids.add(c.scryfall_id);
   return ids;
 }
 
@@ -460,6 +528,15 @@ function deckFolders() {
     // The rich deck with every file given to the page in window.DECK_FILES and none in the folder.
     packed: { deck: rich, packedFrom: 'rich', pictures: new Set(), art: [] },
     'packed-drawn': { deck: drawnBrawl, packedFrom: 'drawn-brawl', pictures: new Set(), art: [] },
+    offered: { deck: offeredDeck, ledger: ledgerFile(RICH_LEDGER), art: [rich.hero],
+      pictures: new Set([...pictureIds(offeredDeck)].filter(id => id !== MISSING_OFFERED_PICTURE)) },
+    'offered-unheaded': { deck: offeredUnheaded, ledger: ledgerFile(SEVERAL_LEDGER), ...all(offeredUnheaded) },
+    'offer-no-groups': { deck: offerNoGroups, ledger: ledgerFile(SEVERAL_LEDGER), ...all(offerNoGroups) },
+    'offer-no-cards': { deck: offerNoCards, ledger: ledgerFile(SEVERAL_LEDGER), ...all(offerNoCards) },
+    'nameless-with-theme': { deck: namelessWithTheme, ...all(namelessWithTheme) },
+    'nameless-empty-name': { deck: namelessEmptyName, ...all(namelessEmptyName) },
+    'nameless-without-theme': { deck: namelessWithoutTheme, ...all(namelessWithoutTheme) },
+    layouts: { deck: layouts, ...all(layouts) },
     example: { deck: example, ledger: ledgerFile([['2026-11-10', 'in', 'An example card', 'the example ledger']]), ...all(example) },
   };
 }
@@ -491,27 +568,40 @@ function packedPage(page, folder, cardPicture, artCrop, cardBack) {
   return page.slice(0, at) + script + page.slice(at);
 }
 
+// The three pictures every test deck saves: a card, an artwork crop and the card back.
+async function testPictures(browser) {
+  return {
+    cardPicture: await jpeg(browser, 488, 680, '#3b5a7a'),
+    artCrop: await jpeg(browser, 626, 457, '#7a5a3b'),
+    cardBack: await jpeg(browser, 488, 680, '#4a2f1c'),
+  };
+}
+
+// The files a save writes into a deck folder: deck.json, LEDGER.md and the pictures.
+function writeSavedFiles(dir, f, { cardPicture, artCrop, cardBack }) {
+  fs.mkdirSync(path.join(dir, 'cards'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'art'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'deck.json'), typeof f.deck === 'string' ? f.deck : JSON.stringify(f.deck, null, 2));
+  if (f.ledger !== undefined) fs.writeFileSync(path.join(dir, 'LEDGER.md'), f.ledger);
+  for (const id of f.pictures) fs.writeFileSync(path.join(dir, 'cards', `${id}.jpg`), cardPicture);
+  for (const id of f.art) fs.writeFileSync(path.join(dir, 'art', `${id}.jpg`), artCrop);
+  if (savesCardBack(f)) fs.writeFileSync(path.join(dir, 'cards', 'back.jpg'), cardBack);
+}
+
 async function startDeckServer(browser) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'deck-page-'));
-  const cardPicture = await jpeg(browser, 488, 680, '#3b5a7a');
-  const artCrop = await jpeg(browser, 626, 457, '#7a5a3b');
-  const cardBack = await jpeg(browser, 488, 680, '#4a2f1c');
+  const saved = await testPictures(browser);
   const page = fs.readFileSync(PAGE);
   const folders = deckFolders();
   for (const [name, f] of Object.entries(folders)) {
     const dir = path.join(root, name);
-    fs.mkdirSync(path.join(dir, 'cards'), { recursive: true });
-    fs.mkdirSync(path.join(dir, 'art'), { recursive: true });
     if (f.packedFrom) {
-      fs.writeFileSync(path.join(dir, 'index.html'), packedPage(page.toString('utf8'), folders[f.packedFrom], cardPicture, artCrop, cardBack));
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'index.html'), packedPage(page.toString('utf8'), folders[f.packedFrom], saved.cardPicture, saved.artCrop, saved.cardBack));
       continue;
     }
+    writeSavedFiles(dir, f, saved);
     fs.writeFileSync(path.join(dir, 'index.html'), page);
-    fs.writeFileSync(path.join(dir, 'deck.json'), typeof f.deck === 'string' ? f.deck : JSON.stringify(f.deck, null, 2));
-    if (f.ledger !== undefined) fs.writeFileSync(path.join(dir, 'LEDGER.md'), f.ledger);
-    for (const id of f.pictures) fs.writeFileSync(path.join(dir, 'cards', `${id}.jpg`), cardPicture);
-    for (const id of f.art) fs.writeFileSync(path.join(dir, 'art', `${id}.jpg`), artCrop);
-    if (savesCardBack(f)) fs.writeFileSync(path.join(dir, 'cards', 'back.jpg'), cardBack);
   }
   const server = http.createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -559,9 +649,30 @@ async function openDeck(browser, server, name, options = {}) {
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', e => errors.push(String(e)));
   page.on('response', r => { if (r.status() === 404) missing.push(new URL(r.url()).pathname); });
-  if (clock) await page.clock.install();
-  await page.goto(`${server.origin}/${name}/`, { waitUntil: 'networkidle' });
+  // The clock is paused from the start, so a scene moves only when a test runs the clock.
+  if (clock) {
+    await page.clock.install({ time: CLOCK_START });
+    await page.clock.pauseAt(CLOCK_START + 1);
+  }
+  await page.goto(`${server.origin}/${name}/`, { waitUntil: 'load' });
+  await drawn(page);
   return { page, context, outside, fonts, errors, requested, missing, deck: server.folders[name].deck, close: () => context.close() };
+}
+
+// Returns once the page has drawn all it draws from its files: the ledger, read
+// last, is drawn or left out, or the hero says deck.json could not be read. The
+// page is watched rather than polled, since a paused clock stops its timers.
+async function drawn(page, ms = 4000) {
+  const watched = page.evaluate(() => new Promise(done => {
+    const finished = () => /Could not read deck\.json/.test(document.getElementById('top')?.textContent || '')
+      || (l => l && (l.childElementCount > 0 || l.hidden))(document.getElementById('ledger'));
+    if (finished()) return done();
+    new MutationObserver((_, observer) => { if (finished()) { observer.disconnect(); done(); } })
+      .observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
+  }));
+  let timer;
+  const late = new Promise((_, fail) => { timer = setTimeout(() => fail(new Error(`the page did not finish drawing within ${ms} ms`)), ms); });
+  try { await Promise.race([watched, late]); } finally { clearTimeout(timer); }
 }
 
 async function withDeck(browser, server, name, options, use) {
@@ -571,6 +682,6 @@ async function withDeck(browser, server, name, options, use) {
 }
 
 module.exports = {
-  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
-  LONG_WORD, startDeckServer, withDeck,
+  REPO, PAGE, EXAMPLE, FONT_HOSTS, UUID, chromium, scryfallId, RICH_LEDGER, OFFER, MISSING_OFFERED_PICTURE, offeredCards, deckFolders, testPictures, writeSavedFiles, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
+  LONG_WORD, startDeckServer, withDeck, drawn,
 };
