@@ -1166,6 +1166,20 @@ def test_c12_finds_the_page_in_the_workspace_folder_without_a_publish():
     assert not missing, f"the folder holds the page and C12 says it is missing: {evidence}"
 
 
+def test_c12_asks_no_card_images_of_a_folder_holding_no_card_and_no_offer():
+    r = fake_run([], [], workspace=deck_folder(deck_json([]), **{"brawl-rats/index.html": "<title>Deck</title>"}))
+    _, evidence = verdict(r, "C12")
+    assert "no card images" not in evidence, f"the folder holds no card to picture, and C12 asks for images: {evidence}"
+
+
+def test_c12_fails_a_folder_holding_an_offer_and_no_card_images():
+    on_offer = deck_json([], offer=offer(group(None, ["Infernal Grasp", "Feed the Swarm"])))
+    r = fake_run([], [], workspace=deck_folder(on_offer, **{"brawl-rats/index.html": "<title>Deck</title>"}))
+    status, evidence = verdict(r, "C12")
+    assert status == "fail", f"the offer's cards have no images in the folder: {(status, evidence)}"
+    assert "no card images" in evidence, f"the evidence does not name the missing images: {evidence}"
+
+
 def test_states_are_the_deck_folders_after_each_exchange_in_exchange_order():
     states = [{"brawl-rats": (deck_json(name=f"Deck {n}"), ledger(f"- line {n}"))} for n in range(11)]
     states[3] = {"brawl-rats": ("{not json", ledger("- line 3"))}
@@ -1617,13 +1631,16 @@ def test_s2_fails_a_round_whose_offer_holds_no_cards():
     assert not passed, f"an offer with no cards counts as putting the round on offer: {passed}"
 
 
-def round_then(reply, cards):
+def round_then(reply, cards, packed_again=True, then=ON_OFFER):
     """ROUND written and packed in exchange 0, then a reply in exchange 1 that the reader
-    saw offer `cards`, packed again with deck.json still holding ROUND's offer."""
+    saw offer `cards`, with deck.json holding `then` after it; `packed_again` False
+    leaves exchange 1 without a run of pack.py."""
     messages = [*ROUND, {"role": "player", "text": "Next?"}, {"role": "deckwright", "text": reply}]
-    trace = bash(PACK, 0, answer=f"{WORKSPACE}/brawl-rats.html") + bash(PACK, 1, answer=f"{WORKSPACE}/brawl-rats.html")
-    state = {"brawl-rats": (ON_OFFER, ledger(LEDGER_LINE))}
-    r = fake_run(messages, trace, states=[state, state])
+    trace = bash(PACK, 0, answer=f"{WORKSPACE}/brawl-rats.html")
+    if packed_again:
+        trace += bash(PACK, 1, answer=f"{WORKSPACE}/brawl-rats.html")
+    states = [{"brawl-rats": (ON_OFFER, ledger(LEDGER_LINE))}, {"brawl-rats": (then, ledger(LEDGER_LINE))}]
+    r = fake_run(messages, trace, states=states)
     return r, facts(offers=[*ROUND_FACTS["offers"], {"message": 3, "cards": cards}])
 
 
@@ -1642,6 +1659,38 @@ def test_s2_passes_a_round_shown_again_unchanged():
     )
     status, evidence = verdict(r, "S2", f)
     assert status == "pass", f"the same round, shown again from the same offer: {(status, evidence)}"
+
+
+def test_s2_passes_a_round_shown_again_with_nothing_saved_since_the_last_pack():
+    # From the round of 2026-11-13: brawl-fill-the-rest's exchange 3 showed the round
+    # again, its folder unchanged since exchange 2 ran pack.py, and named the packed file.
+    r, f = round_then(
+        "Still on offer in brawl-rats.html: Infernal Grasp, Feed the Swarm.",
+        ["Infernal Grasp", "Feed the Swarm"],
+        packed_again=False,
+    )
+    status, evidence = verdict(r, "S2", f)
+    assert status == "pass", (
+        f"the packed file already shows the round, as nothing was saved since: {(status, evidence)}"
+    )
+
+
+def test_s2_fails_a_round_shown_again_with_a_save_since_the_last_pack_and_no_pack():
+    changed = deck_json(
+        [WICK, deck_card("Rat Colony"), deck_card("Swamp", 35, category="Lands")],
+        offer=offer(group(None, ["Infernal Grasp", "Feed the Swarm"])),
+    )
+    r, f = round_then(
+        "Swamps are in; still on offer in brawl-rats.html: Infernal Grasp, Feed the Swarm.",
+        ["Infernal Grasp", "Feed the Swarm"],
+        packed_again=False,
+        then=changed,
+    )
+    status, evidence = verdict(r, "S2", f)
+    assert status == "fail", f"exchange 1 saved the Swamps and the packed file predates them: {(status, evidence)}"
+    assert "exchange 1" in evidence and "pack.py" in evidence, (
+        f"the evidence does not name the exchange and pack.py: {evidence}"
+    )
 
 
 def test_s2_passes_an_offer_holding_half_the_cards_shown_one_by_a_face():
@@ -2847,6 +2896,16 @@ def test_s12_fails_a_start_renamed_by_another_name_than_its_decks():
 def test_s12_is_not_applicable_to_a_start_whose_ledger_gains_no_name_line():
     status, evidence = verdict(named_from_a_start("deck", gained=(GRASP_LINE,)), "S12")
     assert status == "n/a", f"the start was never named, so its folder is the runner's: {(status, evidence)}"
+
+
+def test_s12_is_not_applicable_to_a_start_whose_ledger_gains_only_a_name_line_naming_the_deck():
+    # From the round of 2026-11-13: brawl-fill-the-rest's runs 1 and 3, where the tutor
+    # asked to rename the folder and the player declined or did not answer.
+    line = "- 2026-11-13 · name · The Whorled Swarm · the player named the deck"
+    status, evidence = verdict(named_from_a_start("deck", gained=(line,)), "S12", facts(**NAME_FACTS))
+    assert status == "n/a", (
+        f"the name line names the deck and renames nothing, so its folder is the runner's: {(status, evidence)}"
+    )
 
 
 TOKENS_RENAME_LINE = "- 2026-11-13 · name · deck → brawl-creature-tokens · Named by the theme, the deck has no name yet"
