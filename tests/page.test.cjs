@@ -25,7 +25,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const {
-  REPO, EXAMPLE, FONT_HOSTS, answerFontHost, UUID, chromium, scryfallId, RICH_LEDGER, MISSING_OFFERED_PICTURE, offeredCards, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
+  REPO, PAGE, EXAMPLE, FONT_HOSTS, answerFontHost, UUID, chromium, scryfallId, RICH_LEDGER, MISSING_OFFERED_PICTURE, offeredCards, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
   LONG_WORD, startDeckServer, withDeck, untilDrawn,
 } = require('./page-harness.cjs');
 
@@ -1558,7 +1558,7 @@ describe('Cards on offer', () => {
       assert.ok(marked, 'a reason holding markup is not shown as written');
     }));
 
-  test('P2: Each group is drawn under its heading, with "N of TOTAL shown" when it has a total; a round of one group with no heading draws no group heading', async () => {
+  test('P2, R2: Each group is drawn under its heading, with "N of TOTAL shown" when it has a total, whether or not it has a heading; a round of one group with no heading draws no group heading', async () => {
     await open('offered', async ({ page, deck }) => {
       const [first, second] = deck.offer.groups;
       const headings = await offerHeadings(page);
@@ -1578,7 +1578,53 @@ describe('Cards on offer', () => {
       const seen = await readOffer(page, 'offered-unheaded');
       offeredCards(deck).forEach((c, i) => assert.ok(seen[i] && numberedAs(seen[i], i + 1), `${c.name} is not drawn numbered ${i + 1}`));
     });
+    await open('offered-unheaded-total', async ({ page, deck }) => {
+      const [group] = deck.offer.groups;
+      assert.ok(!group.heading && group.total === 9 && group.cards.length === 2, 'the deck is not one unheaded group of two cards with a total of 9, so this test proves less than it says');
+      const text = (await page.locator('#offer').textContent()).replace(/\s+/g, ' ');
+      assert.deepEqual(text.match(/\d+ of \d+ shown/g), ['2 of 9 shown'], 'an unheaded group with a total does not say "2 of 9 shown" once');
+      assert.equal(await page.locator('#offer h3').count(), 0, 'an unheaded group with a total draws a group heading');
+      assert.equal((await offerHeadings(page)).length, 1, 'an unheaded group with a total draws a heading besides the category\'s');
+    });
   });
+
+  // An offered card opens the same dialog a deck card opens (#29), though it is in neither the deck nor the maybeboard.
+  test('R6: An offered card opens the card dialog by click or by Enter, with its name, picture, cost, type line, rules text, reason and "On offer · <category>"', () =>
+    open('offered', async ({ page, deck }) => {
+      const FOCUSABLE = 'button, a[href], [tabindex]:not([tabindex="-1"])';
+      const offer = page.locator('#offer');
+      for (const [name, how] of [['Gnawing Executioner', 'click'], ['Sewer Hexblade', 'Enter']]) {
+        const c = offeredCards(deck).find(o => o.name === name);
+        assert.ok(c && ![...deck.cards, ...deck.maybeboard].some(o => o.name === name), `${name} is not an offered card outside the deck, so this test proves less than it says`);
+        // The smallest focusable element in #offer that shows this card's picture or name and no other offered card's.
+        const at = await offer.evaluate((root, { selector, c, others }) => {
+          const opens = [...root.querySelectorAll(selector)];
+          const holds = e => [...e.querySelectorAll('img')].some(i => i.src.endsWith(`/cards/${c.scryfall_id}.jpg`)) || e.textContent.includes(c.name);
+          const fits = opens.filter(e => holds(e) && !others.some(o => e.textContent.includes(o)));
+          return opens.indexOf(fits.find(e => !fits.some(f => f !== e && e.contains(f))));
+        }, { selector: FOCUSABLE, c, others: offeredCards(deck).filter(o => o !== c).map(o => o.name) });
+        assert.ok(at >= 0, `${name} on offer is not a button or anything else that takes the keyboard's focus`);
+        const opener = offer.locator(FOCUSABLE).nth(at);
+        if (how === 'click') await opener.click();
+        else { await opener.focus(); await page.keyboard.press('Enter'); }
+        const d = dialog(page);
+        assert.ok(await until(() => d.count()), `${how === 'click' ? 'clicking' : 'Enter on'} ${name} on offer shows no dialog`);
+        assert.equal(await d.first().getAttribute('id'), 'card-dialog', `${name} on offer opens a dialog that is not the card dialog`);
+        assert.equal(await page.locator('#dialog-name').textContent(), name, 'the dialog\'s name');
+        await settlePictures(page.locator('#dialog-picture'));
+        assert.ok((await pictures(page.locator('#dialog-picture'))).some(p => p.src === picturePath('offered', c.scryfall_id) && p.loaded), 'the dialog does not show the offered card\'s picture');
+        const cost = page.locator('#dialog-cost');
+        assert.ok(await cost.isVisible(), 'the dialog shows no cost');
+        assert.deepEqual(await cost.locator('.mana').evaluateAll(runs => runs.map(m => m.children.length)), [2], `${c.copy.mana_cost} is not drawn as one run of two symbols`);
+        assert.doesNotMatch(await cost.innerText(), /[{}]/, 'the dialog shows raw braces');
+        assert.equal(await page.locator('#dialog-type-line').textContent(), c.copy.type_line, 'the dialog\'s type line');
+        assert.equal((await page.locator('#dialog-rules').innerText()).trim(), c.copy.text, 'the dialog\'s rules text');
+        assert.ok(await page.locator('#dialog-why').isVisible(), 'the dialog does not show the offered card\'s reason');
+        assert.equal(await page.locator('#dialog-why').textContent(), c.reason, 'the dialog\'s reason');
+        assert.ok((await page.locator('#dialog-category').textContent()).includes(`On offer · ${deck.offer.category}`), `the dialog does not say "On offer · ${deck.offer.category}"`);
+        await closeDialog(page);
+      }
+    }));
 
   test('P3: A suggested card is marked "Suggested", a crossover card "Crossover" with "Printed on Arena as" its printed name when it has one, and no card is marked otherwise', () =>
     open('offered', async ({ page, deck }) => {
@@ -1637,6 +1683,10 @@ describe('Without a name, by layout, by format', () => {
         assert.equal(await page.title(), title, `${name}: the page's title`);
       });
     }
+  });
+
+  test('R7: The deck page is titled "Deckwright" before its script runs', () => {
+    assert.match(fs.readFileSync(PAGE, 'utf8'), /<title>Deckwright<\/title>/, 'the deck page\'s <title> in the file is not "Deckwright"');
   });
 
   test('P6: The Arena list writes a modal double-faced, transform, adventure or prepare card by its front face, and a split card, a card of another layout and one with no layout by its full name', () =>

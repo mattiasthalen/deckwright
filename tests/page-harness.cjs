@@ -330,6 +330,9 @@ const offeredUnheaded = { ...several, name: 'One Round', offer: { category: 'Spe
   offered(71, 'Night Bargain', 'Draws two cards for a little life.'),
   offered(72, 'Cinder Bolt', 'Burns a small flyer.'),
 ] }] } };
+// The same round whose one unheaded group has a total.
+const offeredUnheadedTotal = { ...offeredUnheaded, name: 'One Round Counted', offer: { category: 'Spells', groups: [
+  { total: 9, cards: offeredUnheaded.offer.groups[0].cards }] } };
 const offerNoGroups = { ...several, name: 'No Groups', offer: { category: 'Spells', groups: [] } };
 const offerNoCards = { ...several, name: 'No Cards', offer: { category: 'Spells', groups: [{ heading: 'Rats that remove', total: 3, cards: [] }] } };
 
@@ -536,6 +539,7 @@ function deckFolders() {
     offered: { deck: offeredDeck, ledger: ledgerFile(RICH_LEDGER), art: [rich.hero],
       pictures: new Set([...pictureIds(offeredDeck)].filter(id => id !== MISSING_OFFERED_PICTURE)) },
     'offered-unheaded': { deck: offeredUnheaded, ledger: ledgerFile(SEVERAL_LEDGER), ...all(offeredUnheaded) },
+    'offered-unheaded-total': { deck: offeredUnheadedTotal, ledger: ledgerFile(SEVERAL_LEDGER), ...all(offeredUnheadedTotal) },
     'offer-no-groups': { deck: offerNoGroups, ledger: ledgerFile(SEVERAL_LEDGER), ...all(offerNoGroups) },
     'offer-no-cards': { deck: offerNoCards, ledger: ledgerFile(SEVERAL_LEDGER), ...all(offerNoCards) },
     'nameless-with-theme': { deck: namelessWithTheme, ...all(namelessWithTheme) },
