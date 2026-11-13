@@ -25,10 +25,13 @@ A decision is saved when `deck.json` and `LEDGER.md` are written to the folder.
 Saving does not publish.
 
 The player sees the deck as one packed file, attached to the chat: the deck page
-with every file of the folder inside it, the text files as text and the pictures
-as data URLs. A script shipped with the skill packs the folder; it also writes
-the deck's name into the page's title. The packed file carries every picture the
-deck has, and is enough to open the deck again in a new conversation.
+with the folder's files inside it, the text files as text and the pictures as
+data URLs. A script shipped with the skill packs the folder; it also writes the
+deck's name into the page's title. The packed file carries every picture
+`deck.json` names (the deck's cards, the maybeboard, the tokens, the hero art,
+the card back and the cards on offer) and no picture of a card offered in an
+earlier round and not taken. It is enough to open the deck again in a new
+conversation.
 
 The folder is published as an artifact only when the player asks for a link, to
 the same link each time. A publish that fails is reported and stops nothing.
@@ -42,9 +45,9 @@ Rejected:
   limit, as above.
 - Publishing at fixed points of the build: the same limits, met less often, and
   the packed file already shows the deck.
-- A packed file holding only the pictures of the cards on offer: about 10 MB
-  per round was judged acceptable, and a page that grows with the deck is what
-  the player wants to see.
+- A packed file holding only the pictures of the cards on offer: about 12 MB
+  for a full Brawl deck was judged acceptable, and a page that grows with the
+  deck is what the player wants to see.
 - Packing by hand in each conversation: the first build improvised it, and each
   build would do it differently.
 

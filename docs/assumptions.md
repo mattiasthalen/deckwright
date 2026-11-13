@@ -16,17 +16,17 @@ milestone 1 design interview, 2026-11-10.
 | A9 | Scryfall's `all_parts` names each token a scene shows, and no two tokens of one deck share a name | Page | A token in a scene shows as a named blank card |
 | A10 | Scryfall keeps serving the Magic card back at `https://backs.scryfall.io/normal/0/a/0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg`, and Deckwright can reach `backs.scryfall.io`, a different host from `cards.scryfall.io`, from where it saves pictures | Page | Fetching it does not answer 200 with a JPEG, or a page shows drawn cards as blank cards |
 | A11 | GitHub's `ubuntu-latest` runner can install Chromium for Playwright 1.63.0 with `npx playwright install --with-deps chromium` | CI | The "browser tests" job fails at that install step on a push that changed nothing |
-
-| A12 | Arena imports a Room card, which Scryfall gives the layout `split`, by its full name `A // B`, as it does other split cards | Arena list | An import fails at a Room card's line |
+| A12 | Arena imports every card Scryfall gives the layout `split` by its full name `A // B`: Room, aftermath and fuse cards as well as the ordinary split card that was pasted | Arena list | An import fails at such a card's line |
 | A13 | Arena imports a card of Scryfall's layout `prepare` by its front face name alone | Arena list | An import fails at such a card's line |
-| A14 | A packed deck page of about 10 MB, attached to a message, opens in a project thread's chat on a phone and on a desktop | Page | The player cannot open the attached page of a full deck |
-| A15 | Scryfall marks every crossover card so that one search term finds them, and gives the name printed on a card's Arena printing when it differs from the card's name | Search | A crossover card is offered unmarked, or a printed name is missing or wrong |
+| A14 | A packed deck page of a full Brawl deck, about 12 MB with a round on offer, attached to a message, opens in a project thread's chat on a phone and on a desktop and draws its pictures and fonts | Page | The player cannot open the attached page of a full deck, or it shows blank cards |
+| A15 | Scryfall marks a crossover printing with `universesbeyond` in `promo_types` (search `is:ub`), per printing and not per card, and gives the name printed on a printing as `flavor_name`, on the first face of a two-faced card. `printed_name` is the localised name and is not used | Search | A crossover printing is offered unmarked, or the name printed on Arena is missing or wrong |
+| A16 | A packed page attached again under the same file name shows its new content in the chat without a reload | Page | The player sees the previous round after a new one was attached |
 
 ## Measured facts
 
 - Arena accepts the copy block: Mattias pasted the Vren list (2026-11-10).
 - Artifact pages cannot load outside images; files published beside `index.html` load (spike, 2026-11-10).
-- A message holding a markdown image link is refused in a project thread.
+- A message holding a markdown image link is refused in a project thread (spike, 2026-11-08, #29).
 - An account can publish 200 artifact versions a day; three parallel Brawl runs hit it (2026-11-11), and the refused saves were retried.
 - `claude -p --resume` reports the session's running total as `total_cost_usd`.
 - Arena imports a modal double-faced, a transform and an adventure card by its front face name alone, and a split card by both halves, `A // B`; a split card's half alone is a known title but not a deck card, and a modal double-faced card's full name is an unknown title. Arena fails the whole import at the first line it rejects. A crossover card imports by its Scryfall name, not by the name printed on its Arena version. Pasted by Mattias, 2026-11-12 (#22). Not pasted: Room cards (A12) and `prepare` cards (A13).
@@ -38,3 +38,7 @@ milestone 1 design interview, 2026-11-10.
 - `https://scryfall.com/card/<scryfall id>` answers 301 to the card's page, a URL form Scryfall does not document; the card dialog's Scryfall link relies on it (2026-11-11).
 - Scryfall serves the Magic card back at `https://backs.scryfall.io/normal/0/a/0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg`: it answered 200 with a JPEG of about 80 KB, twice, fetched from a Claude cloud session container on 2026-11-11. Its API documents `card_back_id` only as "the Scryfall ID for the card back design present on this card" (`0aeebaf5-…` on Sol Ring); the image URL of a card back is undocumented, and `cards/back.jpg` relies on it (A10).
 - Behind a proxy set in the environment, urllib connects to the proxy, so a socket-level block sees the proxy's address and not the destination; the offline tests drop the `*_proxy` variables for that reason (2026-11-12).
+- A packed page that changed in place after it was attached showed its old content until the player reloaded it (2026-11-11, #39).
+- Scryfall, probed 2026-11-12: crossover is a property of a printing. `!"Terminate" is:ub` matches although Terminate has Arena printings that are not crossover printings, and `!"Terminate" game:arena` returns a Marvel printing first. Ashcoat of the Shadow Swarm's only Arena printing (`pza`) is a crossover printing with `flavor_name` "Splinter of the Shadows" and no `printed_name`. A search limited to a set finds a card when any printing is in the set (`!"Lightshell Duo" e:blb`). Every Arena card with ` // ` in its name has the layout `modal_dfc`, `transform`, `adventure`, `split` or `prepare`.
+- A packed page of 110 card pictures is 11.3 MB and opens from a `file://` address in Chromium with every picture drawn (probe, 2026-11-12).
+- Playwright 1.63.0's clock drives timers and `requestAnimationFrame`, not CSS animations (probe, 2026-11-12).
