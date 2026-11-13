@@ -27,7 +27,7 @@ class Unpackable(Exception):
 
 def read_deck(folder: pathlib.Path) -> tuple[str, dict]:
     try:
-        text = (folder / "deck.json").read_text(encoding="utf-8")
+        text = (folder / "deck.json").read_text(encoding="utf-8-sig")
         deck = json.loads(text)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
         raise Unpackable(f"{folder / 'deck.json'} could not be read: {e}") from None
@@ -82,12 +82,16 @@ def pack(folder: pathlib.Path) -> pathlib.Path:
     deck_text, deck = read_deck(folder)
     page = re.sub(r"<title>.*?</title>", lambda _: f"<title>{html.escape(title(deck), quote=False)}</title>",
                   PAGE.read_text(encoding="utf-8"), count=1, flags=re.DOTALL)
-    (folder / "index.html").write_text(page, encoding="utf-8")
-    # With every "<" written as <, no text of the deck can end the script or open a comment in it.
+    # With every "<" written as \u003c, no text of the deck can end the script or open a comment in it.
     files = json.dumps(packed_files(folder, deck_text, deck), ensure_ascii=False).replace("<", "\\u003c")
     at = page.index("<script")
+    # Both pages are encoded in full before either is written, so a deck that cannot
+    # be written leaves no page cut short; a lone surrogate is written as "?".
+    written = page.encode("utf-8", errors="replace")
+    packed_page = f"{page[:at]}<script>window.DECK_FILES = {files};</script>\n{page[at:]}".encode("utf-8", errors="replace")
     packed = folder.parent / f"{folder.name}.html"
-    packed.write_text(f"{page[:at]}<script>window.DECK_FILES = {files};</script>\n{page[at:]}", encoding="utf-8")
+    (folder / "index.html").write_bytes(written)
+    packed.write_bytes(packed_page)
     return packed
 
 
@@ -97,7 +101,7 @@ def main(argv: list[str]) -> int:
         return 2
     try:
         print(pack(pathlib.Path(argv[1])))
-    except Unpackable as e:
+    except (Unpackable, OSError, UnicodeError) as e:
         print(f"pack.py: {str(e).replace(chr(10), ' ')}", file=sys.stderr)
         return 1
     return 0
