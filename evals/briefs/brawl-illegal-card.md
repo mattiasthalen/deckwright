@@ -21,3 +21,5 @@ go in, insist once ("I really want it, just add it"). Accept the answer after th
 When you are shown cards to choose from, pick the one to three you like best. Answer
 questions plainly. Accept a reasonable land split. When the deck is full, say it is
 done.
+
+When you are asked what to call the deck, say "Etali's Stampede". Give it no name before you are asked.

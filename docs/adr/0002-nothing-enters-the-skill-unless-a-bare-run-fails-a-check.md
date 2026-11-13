@@ -38,3 +38,12 @@ changed. Each fix has a check, and a skill round of the affected briefs is
 reported with its number of runs. #46 (terms explained where first used) may be
 something a bare run already does; it was accepted as one line that might not
 have been needed.
+
+## Addendum 2026-11-13
+
+The first real builds also stand as the failing run for the skill side of #29
+(cards named in the chat as Scryfall links and shown as lone pictures, where the
+packed file now shows them) and #57 (deck folders named by date, which collide
+when two decks are built on one day). The `layout` field of a card's display copy
+(#22) is in the skill because the page's Arena list needs it to write each card
+under the name Arena imports, not because a run failed without it.

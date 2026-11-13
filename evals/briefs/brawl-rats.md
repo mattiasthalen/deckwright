@@ -17,3 +17,5 @@ When you are shown cards to choose from, pick the one to three that sound most f
 with rats and say which. When asked something, answer plainly. Accept a land or
 basic-land split that sounds reasonable. When the deck is full, ask for a review,
 take one of the swaps it suggests if any, and then say the deck is done.
+
+When you are asked what to call the deck, say "Sewer Kings". Give it no name before you are asked.

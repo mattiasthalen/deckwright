@@ -21,3 +21,5 @@ cards to choose from after that, pick the two to four that fit best. Answer
 questions plainly. Decide each card you are asked about: keep at most one that
 breaks the new limit, and let the rest go. Accept a reasonable land split. When the deck is full, say it is
 done.
+
+When you are asked what to call the deck, say "Back Again". Give it no name before you are asked.

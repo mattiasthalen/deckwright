@@ -22,3 +22,5 @@ When the deck is full, ask for a review. Pick one thing the review points out an
 dismiss it with a reason ("That's on purpose, I want it that way"). Then take one
 swap if any is suggested, or swap one card for another the assistant shows you, and
 ask for a second review. Then say the deck is done.
+
+When you are asked what to call the deck, say "Parun's Storm". Give it no name before you are asked.

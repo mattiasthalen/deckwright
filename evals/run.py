@@ -32,9 +32,9 @@ STARTS_DIR = pathlib.Path(__file__).resolve().parent / "starts"
 RUNS_DIR = pathlib.Path(__file__).resolve().parent / "runs"
 END = "<<END>>"
 NEW_CONVERSATION = "<<NEW_CONVERSATION>>"
-# The account may publish 200 pages a day, reset at midnight UTC, and every save in
-# a run is one publish. 2026-11-11's rounds used the lot, which stopped publishing in
-# every thread on the account; 150 leaves the owner 50.
+# The account may publish 200 pages a day, reset at midnight UTC. 2026-11-11's rounds,
+# which published at every save, used the lot, which stopped publishing in every
+# thread on the account; 150 leaves the owner 50.
 DEFAULT_PUBLISH_BUDGET = 150
 STOPPED_BY_BUDGET = "publish budget"
 
@@ -43,7 +43,7 @@ STOPPED_BY_BUDGET = "publish budget"
 # 2026-11-10): a run's picture cards would land there.
 DECKWRIGHT_ALLOWED = ["Read", "Write", "Edit", "Glob", "Grep", "Artifact", "WebFetch",
                       "Bash(curl:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(python3:*)",
-                      "Bash(cp:*)", "Bash(cd:*)"]
+                      "Bash(cp:*)", "Bash(cd:*)", "Bash(mv:*)"]
 DECKWRIGHT_DISALLOWED = ["SendUserFile", "PushNotification", "ScheduleWakeup", "CronCreate"]
 
 STAND_IN_RULES = f"""You are playing a Magic: The Gathering player who is building a deck in a
@@ -107,6 +107,20 @@ def stand_in_turn(message: str, session: str, first: bool, player: str, cwd: pat
     return result_of(claude(args, message, cwd, cwd.parent / "memory" / "stand-in"))
 
 
+def record_deck_folders(workspace: pathlib.Path, into: pathlib.Path) -> None:
+    """Copy every `deck.json` and `LEDGER.md` in the workspace into `into`, at the same
+    relative paths: the checks read the deck folders as each exchange left them.
+    Claude Code's own `.claude` folder is not a deck's. `into` is made even when there
+    is nothing to copy, so an exchange that leaves no deck folder reads as empty."""
+    into.mkdir(parents=True, exist_ok=True)
+    for path in [*workspace.rglob("deck.json"), *workspace.rglob("LEDGER.md")]:
+        relative = path.relative_to(workspace)
+        if ".claude" in relative.parts or not path.is_file():
+            continue
+        (into / relative).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, into / relative)
+
+
 class PublishBudget:
     """The publishes a round may make, shared by its runs, which play in threads at once.
 
@@ -120,7 +134,7 @@ class PublishBudget:
 
     def count(self, events: list[dict]) -> None:
         """Add the publishes one Deckwright turn made that the Artifact tool accepted."""
-        accepted = sum(checks.saves_by_exchange(events).values())
+        accepted = sum(checks.publishes_by_exchange(events).values())
         with self.lock:
             self.published += accepted
             if self.ledger and accepted:
@@ -171,15 +185,21 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int,
             shutil.copytree(STARTS_DIR / start, workspace / "deck", ignore=shutil.ignore_patterns("*.py"))
             # The checks read the start as the run began, not as starts/ is later.
             shutil.copytree(STARTS_DIR / start, out / "start", ignore=shutil.ignore_patterns("*.py"))
+            record_deck_folders(workspace, out / "after" / "start")
         for exchange in range(max_exchanges):
             log(conversation, {"role": "player", "conversation": conversation_no, "text": message})
             # Each conversation remembers nothing of the one before: a resumed deck comes from its page.
             memory = out / "memory" / f"deckwright-{conversation_no}"
-            events = deckwright_turn(message, deckwright_session, first_deckwright, arm, workspace, memory)
-            first_deckwright = False
+            try:
+                events = deckwright_turn(message, deckwright_session, first_deckwright, arm, workspace, memory)
+                first_deckwright = False
+                # The trace goes first, so a failure in recording loses only the record.
+                for event in events:
+                    log(trace, {"conversation": conversation_no, "exchange": exchange, **event})
+            finally:
+                # A turn that raised (a timeout) still leaves the workspace as it stopped.
+                record_deck_folders(workspace, out / "after" / str(exchange))
             budget.count(events)
-            for event in events:
-                log(trace, {"conversation": conversation_no, "exchange": exchange, **event})
             result = result_of(events)
             # A resumed session reports its whole running total, not this turn's.
             totals = [e["total_cost_usd"] for e in events

@@ -116,7 +116,7 @@ def build(name: str, spec: dict) -> None:
         for card in picks[: spec["per"] // copies]:
             take(card, category)
             cards[-1]["count"] = copies
-    deck = {"version": 2, "name": f"{spec['theme']} ({fmt.title()})", "format": fmt, "criteria": criteria,
+    deck = {"version": 2, "format": fmt, "criteria": criteria,
             "categories": categories, "cards": cards, "maybeboard": [], "dismissed_findings": [],
             "last_review": None, "tokens": [], "handbook": [], "scenes": [], "approved": False}
     out = HERE / name
