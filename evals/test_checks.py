@@ -1481,18 +1481,12 @@ def commander_in_the_deck(**marks):
     return fake_run([], [], states=[{"brawl-rats": (deck, ledger(LEDGER_LINE))}])
 
 
-def test_s5_passes_a_crossover_card_in_the_deck_marked_with_its_printed_name():
-    # From the round of 2026-11-13: Ashcoat was the commander, printed as Splinter of the Shadows.
-    r = commander_in_the_deck(crossover=True, printed_name=ASHCOAT_PRINTED)
-    status, evidence = verdict(r, "S5", facts(), ASHCOAT_PRINTING)
-    assert status == "pass", f"the deck's crossover card is marked and named as printed: {(status, evidence)}"
-
-
-def test_s5_fails_a_crossover_card_in_the_deck_unmarked_or_misnamed():
-    for marks in ({}, {"printed_name": ASHCOAT_PRINTED}, {"crossover": True}, {"crossover": True, "printed_name": ASHCOAT}):
-        status, evidence = verdict(commander_in_the_deck(**marks), "S5", facts(), ASHCOAT_PRINTING)
-        assert status == "fail", f"the deck's crossover card with {marks}: {(status, evidence)}"
-        assert ASHCOAT in evidence, f"the evidence does not name the card: {evidence}"
+def test_s5_does_not_judge_the_marks_of_a_card_in_the_deck():
+    # The page shows no mark on a deck card, and the skill asks for none.
+    r = commander_in_the_deck()
+    f = facts(limits_question_names_crossover=fact(True, "e.g. crossover cards"))
+    status, evidence = verdict(r, "S5", f, ASHCOAT_PRINTING)
+    assert status != "fail", f"no crossover card was on offer, only one in the deck: {(status, evidence)}"
 
 
 def test_s5_is_not_applicable_to_a_run_with_no_record_of_its_folder():
