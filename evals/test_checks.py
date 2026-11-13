@@ -1401,6 +1401,66 @@ def test_s2_fails_a_scryfall_url_in_a_run_with_no_record_of_its_folder():
     assert "scryfall.com" in evidence, f"the evidence does not name the link: {evidence}"
 
 
+PACKED_THEN_LISTED = f"{WORKSPACE}/brawl-rats.html\ncards\ndeck.json\nindex.html\nLEDGER.md"
+
+
+def test_s2_passes_a_reply_naming_the_packed_file_though_a_later_step_lists_index_html():
+    # From the round of 2026-11-13: pack.py printed the packed file, and an `ls` later in the chain printed index.html.
+    chained = bash(f"{PACK} && cp brawl-rats.html out/ ; ls brawl-rats", 0, answer=PACKED_THEN_LISTED)
+    status, evidence = verdict(shown_round(packed=False, more_calls=chained), "S2", facts(**ROUND_FACTS))
+    assert status == "pass", f"the reply names brawl-rats.html, the file pack.py printed: {(status, evidence)}"
+
+
+def test_s2_fails_a_reply_naming_index_html_for_the_packed_file():
+    chained = bash(f"{PACK} && cp brawl-rats.html out/ ; ls brawl-rats", 0, answer=PACKED_THEN_LISTED)
+    reply = ROUND[1]["text"].replace("brawl-rats.html", "index.html")
+    status, evidence = verdict(shown_round(reply, packed=False, more_calls=chained), "S2", facts(**ROUND_FACTS))
+    assert status == "fail", f"the packed file is brawl-rats.html, and the reply names index.html: {(status, evidence)}"
+    assert "brawl-rats.html" in evidence, f"the evidence does not name the packed file: {evidence}"
+
+
+def test_s2_takes_the_last_printed_page_other_than_index_html_when_pack_py_is_given_no_folder():
+    unnamed = bash("python3 /plugins/deckwright/skills/deckwright/page/pack.py; ls brawl-rats", 0,
+                   answer=PACKED_THEN_LISTED)
+    status, evidence = verdict(shown_round(packed=False, more_calls=unnamed), "S2", facts(**ROUND_FACTS))
+    assert status == "pass", f"brawl-rats.html is the last page printed that is not index.html: {(status, evidence)}"
+
+
+def swap(name, out):
+    """A review swap as the maybeboard holds it: `name` in for `out`."""
+    return {"scryfall_id": scryfall_id(name), "name": name, "kind": "swap", "out": out,
+            "why": f"{name} answers more than {out}.", "bends": None}
+
+
+SWAPS_SAVED = deck_json(maybeboard=[swap("Infernal Grasp", "Rat Colony"), swap("Feed the Swarm", "Rat Colony")])
+SWAP_REPLY = ("Two swaps are on the maybeboard; open brawl-rats.html: Infernal Grasp in for Rat Colony, "
+              "Feed the Swarm in for Rat Colony.")
+
+
+def test_s2_passes_review_swaps_saved_on_the_maybeboard():
+    status, evidence = verdict(shown_round(SWAP_REPLY, after=SWAPS_SAVED), "S2", facts(**ROUND_FACTS))
+    assert status == "pass", f"the swaps the review offered are on the maybeboard, which holds them: {(status, evidence)}"
+
+
+def test_s2_fails_review_swaps_the_maybeboard_held_before_the_exchange():
+    messages = [ROUND[0], {"role": "deckwright", "text": SWAP_REPLY}, {"role": "player", "text": "Other swaps?"},
+                {"role": "deckwright", "text": "Two more; open brawl-rats.html: Night's Whisper in for Rat Colony, "
+                                               "Sign in Blood in for Rat Colony."}]
+    trace = bash(PACK, 0, answer=f"{WORKSPACE}/brawl-rats.html") + bash(PACK, 1, answer=f"{WORKSPACE}/brawl-rats.html")
+    state = {"brawl-rats": (SWAPS_SAVED, ledger(LEDGER_LINE))}
+    f = facts(offers=[*ROUND_FACTS["offers"], {"message": 3, "cards": ["Night's Whisper", "Sign in Blood"]}])
+    status, evidence = verdict(fake_run(messages, trace, states=[state, state]), "S2", f)
+    assert status == "fail", f"exchange 1's swaps were never saved, and the maybeboard gained none: {(status, evidence)}"
+    assert "exchange 1" in evidence and "exchange 0" not in evidence, evidence
+
+
+def test_s2_fails_review_swaps_saved_on_the_maybeboard_not_as_swaps():
+    plain = [{k: v for k, v in swap(n, "Rat Colony").items() if k not in ("kind", "out")}
+             for n in ("Infernal Grasp", "Feed the Swarm")]
+    status, evidence = verdict(shown_round(SWAP_REPLY, after=deck_json(maybeboard=plain)), "S2", facts(**ROUND_FACTS))
+    assert status == "fail", f"the maybeboard gained cards, and no swap: {(status, evidence)}"
+
+
 # ---------- S3: a round shows every step of the ladder ----------
 
 CATEGORIES = [{"name": "Commander", "target": 1}, {"name": "Removal", "target": 8}, {"name": "Payoffs", "target": 8}]
@@ -1515,6 +1575,43 @@ def test_s3_is_not_applicable_to_a_run_with_no_record_of_its_folder():
     r = fake_run([], [], workspace=deck_folder(on_offer(ladder(sizes=(5, 5), totals=(6, 3)))))
     status, evidence = verdict(r, "S3", facts(ladder_steps_with_counts=fact(True, "three steps")))
     assert (status, NO_RECORD in evidence) == ("n/a", True), (status, evidence)
+
+
+def test_s3_passes_a_round_of_six_to_fourteen_cards():
+    for sizes in ((2, 2, 2), (5, 5, 4)):
+        r, f = ladder_round(ladder(sizes=sizes))
+        status, evidence = verdict(r, "S3", f)
+        assert status == "pass", f"{sum(sizes)} cards is about ten: {(status, evidence)}"
+
+
+def test_s3_fails_a_round_of_five_cards():
+    r, f = ladder_round(ladder(sizes=(2, 2, 1)))
+    status, evidence = verdict(r, "S3", f)
+    assert status == "fail", f"5 cards on offer in one round: {(status, evidence)}"
+    assert "5" in evidence, f"the evidence does not give the round's size: {evidence}"
+
+
+def test_s3_passes_a_round_shrinking_as_picks_come_off():
+    r, f = after_a_round(ladder(), ladder(sizes=(2, 1, 1)), "three steps, each with its count")
+    status, evidence = verdict(r, "S3", f)
+    assert status == "pass", f"every card of the 4 left was in the round of 10 before it: {(status, evidence)}"
+
+
+def test_s3_judges_the_size_of_a_round_with_a_card_the_one_before_did_not_offer():
+    grown = ladder(sizes=(2, 1, 1))
+    grown["groups"][2]["cards"] = [offered("Infernal Grasp")]
+    r, f = after_a_round(ladder(), grown, "three steps, each with its count")
+    status, evidence = verdict(r, "S3", f)
+    assert status == "fail", f"Infernal Grasp is new, so the round of 4 is a new round: {(status, evidence)}"
+    assert "4" in evidence, f"the evidence does not give the round's size: {evidence}"
+
+
+def test_s3_does_not_judge_the_size_of_the_lands_round():
+    lands = {**ladder(sizes=(8, 8, 8)), "category": "Lands"}
+    deck = deck_json(offer=lands, categories=[*CATEGORIES, {"name": "Lands", "target": 35}])
+    r = fake_run([], [], states=[{"brawl-rats": (deck, ledger(LEDGER_LINE))}])
+    status, evidence = verdict(r, "S3", facts(ladder_steps_with_counts=fact(True, "three steps, each with its count")))
+    assert status == "pass", f"the Lands round of 24 is not held to about ten: {(status, evidence)}"
 
 
 def test_the_examples_offer_is_a_ladder_s3_passes():
@@ -1810,6 +1907,14 @@ def test_s9_fails_a_category_name_left_unexplained():
     assert "Recursion" in evidence, evidence
 
 
+def test_s9_tells_the_reader_what_counts_as_explained_and_as_a_game_term_in_the_decided_words():
+    wanted = ("A term counts as explained if its own sentence or the one just before says what it does. Search and "
+              "tool words (a Scryfall tag) are not game terms. Evergreen keywords (flying, lifelink, vigilance) are "
+              "game terms.")
+    said = reader_entry("terms_explained_where_first_used")
+    assert said.endswith(wanted), f"the reader is asked: {said}"
+
+
 def test_s11_passes_a_complete_deck_with_handbook_and_scenes_unasked():
     deck = complete_deck(name="The Whorled Swarm", handbook=[{"title": "How it wins", "blocks": []}],
                          scenes=[{"title": "Every kill is a Rat", "steps": []}])
@@ -1948,6 +2053,43 @@ def test_s8_is_not_applicable_to_a_count_said_without_digits():
     assert status == "n/a", f"no number to find in a script's output: {(status, evidence)}"
 
 
+# Real scripts import a helper module that holds the path, so the command never names deck.json.
+HELPER_COUNT = ("python3 -c \"from deckfile import load; d = load('brawl-rats'); "
+                "print(sum(c['count'] for c in d['cards'] if 'Rat' in c['copy']['type_line']))\"")
+
+
+def test_s8_passes_a_count_printed_by_a_python3_command_that_does_not_name_deck_json():
+    for command in (HELPER_COUNT, "python3 count.py brawl-rats"):
+        r = fake_run(COUNTED, bash(command, 0, answer="31"), workspace=deck_folder())
+        status, evidence = verdict(r, "S8", facts(**COUNT_FACTS))
+        assert status == "pass", f"{command!r} printed 31: {(status, evidence)}"
+
+
+def test_s8_passes_a_count_of_zero_when_a_python3_command_that_does_not_name_deck_json_printed():
+    said = "Self-mill has 0 cards"
+    messages = [COUNTED[0], {"role": "deckwright", "text": f"{said} so far."}]
+    r = fake_run(messages, bash(HELPER_COUNT, 0, answer="total 4 {'Commander': 1, 'Token makers': 3}"),
+                 workspace=deck_folder())
+    status, evidence = verdict(r, "S8", facts(deck_counts_stated=[{"message": 1, "said": said}]))
+    assert status == "pass", f"a python3 command printed a count by category: {(status, evidence)}"
+
+
+def test_s8_fails_a_count_printed_by_a_command_that_is_not_python3():
+    r = fake_run(COUNTED, bash("jq '[.cards[].count] | add' brawl-rats/deck.json", 0, answer="31"),
+                 workspace=deck_folder())
+    status, evidence = verdict(r, "S8", facts(**COUNT_FACTS))
+    assert status == "fail", f"jq is not a python3 command: {(status, evidence)}"
+    assert "31 Rats" in evidence, f"the evidence does not quote the count: {evidence}"
+
+
+def test_s8_fails_a_count_found_only_in_the_exit_code_line_of_a_python3_command():
+    ran = tool_call("Bash", {"command": HELPER_COUNT}, 0, answer="Exit code 1\n", refused=True)
+    messages = [COUNTED[0], {"role": "deckwright", "text": "The deck has 1 card."}]
+    status, evidence = verdict(fake_run(messages, ran, workspace=deck_folder()), "S8",
+                               facts(deck_counts_stated=[{"message": 1, "said": "1 card in the deck"}]))
+    assert status == "fail", f"the 1 is the exit code, not a count printed: {(status, evidence)}"
+
+
 # ---------- S10 and S12: the deck's name and its folder ----------
 
 NAMED = [{"role": "player", "text": "Rats, with Wick"},
@@ -1956,7 +2098,7 @@ NAMED = [{"role": "player", "text": "Rats, with Wick"},
          {"role": "deckwright", "text": "The deck is complete. What would you like to call it?"},
          {"role": "player", "text": "The Whorled Swarm"},
          {"role": "deckwright", "text": "It is The Whorled Swarm now; the handbook is written."}]
-RENAME_LINE = "- 2026-11-12 · name · The Whorled Swarm · folder brawl-rats renamed brawl-the-whorled-swarm"
+RENAME_LINE = "- 2026-11-12 · name · brawl-rats → brawl-the-whorled-swarm · The player named it The Whorled Swarm"
 NAME_FACTS = {"name_asked_once_complete_before_handbook": fact(True, "What would you like to call it?")}
 
 
@@ -2087,7 +2229,7 @@ def test_s12_is_not_applicable_to_a_run_with_no_record_of_its_folder():
     assert (status, NO_RECORD in evidence) == ("n/a", True), (status, evidence)
 
 
-START_RENAME_LINE = "- 2026-11-12 · name · The Whorled Swarm · folder deck renamed brawl-the-whorled-swarm"
+START_RENAME_LINE = "- 2026-11-12 · name · deck → brawl-the-whorled-swarm · The player named it The Whorled Swarm"
 
 
 def named_from_a_start(folder, gained=(START_RENAME_LINE,), taken=None):
@@ -2102,7 +2244,7 @@ def named_from_a_start(folder, gained=(START_RENAME_LINE,), taken=None):
     return fake_run(NAMED, [], start=start, start_state=start_state, states=states)
 
 
-def test_s12_passes_a_start_renamed_by_the_name_its_ledger_gains():
+def test_s12_passes_a_start_renamed_by_its_name_once_its_ledger_gains_a_name_line():
     status, evidence = verdict(named_from_a_start("brawl-the-whorled-swarm"), "S12", facts(**NAME_FACTS))
     assert status == "pass", f"the start was named and its folder renamed by the name: {(status, evidence)}"
 
@@ -2119,7 +2261,7 @@ def test_s12_fails_a_start_named_in_its_ledger_and_left_in_its_folder():
     assert "brawl-the-whorled-swarm" in evidence, f"the evidence does not name the folder it should be in: {evidence}"
 
 
-def test_s12_fails_a_start_renamed_by_another_name_than_its_ledgers():
+def test_s12_fails_a_start_renamed_by_another_name_than_its_decks():
     status, evidence = verdict(named_from_a_start("brawl-wicks-rats"), "S12", facts(**NAME_FACTS))
     assert status == "fail", f"named The Whorled Swarm and put in brawl-wicks-rats: {(status, evidence)}"
     assert "brawl-wicks-rats" in evidence, f"the evidence does not name the folder: {evidence}"
@@ -2128,6 +2270,45 @@ def test_s12_fails_a_start_renamed_by_another_name_than_its_ledgers():
 def test_s12_is_not_applicable_to_a_start_whose_ledger_gains_no_name_line():
     status, evidence = verdict(named_from_a_start("deck", gained=(GRASP_LINE,)), "S12")
     assert status == "n/a", f"the start was never named, so its folder is the runner's: {(status, evidence)}"
+
+
+TOKENS_RENAME_LINE = "- 2026-11-13 · name · deck → brawl-creature-tokens · Named by the theme, the deck has no name yet"
+
+
+def renamed_from_a_start(folder, line=TOKENS_RENAME_LINE, theme="Creature tokens", taken=None):
+    """A run begun from a start in `deck` whose deck, still unnamed (`name: null`) and of
+    `theme`, is in `folder` after exchange 0, its ledger having gained `line`; `taken`
+    names a folder another deck already holds."""
+    unnamed = {**deck_json(theme=theme), "name": None}
+    other = {taken: (deck_json([deck_card("Infernal Grasp")], name="Another deck"), ledger())} if taken else {}
+    start_state = {"deck": (unnamed, ledger(LEDGER_LINE)), **other}
+    states = [{folder: (unnamed, ledger(LEDGER_LINE, line)), **other}]
+    return fake_run(PICKED, [], start=unnamed, start_state=start_state, states=states)
+
+
+def test_s12_passes_an_unnamed_start_renamed_to_its_theme_folder():
+    # From the round of 2026-11-13: the start in `deck`, renamed for the theme, and the deck still unnamed.
+    status, evidence = verdict(renamed_from_a_start("brawl-creature-tokens"), "S12")
+    assert status == "pass", f"the folder is the theme's and the one the name line names: {(status, evidence)}"
+
+
+def test_s12_passes_an_unnamed_start_renamed_to_its_theme_folder_numbered_when_taken():
+    r = renamed_from_a_start("brawl-creature-tokens-2", taken="brawl-creature-tokens")
+    status, evidence = verdict(r, "S12")
+    assert status == "pass", f"brawl-creature-tokens was taken by another deck: {(status, evidence)}"
+
+
+def test_s12_fails_a_start_in_another_folder_than_its_name_line_names():
+    status, evidence = verdict(renamed_from_a_start("brawl-tokens"), "S12")
+    assert status == "fail", f"the name line renames deck to brawl-creature-tokens: {(status, evidence)}"
+    assert "brawl-creature-tokens" in evidence, f"the evidence does not name the folder the line names: {evidence}"
+
+
+def test_s12_takes_no_name_from_a_name_line():
+    line = "- 2026-11-13 · name · The Whorled Swarm · deck → brawl-the-whorled-swarm"
+    status, evidence = verdict(renamed_from_a_start("brawl-the-whorled-swarm", line, theme="Rats"), "S12")
+    assert status == "fail", f"deck.json has no name, so the folder is the theme's, brawl-rats: {(status, evidence)}"
+    assert "brawl-rats" in evidence, f"the evidence does not name the theme's folder: {evidence}"
 
 
 def test_the_runner_lets_deckwright_rename_a_folder_with_mv():
