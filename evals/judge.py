@@ -28,9 +28,18 @@ QUESTIONS = {
     "player_knows_more": "After which conversation does the player know more about their deck: how it plays and why each card is there?",
     "page_explains": "Which assistant left a saved deck (page or files) that explains the deck better on its own?",
 }
-SCHEMA = {"type": "object", "properties": {key: {"type": "object", "properties": {
-    "winner": {"enum": ["A", "B", "tie"]}, "why": {"type": "string"}}, "required": ["winner", "why"]}
-    for key in QUESTIONS}, "required": list(QUESTIONS)}
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        key: {
+            "type": "object",
+            "properties": {"winner": {"enum": ["A", "B", "tie"]}, "why": {"type": "string"}},
+            "required": ["winner", "why"],
+        }
+        for key in QUESTIONS
+    },
+    "required": list(QUESTIONS),
+}
 PROMPT = """Two assistants each helped a player build a Magic: The Gathering deck for
 Arena from the same brief. Read both conversations and what each one saved, then
 answer each question with A, B or tie and one sentence of evidence. Judge teaching,
@@ -51,18 +60,26 @@ def transcript(path: pathlib.Path) -> str:
     run = Run(path)
     text = "\n\n".join(f"{m['role'].upper()}: {m['text']}" for m in run.messages)
     text = text[-LIMIT:] if len(text) > LIMIT else text
-    saved = [f"--- saved {name} ---\n" + run.published[name].read_text(errors="replace")[:40_000]
-             for name in ("deck.json", "LEDGER.md") if name in run.published]
-    saved += [f"--- saved {name} ---\n{body[:40_000]}" for name, body in run.files.items()
-              if name.endswith((".md", ".txt", ".json")) and not saved]
+    saved = [
+        f"--- saved {name} ---\n" + run.published[name].read_text(errors="replace")[:40_000]
+        for name in ("deck.json", "LEDGER.md")
+        if name in run.published
+    ]
+    saved += [
+        f"--- saved {name} ---\n{body[:40_000]}"
+        for name, body in run.files.items()
+        if name.endswith((".md", ".txt", ".json")) and not saved
+    ]
     return text + "\n\nSAVED\n" + ("\n".join(saved) or "(nothing saved)")
 
 
 def ask(a: str, b: str) -> dict:
     questions = "\n".join(f"- {key}: {q}" for key, q in QUESTIONS.items())
-    proc = headless.claude(["--model", JUDGE_MODEL, "--tools", "", "--output-format", "json",
-                            "--json-schema", json.dumps(SCHEMA)],
-                           PROMPT.format(questions=questions, a=a, b=b), timeout=1800)
+    proc = headless.claude(
+        ["--model", JUDGE_MODEL, "--tools", "", "--output-format", "json", "--json-schema", json.dumps(SCHEMA)],
+        PROMPT.format(questions=questions, a=a, b=b),
+        timeout=1800,
+    )
     return json.loads(proc.stdout)["structured_output"]
 
 
@@ -92,10 +109,18 @@ def main() -> None:
         if name not in results:
             b, s = transcript(bare[key]), transcript(skill[key])
             first, second = ask(s, b), ask(b, s)  # the skill is A, then B
-            results[name] = {q: {"skill_first": first[q], "skill_second": second[q],
-                                 "verdict": "skill" if first[q]["winner"] == "A" and second[q]["winner"] == "B"
-                                 else "bare" if first[q]["winner"] == "B" and second[q]["winner"] == "A" else "split"}
-                             for q in QUESTIONS}
+            results[name] = {
+                q: {
+                    "skill_first": first[q],
+                    "skill_second": second[q],
+                    "verdict": "skill"
+                    if first[q]["winner"] == "A" and second[q]["winner"] == "B"
+                    else "bare"
+                    if first[q]["winner"] == "B" and second[q]["winner"] == "A"
+                    else "split",
+                }
+                for q in QUESTIONS
+            }
             args.out.write_text(json.dumps(results, indent=2))
         print("--".join(key), {q: v["verdict"] for q, v in results[name].items()})
     totals = {q: Counter(results[name][q]["verdict"] for name in results) for q in QUESTIONS}

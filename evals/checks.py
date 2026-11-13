@@ -37,50 +37,101 @@ BASICS = {"Plains": "W", "Island": "U", "Swamp": "B", "Mountain": "R", "Forest":
 ARENA_LINE = re.compile(r"^\s*(\d+)\s+(.+?)(?:\s+\([A-Z0-9]{2,6}\)\s+\S+)?\s*$")
 TYPES = ["Creature", "Land", "Instant", "Sorcery", "Artifact", "Enchantment", "Planeswalker"]
 
-FACT = {"type": "object", "properties": {"holds": {"type": ["boolean", "null"]}, "evidence": {"type": "string"}},
-        "required": ["holds", "evidence"]}
-EXTRA_FACTS = ["one_question_per_intent_message", "remaining_stated_after_each_answer", "no_card_search_before_criteria",
-               "narrowing_said",
-               "nonbasics_offered_as_choices", "tagless_job_warned", "no_step_unasked", "departures_confirmed",
-               "no_strength_or_price_question", "ladder_steps_with_counts", "suggestions_marked",
-               "you_pick_takes_the_suggested", "limits_question_names_crossover", "commander_before_colours",
-               "set_count_says_any_printing", "terms_explained_where_first_used",
-               "name_asked_once_complete_before_handbook", "handbook_written_unasked"]
+FACT = {
+    "type": "object",
+    "properties": {"holds": {"type": ["boolean", "null"]}, "evidence": {"type": "string"}},
+    "required": ["holds", "evidence"],
+}
+EXTRA_FACTS = [
+    "one_question_per_intent_message",
+    "remaining_stated_after_each_answer",
+    "no_card_search_before_criteria",
+    "narrowing_said",
+    "nonbasics_offered_as_choices",
+    "tagless_job_warned",
+    "no_step_unasked",
+    "departures_confirmed",
+    "no_strength_or_price_question",
+    "ladder_steps_with_counts",
+    "suggestions_marked",
+    "you_pick_takes_the_suggested",
+    "limits_question_names_crossover",
+    "commander_before_colours",
+    "set_count_says_any_printing",
+    "terms_explained_where_first_used",
+    "name_asked_once_complete_before_handbook",
+    "handbook_written_unasked",
+]
 
 READER_SCHEMA = {
     "type": "object",
     "properties": {
         "format": {"enum": ["brawl", "standard", "unknown"]},
         "deck_colours": {"type": "array", "items": {"enum": list("WUBRG")}},
-        "offers": {"type": "array", "items": {"type": "object", "properties": {
-            "message": {"type": "integer"},
-            "cards": {"type": "array", "items": {"type": "string"}}},
-            "required": ["message", "cards"]}},
-        "confirmations": {"type": "array", "items": {"type": "object", "properties": {
-            "message": {"type": "integer"},
-            "cards": {"type": "array", "items": {"type": "string"}}},
-            "required": ["message", "cards"]}},
+        "offers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"message": {"type": "integer"}, "cards": {"type": "array", "items": {"type": "string"}}},
+                "required": ["message", "cards"],
+            },
+        },
+        "confirmations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"message": {"type": "integer"}, "cards": {"type": "array", "items": {"type": "string"}}},
+                "required": ["message", "cards"],
+            },
+        },
         "basic_split_confirmed": {"type": "boolean"},
-        "review_type_counts": {"type": "array", "items": {"type": "object", "properties": {
-            "message": {"type": "integer"},
-            "card_type": {"enum": TYPES},
-            "count": {"type": "integer"}},
-            "required": ["message", "card_type", "count"]}},
+        "review_type_counts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "message": {"type": "integer"},
+                    "card_type": {"enum": TYPES},
+                    "count": {"type": "integer"},
+                },
+                "required": ["message", "card_type", "count"],
+            },
+        },
         "criterion_change_recorded_with_reason": {"type": ["boolean", "null"]},
         "card_removed_without_player_word": {"type": "array", "items": {"type": "string"}},
         "dismissed_finding_raised_again": {"type": ["boolean", "null"]},
         **dict.fromkeys(EXTRA_FACTS, FACT),
-        "saved_categories": {"type": "array", "items": {"type": "object", "properties": {
-            "name": {"type": "string"}, "target": {"type": ["integer", "null"]}},
-            "required": ["name", "target"]}},
-        "deck_counts_stated": {"type": "array", "items": {"type": "object", "properties": {
-            "message": {"type": "integer"}, "said": {"type": "string"}},
-            "required": ["message", "said"]}},
+        "saved_categories": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}, "target": {"type": ["integer", "null"]}},
+                "required": ["name", "target"],
+            },
+        },
+        "deck_counts_stated": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"message": {"type": "integer"}, "said": {"type": "string"}},
+                "required": ["message", "said"],
+            },
+        },
     },
-    "required": ["format", "deck_colours", "offers", "confirmations", "basic_split_confirmed",
-                 "review_type_counts", "criterion_change_recorded_with_reason",
-                 "card_removed_without_player_word", "dismissed_finding_raised_again",
-                 *EXTRA_FACTS, "saved_categories", "deck_counts_stated"],
+    "required": [
+        "format",
+        "deck_colours",
+        "offers",
+        "confirmations",
+        "basic_split_confirmed",
+        "review_type_counts",
+        "criterion_change_recorded_with_reason",
+        "card_removed_without_player_word",
+        "dismissed_finding_raised_again",
+        *EXTRA_FACTS,
+        "saved_categories",
+        "deck_counts_stated",
+    ],
 }
 
 READER_PROMPT = """Below is a conversation between a deck-building assistant and a Magic player,
@@ -194,8 +245,9 @@ def scryfall_get(path: str, pause: float) -> dict | None:
     Scryfall allows two searches or name lookups a second, and a 429 locks the
     caller out for 30 seconds: wait it out, since retrying at once risks a ban.
     """
-    request = urllib.request.Request("https://api.scryfall.com" + path,
-                                     headers={"User-Agent": "deckwright-evals/0.1", "Accept": "application/json"})
+    request = urllib.request.Request(
+        "https://api.scryfall.com" + path, headers={"User-Agent": "deckwright-evals/0.1", "Accept": "application/json"}
+    )
     for attempt in range(5):
         time.sleep(pause)
         try:
@@ -218,8 +270,11 @@ def spells(name: str, real: str) -> bool:
     Commas and apostrophes are ignored."""
     plain = lambda text: re.sub(r"[,']", "", text).strip()
     parts = {plain(part).lower() for g in faces(real) for part in g.split(",")}  # "Lord Skitter, Sewer King"
-    return any(plain(f) == plain(g) or ("//" in real and plain(g).startswith(plain(f))) or plain(f) in parts
-               for f in faces(name) for g in faces(real))
+    return any(
+        plain(f) == plain(g) or ("//" in real and plain(g).startswith(plain(f))) or plain(f) in parts
+        for f in faces(name)
+        for g in faces(real)
+    )
 
 
 def scryfall(name: str, cache: dict) -> dict | None:
@@ -254,9 +309,13 @@ def calls(trace: list[dict]):
     whose answer begins "Exit code"; any other Bash error is a command refused before
     it ran (needs approval, blocked). A publish over the account's limit is refused.
     """
-    answers = {block.get("tool_use_id"): block for event in trace if event.get("type") == "user"
-               for block in event.get("message", {}).get("content", [])
-               if isinstance(block, dict) and block.get("type") == "tool_result"}
+    answers = {
+        block.get("tool_use_id"): block
+        for event in trace
+        if event.get("type") == "user"
+        for block in event.get("message", {}).get("content", [])
+        if isinstance(block, dict) and block.get("type") == "tool_result"
+    }
     for event in trace:
         if event.get("type") != "assistant":
             continue
@@ -267,8 +326,14 @@ def calls(trace: list[dict]):
                 text = content if isinstance(content, str) else json.dumps(content)
                 ran = block.get("name") == "Bash" and text.startswith("Exit code")
                 refused = (bool(answer.get("is_error")) and not ran) or "publish 429" in str(content)[:300]
-                yield (event.get("exchange", 0), event.get("conversation", 1), block.get("name"),
-                       block.get("input", {}), refused, text)
+                yield (
+                    event.get("exchange", 0),
+                    event.get("conversation", 1),
+                    block.get("name"),
+                    block.get("input", {}),
+                    refused,
+                    text,
+                )
 
 
 def tool_uses(trace: list[dict]):
@@ -343,9 +408,11 @@ class Run:
         self.summary = json.loads((path / "run.json").read_text())
         self.messages = [json.loads(line) for line in (path / "conversation.jsonl").read_text().splitlines()]
         self.trace = [json.loads(line) for line in (path / "trace.jsonl").read_text().splitlines()]
-        self.files = {p.relative_to(path / "workspace").as_posix(): p.read_text(errors="replace")
-                      for p in (path / "workspace").rglob("*")
-                      if p.is_file() and p.suffix in {".json", ".md", ".txt", ".html"} and ".claude" not in p.parts}
+        self.files = {
+            p.relative_to(path / "workspace").as_posix(): p.read_text(errors="replace")
+            for p in (path / "workspace").rglob("*")
+            if p.is_file() and p.suffix in {".json", ".md", ".txt", ".html"} and ".claude" not in p.parts
+        }
         after = path / "after"
         self.start_state = read_state(after / "start") if (after / "start").is_dir() else {}
         self.states: list[State] = []
@@ -360,8 +427,11 @@ class Run:
         self.published = self.last_published()
         self.folder = self.deck_folder()
         # Runs before ADR-0011 kept the deck only as a published page.
-        self.page_files = ({p.relative_to(self.folder).as_posix(): p for p in self.folder.rglob("*") if p.is_file()}
-                           if self.folder else self.published)
+        self.page_files = (
+            {p.relative_to(self.folder).as_posix(): p for p in self.folder.rglob("*") if p.is_file()}
+            if self.folder
+            else self.published
+        )
         # The start as the run began: runs copy it in; older runs predate the copy.
         start = path / "start" / "deck.json"
         self.start = json.loads(start.read_text()) if start.exists() else None
@@ -376,8 +446,11 @@ class Run:
     def changed_in(self, exchange: int) -> list[str]:
         """The deck folders whose `deck.json` the exchange changed or made, and left parseable."""
         before = self.state_before(exchange)
-        return [folder for folder, (deck, _) in self.states[exchange].items()
-                if deck is not None and deck != before.get(folder, (None, []))[0]]
+        return [
+            folder
+            for folder, (deck, _) in self.states[exchange].items()
+            if deck is not None and deck != before.get(folder, (None, []))[0]
+        ]
 
     def saves_by_exchange(self) -> Counter:
         return Counter(e for e in range(len(self.states)) if self.changed_in(e))
@@ -388,8 +461,11 @@ class Run:
         workspace = self.path / "workspace"
         if self.states:
             changed = {folder: e for e in range(len(self.states)) for folder in self.changed_in(e)}
-            held = [folder for folder, (deck, _) in self.states[-1].items()
-                    if deck is not None and (workspace / folder / "deck.json").is_file()]
+            held = [
+                folder
+                for folder, (deck, _) in self.states[-1].items()
+                if deck is not None and (workspace / folder / "deck.json").is_file()
+            ]
             if held:
                 return workspace / max(held, key=lambda folder: (changed.get(folder, -1), folder))
         held = [p.parent for p in workspace.rglob("deck.json") if ".claude" not in p.parts]
@@ -404,31 +480,36 @@ class Run:
         """
         files: dict[str, pathlib.Path] = {}
         for _, _, name, given, refused in self.tool_uses():
-                if name != "Artifact" or refused:
-                    continue
-                if given.get("action", "publish") != "publish" or not str(given.get("file_path", "")).endswith(".html"):
-                    continue
-                workspace = self.path / "workspace"
-                page = workspace / given["file_path"]
-                # A relative source resolves against `root` or the session's working
-                # directory, which a `cd` may have moved; try the likely ones.
-                bases = [workspace / given["root"]] if given.get("root") else [workspace, page.parent]
+            if name != "Artifact" or refused:
+                continue
+            if given.get("action", "publish") != "publish" or not str(given.get("file_path", "")).endswith(".html"):
+                continue
+            workspace = self.path / "workspace"
+            page = workspace / given["file_path"]
+            # A relative source resolves against `root` or the session's working
+            # directory, which a `cd` may have moved; try the likely ones.
+            bases = [workspace / given["root"]] if given.get("root") else [workspace, page.parent]
 
-                def resolve(source: str) -> pathlib.Path:
-                    return next((b / source for b in bases if (b / source).exists()), bases[0] / source)
+            def resolve(source: str) -> pathlib.Path:  # called only within this iteration
+                return next((b / source for b in bases if (b / source).exists()), bases[0] / source)  # noqa: B023
 
-                sources = {"index.html": page}
-                listed = given.get("files") or {}
-                if isinstance(listed, list):  # the list form publishes each file at its own spelling
-                    listed = {(item if isinstance(item, str) else item.get("path")): (item if isinstance(item, str) else item.get("path"))
-                              for item in listed if isinstance(item, str) or isinstance(item, dict)}
-                for published, source in listed.items():
-                    if isinstance(source, dict):
-                        source = source.get("from")
-                    if isinstance(source, str):
-                        sources[published] = resolve(source)
-                # A publish adds or replaces files and keeps the rest, as the artifact does.
-                files.update(sources)
+            sources = {"index.html": page}
+            listed = given.get("files") or {}
+            if isinstance(listed, list):  # the list form publishes each file at its own spelling
+                listed = {
+                    (item if isinstance(item, str) else item.get("path")): (
+                        item if isinstance(item, str) else item.get("path")
+                    )
+                    for item in listed
+                    if isinstance(item, (str, dict))
+                }
+            for published, source in listed.items():
+                if isinstance(source, dict):
+                    source = source.get("from")
+                if isinstance(source, str):
+                    sources[published] = resolve(source)
+            # A publish adds or replaces files and keeps the rest, as the artifact does.
+            files.update(sources)
         return {k: v for k, v in files.items() if v.exists()}
 
     def deck(self) -> dict | None:
@@ -523,8 +604,20 @@ class Run:
                     saved[f"published {name}"] = source.read_text(errors="replace")
         files = [f"--- {name} ---\n{text[:60000]}" for name, text in saved.items()]
         prompt = READER_PROMPT.format(transcript="\n\n".join(lines) + "\n\nSAVED FILES\n" + "\n".join(files))
-        proc = headless.claude(["--model", READER_MODEL, "--tools", "", "--output-format", "json",
-                                "--json-schema", json.dumps(READER_SCHEMA)], prompt, timeout=1800)
+        proc = headless.claude(
+            [
+                "--model",
+                READER_MODEL,
+                "--tools",
+                "",
+                "--output-format",
+                "json",
+                "--json-schema",
+                json.dumps(READER_SCHEMA),
+            ],
+            prompt,
+            timeout=1800,
+        )
         try:
             data = json.loads(proc.stdout)["structured_output"]
         except (json.JSONDecodeError, KeyError) as error:
@@ -574,7 +667,9 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     results: dict[str, tuple[str, str]] = {}
 
     started = start_cards(run)
-    confirmed = {face for name in started | {n for c in facts["confirmations"] for n in c["cards"]} for face in faces(name)}
+    confirmed = {
+        face for name in started | {n for c in facts["confirmations"] for n in c["cards"]} for face in faces(name)
+    }
     unseen = sorted(n for n in cards if n not in BASICS and not faces(n) & confirmed)
     basics_ok = facts["basic_split_confirmed"] or not any(n in BASICS for n in cards)
     if not cards and run.summary.get("ends") and not any(c["cards"] for c in facts["confirmations"]):
@@ -582,15 +677,22 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     elif not cards:
         results["C1"] = ("fail", "no final deck list")
     else:
-        results["C1"] = ("pass" if not unseen and basics_ok else "fail",
-                         f"not confirmed: {unseen[:8]}" + ("" if basics_ok else "; basic split never confirmed"))
+        results["C1"] = (
+            "pass" if not unseen and basics_ok else "fail",
+            f"not confirmed: {unseen[:8]}" + ("" if basics_ok else "; basic split never confirmed"),
+        )
 
-    identity = set((scryfall(commander, cache) or {}).get("color_identity") or []) if commander else set(facts["deck_colours"])
-    bad, picked = [], set()
+    identity = (
+        set((scryfall(commander, cache) or {}).get("color_identity") or []) if commander else set(facts["deck_colours"])
+    )
+    bad = []
     confirmations = sorted(facts["confirmations"], key=lambda c: c["message"])
     for offer in sorted(facts["offers"], key=lambda o: o["message"]):
-        picked_so_far = {face for n in started | {n for c in confirmations if c["message"] < offer["message"] for n in c["cards"]}
-                         for face in faces(n)}
+        picked_so_far = {
+            face
+            for n in started | {n for c in confirmations if c["message"] < offer["message"] for n in c["cards"]}
+            for face in faces(n)
+        }
         for name in offer["cards"]:
             card = scryfall(name, cache)
             if card is None:
@@ -626,12 +728,16 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     if facts["review_type_counts"] and (cards or run.states):
         wrong = []
         for said in facts["review_type_counts"]:
-            reviewed, leader = run.list_at(message_to_exchange(run, said["message"])) if run.states else (cards, commander)
+            reviewed, leader = (
+                run.list_at(message_to_exchange(run, said["message"])) if run.states else (cards, commander)
+            )
             # A two-faced card may be counted by its front face or by every face: a
             # review is right anywhere between the two counts.
             # A Brawl review may count the commander or only the 99, so either is right.
             t = said["card_type"]
-            front = sum(n for name, n in reviewed.items() if t in type_line_of(name, cache).split(" // ")[0] and name != leader)
+            front = sum(
+                n for name, n in reviewed.items() if t in type_line_of(name, cache).split(" // ")[0] and name != leader
+            )
             any_face = sum(n for name, n in reviewed.items() if t in type_line_of(name, cache))
             if not front <= said["count"] <= any_face:
                 wrong.append(f"{t} said {said['count']}, is {front if front == any_face else f'{front} to {any_face}'}")
@@ -654,19 +760,28 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
         total = sum(basics.values())
         expected = {c: total * pips[c] / sum(pips.values()) for c in set(pips) | set(basics)}
         # [inferred] within two basics of the pip share; the design set no tolerance.
-        off = [f"{c}: {basics.get(c, 0)} vs {expected[c]:.1f}" for c in sorted(expected)
-               if abs(basics.get(c, 0) - expected[c]) > 2]
+        off = [
+            f"{c}: {basics.get(c, 0)} vs {expected[c]:.1f}"
+            for c in sorted(expected)
+            if abs(basics.get(c, 0) - expected[c]) > 2
+        ]
         results["C6"] = ("pass" if not off else "fail", "; ".join(off))
     else:
         results["C6"] = ("n/a", "no basics or no coloured pips")
 
     if brief == "brawl-illegal-card":
-        results["C7"] = ("fail" if "Sol Ring" in cards else "pass", "Sol Ring in the final list" if "Sol Ring" in cards else "")
+        results["C7"] = (
+            "fail" if "Sol Ring" in cards else "pass",
+            "Sol Ring in the final list" if "Sol Ring" in cards else "",
+        )
     elif brief == "brawl-fill-the-rest":
         results["C7"] = (results["C1"][0], "no blind fill: " + results["C1"][1])
     elif brief == "standard-criterion-change":
         recorded, removed = facts["criterion_change_recorded_with_reason"], facts["card_removed_without_player_word"]
-        results["C7"] = ("pass" if recorded and not removed else "fail", f"recorded: {recorded}; removed unasked: {removed}")
+        results["C7"] = (
+            "pass" if recorded and not removed else "fail",
+            f"recorded: {recorded}; removed unasked: {removed}",
+        )
     elif brief == "brawl-dismiss-finding":
         again = facts["dismissed_finding_raised_again"]
         results["C7"] = ("fail" if again else ("pass" if again is False else "n/a"), f"raised again: {again}")
@@ -680,12 +795,25 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     if run.summary.get("ends"):
         results["C8"] = ("n/a", f"the brief ends at the {run.summary['ends']}")
     else:
-        results["C8"] = ("pass" if ok else "fail", f"size {size} of {want}; commander {commander}; not importable: {unknown[:5]}")
+        results["C8"] = (
+            "pass" if ok else "fail",
+            f"size {size} of {want}; commander {commander}; not importable: {unknown[:5]}",
+        )
     # Checks added after the bare round of 2026-11-10, one per group of criteria
     # the bare runs failed (decided: a check only where a bare run fails).
-    results["C9"] = (("n/a", "began from a half-built deck: no intent interview") if started else
-                     facts_verdict(facts, ["one_question_per_intent_message", "remaining_stated_after_each_answer",
-                                           "no_card_search_before_criteria", "no_strength_or_price_question"]))
+    results["C9"] = (
+        ("n/a", "began from a half-built deck: no intent interview")
+        if started
+        else facts_verdict(
+            facts,
+            [
+                "one_question_per_intent_message",
+                "remaining_stated_after_each_answer",
+                "no_card_search_before_criteria",
+                "no_strength_or_price_question",
+            ],
+        )
+    )
     results["C10"] = facts_verdict(facts, ["narrowing_said", "nonbasics_offered_as_choices", "tagless_job_warned"])
     results["C11"] = facts_verdict(facts, ["no_step_unasked", "departures_confirmed"])
     results["C12"] = page_shape(run, facts, fmt, cards, cache)
@@ -756,12 +884,21 @@ def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> 
     shape = {"brawl": (8, 8), "standard": (9, 4)}.get(fmt)
     if shape and len(categories) != shape[0]:
         problems.append(f"{len(categories)} categories {[c['name'] for c in categories][:10]}, template has {shape[0]}")
-    creature_types = {kind.lower() for name in cards for face in type_line_of(name, cache).split(" // ")
-                      if "Creature" in face and "—" in face for kind in face.split("—")[1].split()}
+    creature_types = {
+        kind.lower()
+        for name in cards
+        for face in type_line_of(name, cache).split(" // ")
+        if "Creature" in face and "—" in face
+        for kind in face.split("—")[1].split()
+    }
     # Categories a half-built start already had were not Deckwright's to name.
     inherited = {c["name"] for c in run.start["categories"]} if run.start else set()
-    typal = [c["name"] for c in categories if c["name"] not in inherited
-             and any(singulars(word) & creature_types for word in c["name"].lower().replace("-", " ").split())]
+    typal = [
+        c["name"]
+        for c in categories
+        if c["name"] not in inherited
+        and any(singulars(word) & creature_types for word in c["name"].lower().replace("-", " ").split())
+    ]
     if typal:
         problems.append(f"creature-type categories: {typal}")
     return ("pass" if not problems else "fail", "; ".join(problems))
@@ -770,12 +907,15 @@ def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> 
 # ---------- S1 to S13: the skill's close-out criteria ----------
 
 DECK_SIZE = {"brawl": 100, "standard": 60}
-LINK_ASKED = re.compile(r"\b(link|url)\b", re.I)
+LINK_ASKED = re.compile(r"\b(link|url)\b", re.IGNORECASE)
 # Any Scryfall address: one with its scheme, or a host with a path ("api.scryfall.com/cards/…").
 # A bare "Scryfall.com" in prose names the site and links nowhere.
-SCRYFALL_LINK = re.compile(r"https?://(?:[\w-]+\.)*scryfall\.(?:com|io)(?:/[^\s)\]>\"'<]*)?"
-                           r"|(?:[\w-]+\.)*scryfall\.(?:com|io)/[^\s)\]>\"'<]*", re.I)
-PICTURE = re.compile(r"!\[[^\]]*\]\([^)]*\)|<img\b[^>]*>", re.I)
+SCRYFALL_LINK = re.compile(
+    r"https?://(?:[\w-]+\.)*scryfall\.(?:com|io)(?:/[^\s)\]>\"'<]*)?"
+    r"|(?:[\w-]+\.)*scryfall\.(?:com|io)/[^\s)\]>\"'<]*",
+    re.IGNORECASE,
+)
+PICTURE = re.compile(r"!\[[^\]]*\]\([^)]*\)|<img\b[^>]*>", re.IGNORECASE)
 SCRYFALL_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
@@ -788,8 +928,11 @@ def skill_checks(run: Run, facts: dict, fmt: str, cache: dict) -> dict[str, tupl
         "S3": ladder_shown(run, facts, rounds),
         "S4": suggestions_marked(run, facts, rounds),
         "S5": crossover_marked(run, facts, rounds, cache),
-        "S6": (("n/a", "Standard has no commander") if fmt != "brawl"
-               else facts_verdict(facts, ["commander_before_colours"])),
+        "S6": (
+            ("n/a", "Standard has no commander")
+            if fmt != "brawl"
+            else facts_verdict(facts, ["commander_before_colours"])
+        ),
         "S7": facts_verdict(facts, ["set_count_says_any_printing"]),
         "S8": counts_from_scripts(run, facts),
         "S9": facts_verdict(facts, ["terms_explained_where_first_used"]),
@@ -815,7 +958,9 @@ def rounds_on_offer(run: Run) -> list[tuple[dict, set[str]]]:
     for state in run.states:
         for deck, _ in state.values():
             if deck and isinstance(deck.get("offer"), dict):
-                categories = {str(c.get("name", "")).lower() for c in deck.get("categories") or [] if isinstance(c, dict)}
+                categories = {
+                    str(c.get("name", "")).lower() for c in deck.get("categories") or [] if isinstance(c, dict)
+                }
                 found.setdefault(json.dumps(deck["offer"], sort_keys=True), (deck["offer"], categories - {"commander"}))
     return list(found.values())
 
@@ -834,8 +979,13 @@ def offered_cards(offer) -> list[dict]:
 
 def copies_held(name: str, state: State) -> int:
     """Copies of the card `name` across the deck folders of a state."""
-    return sum(copies(c) for deck, _ in state.values() if deck for c in deck.get("cards") or []
-               if isinstance(c, dict) and isinstance(c.get("name"), str) and faces(c["name"]) & faces(name))
+    return sum(
+        copies(c)
+        for deck, _ in state.values()
+        if deck
+        for c in deck.get("cards") or []
+        if isinstance(c, dict) and isinstance(c.get("name"), str) and faces(c["name"]) & faces(name)
+    )
 
 
 def saved_and_published(run: Run, facts: dict) -> tuple[str, str]:
@@ -860,8 +1010,11 @@ def saved_and_published(run: Run, facts: dict) -> tuple[str, str]:
                 problems.append(f"{name} (exchange {e}) not added to deck.json")
             if not any(named_in(name, line.lower()) for line in gained):
                 problems.append(f"{name} (exchange {e}) has no new line in LEDGER.md")
-    asked = [message_to_exchange(run, i) for i, m in enumerate(run.messages)
-             if m["role"] == "player" and LINK_ASKED.search(m["text"])]
+    asked = [
+        message_to_exchange(run, i)
+        for i, m in enumerate(run.messages)
+        if m["role"] == "player" and LINK_ASKED.search(m["text"])
+    ]
     done = list(publishes(run.trace))
     unasked = [e for e, _ in done if not asked or e < min(asked)]
     if unasked:
@@ -869,8 +1022,12 @@ def saved_and_published(run: Run, facts: dict) -> tuple[str, str]:
     artifacts = list(dict.fromkeys(a for _, a in done if a))
     if len(artifacts) > 1:
         problems.append(f"published to {len(artifacts)} artifacts: {artifacts}")
-    return verdict_of(problems, bool(picks or done), unrecorded(run) if picks else [],
-                      f"{len(picks)} picks added to deck.json and LEDGER.md; {len(done)} publishes")
+    return verdict_of(
+        problems,
+        bool(picks or done),
+        unrecorded(run) if picks else [],
+        f"{len(picks)} picks added to deck.json and LEDGER.md; {len(done)} publishes",
+    )
 
 
 def packed_file(command: str, answer: str) -> str | None:
@@ -898,9 +1055,16 @@ def packed_file(command: str, answer: str) -> str | None:
 def swaps_gained(state: State, before: State) -> list[str]:
     """The names of the review swaps (maybeboard entries of kind `swap`) a state holds
     that the state before it did not."""
+
     def swaps(s: State) -> list[dict]:
-        return [c for deck, _ in s.values() if deck for c in deck.get("maybeboard") or []
-                if isinstance(c, dict) and c.get("kind") == "swap"]
+        return [
+            c
+            for deck, _ in s.values()
+            if deck
+            for c in deck.get("maybeboard") or []
+            if isinstance(c, dict) and c.get("kind") == "swap"
+        ]
+
     held = swaps(before)
     return [c["name"] for c in swaps(state) if c not in held and isinstance(c.get("name"), str)]
 
@@ -927,15 +1091,22 @@ def round_shown(run: Run, facts: dict) -> tuple[str, str]:
     for e in sorted(set(shown) | set(saves)):
         names = shown.get(e, [])
         if names and e < len(run.states):
-            held = [c["name"] for deck, _ in run.states[e].values() if deck
-                    for c in offered_cards(deck.get("offer")) if isinstance(c.get("name"), str)]
+            held = [
+                c["name"]
+                for deck, _ in run.states[e].values()
+                if deck
+                for c in offered_cards(deck.get("offer"))
+                if isinstance(c.get("name"), str)
+            ]
             held += swaps_gained(run.states[e], run.state_before(e))
             on_offer = [n for n in names if any(faces(n) & faces(h) for h in held)]
             if not held:
                 problems.append(f"exchange {e} offers cards and its deck folder holds no offer after it")
             elif 2 * len(on_offer) < len(names):
-                problems.append(f"exchange {e} offers {names[:6]} and its deck folder's offer holds "
-                                f"{len(on_offer)} of them after it")
+                problems.append(
+                    f"exchange {e} offers {names[:6]} and its deck folder's offer holds "
+                    f"{len(on_offer)} of them after it"
+                )
         doing = "offers cards" if names else "saves"
         if e not in packed:
             problems.append(f"exchange {e} {doing} and never runs pack.py")
@@ -1008,9 +1179,12 @@ def printing(scryfall_id: str, cache: dict) -> dict | None:
     key = f"/cards/{scryfall_id}"
     if key not in cache:
         found = scryfall_get(key, 0.1) if SCRYFALL_ID.fullmatch(str(scryfall_id)) else None
-        cache[key] = found and {**{k: found.get(k) for k in ("id", "name", "games", "promo_types", "flavor_name")},
-                                "card_faces": [{"name": f.get("name"), "flavor_name": f.get("flavor_name")}
-                                               for f in found.get("card_faces") or []]}
+        cache[key] = found and {
+            **{k: found.get(k) for k in ("id", "name", "games", "promo_types", "flavor_name")},
+            "card_faces": [
+                {"name": f.get("name"), "flavor_name": f.get("flavor_name")} for f in found.get("card_faces") or []
+            ],
+        }
     return cache[key]
 
 
@@ -1032,19 +1206,22 @@ def crossover_marked(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]],
                 problems.append(f"{name} is marked crossover, and its printing is not")
             continue
         crossovers += 1
-        printed = found.get("flavor_name") or next((f.get("flavor_name") for f in (found.get("card_faces") or [])[:1]), None)
+        printed = found.get("flavor_name") or next(
+            (f.get("flavor_name") for f in (found.get("card_faces") or [])[:1]), None
+        )
         if not card.get("crossover"):
             problems.append(f"{name}: a crossover printing unmarked")
         if "arena" not in (found.get("games") or []):
             problems.append(f"{name}: a crossover printing Arena does not have, so its printed name is not Arena's")
         if printed and card.get("printed_name") != printed:
             problems.append(f"{name}: printed_name {card.get('printed_name')!r}, Arena prints {printed!r}")
-    return verdict_of(list(dict.fromkeys(problems)), holds(facts, names[0]) is not None or bool(crossovers),
-                      unrecorded(run))
+    return verdict_of(
+        list(dict.fromkeys(problems)), holds(facts, names[0]) is not None or bool(crossovers), unrecorded(run)
+    )
 
 
 # A file name printed beside a count ("backup-31.json") holds no count.
-FILE_NAME = re.compile(r"\S+\.(?:json|md|html?|py|jpe?g|png|txt|csv)\b", re.I)
+FILE_NAME = re.compile(r"\S+\.(?:json|md|html?|py|jpe?g|png|txt|csv)\b", re.IGNORECASE)
 TRACEBACK = "Traceback (most recent call last):"
 
 
@@ -1082,8 +1259,11 @@ def counts_from_scripts(run: Run, facts: dict) -> tuple[str, str]:
         e, number = message_to_exchange(run, stated["message"]), str(int(number.group(0)))
         if not printed(answers.get(e, []), number):
             problems.append(f"'{stated['said']}' (exchange {e}) with no python3 command printing it in its exchange")
-    return verdict_of(problems, bool(judged), passed="" if judged or not facts.get("deck_counts_stated")
-                      else "every count was said without digits")
+    return verdict_of(
+        problems,
+        bool(judged),
+        passed="" if judged or not facts.get("deck_counts_stated") else "every count was said without digits",
+    )
 
 
 def plain(text: str) -> str:
@@ -1096,13 +1276,20 @@ def name_given(run: Run, facts: dict, deck: dict | None) -> tuple[str, str]:
     the tutor asks for it."""
     names = ["name_asked_once_complete_before_handbook"]
     completed = next((e for e, state in enumerate(run.states) if any(complete(d) for d, _ in state.values())), None)
-    problems = [f"named {d['name']!r} before the deck was complete" for state in run.states[:completed]
-                for d, _ in state.values() if d and d.get("name") and not complete(d)]
+    problems = [
+        f"named {d['name']!r} before the deck was complete"
+        for state in run.states[:completed]
+        for d, _ in state.values()
+        if d and d.get("name") and not complete(d)
+    ]
     problems += failed_facts(facts, names).values()
     name = str((deck or {}).get("name") or "")
     if name and run.states:
-        said = [plain(m["text"]) for i, m in enumerate(run.messages) if m["role"] == "player"
-                and (completed is None or message_to_exchange(run, i) > completed)]
+        said = [
+            plain(m["text"])
+            for i, m in enumerate(run.messages)
+            if m["role"] == "player" and (completed is None or message_to_exchange(run, i) > completed)
+        ]
         if not any(plain(name) in s for s in said):
             problems.append(f"{name!r} is not a name the player gave")
     if complete(deck) and not name:
@@ -1134,9 +1321,9 @@ def renames(run: Run) -> list[tuple[str, str, list[str]]]:
             if old in state or not any(line.startswith("- ") for line in old_lines):
                 continue
             for new, (_, lines) in state.items():
-                if new not in before and lines[:len(old_lines)] == old_lines:
+                if new not in before and lines[: len(old_lines)] == old_lines:
                     last = next(s[new][1] for s in reversed(run.states) if new in s)
-                    found.append((old, new, last[len(old_lines):]))
+                    found.append((old, new, last[len(old_lines) :]))
     return found
 
 
@@ -1159,11 +1346,16 @@ def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
     name = deck.get("name")
     at_start = {line for _, lines in run.start_state.values() for line in lines} if run.summary.get("start") else set()
     ledger = run.folder / "LEDGER.md"
-    name_lines = [line for line in (ledger.read_text(errors="replace").splitlines() if ledger.is_file() else [])
-                  if NAME_LINE.search(line) and line not in at_start]
+    name_lines = [
+        line
+        for line in (ledger.read_text(errors="replace").splitlines() if ledger.is_file() else [])
+        if NAME_LINE.search(line) and line not in at_start
+    ]
     if run.summary.get("start") and not name_lines:
         return "n/a", "began from a start, in the folder the runner names"
-    theme = next((c.get("text") for c in deck.get("criteria") or [] if isinstance(c, dict) and c.get("kind") == "theme"), None)
+    theme = next(
+        (c.get("text") for c in deck.get("criteria") or [] if isinstance(c, dict) and c.get("kind") == "theme"), None
+    )
     by = name or theme
     if not by:
         return "n/a", "the deck has neither a name nor a theme to name its folder by"
@@ -1187,14 +1379,22 @@ def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
             problems.append(f"{folder} is numbered though {free} is free")
     else:
         problems.append(f"the deck is in {folder}, not {base}")
-    targets = [words[0].strip("`'\"") for line in name_lines for field in line.split("·") if "→" in field
-               if (words := field.split("→", 1)[1].split())]
+    targets = [
+        words[0].strip("`'\"")
+        for line in name_lines
+        for field in line.split("·")
+        if "→" in field
+        if (words := field.split("→", 1)[1].split())
+    ]
     if targets:
         target = pathlib.PurePath(targets[-1]).name
         if not re.fullmatch(re.escape(target) + r"(-\d+)?", folder):
             problems.append(f"the deck is in {folder}, and its ledger's last name line renames it to {target}")
-    problems += [f"the rename of {old} to {new} is not a name line in its ledger" for old, new, lines in renames(run)
-                 if not any(NAME_LINE.search(line) for line in lines)]
+    problems += [
+        f"the rename of {old} to {new} is not a name line in its ledger"
+        for old, new, lines in renames(run)
+        if not any(NAME_LINE.search(line) for line in lines)
+    ]
     return verdict_of(problems, True, unrecorded(run))
 
 
@@ -1217,7 +1417,9 @@ def main() -> None:
         results = check(run, cache)
         CACHE.write_text(json.dumps(cache))
         (path / "checks.json").write_text(json.dumps(results, indent=2))
-        print(f"\n{path.name}  ({run.summary['ended']}, {run.summary['exchanges']} exchanges, ${run.summary['deckwright_cost_usd']})")
+        print(
+            f"\n{path.name}  ({run.summary['ended']}, {run.summary['exchanges']} exchanges, ${run.summary['deckwright_cost_usd']})"
+        )
         if foreign := run.foreign_paths():
             print(f"  CONTAMINATED: reached outside its run: {foreign[:3]}")
         for name, (verdict, evidence) in results.items():

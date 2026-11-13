@@ -1,0 +1,18 @@
+line-length = 120
+target-version = "py313"
+
+[lint]
+ignore = [
+    # The test runners and the eval runner catch every exception at their boundary on purpose,
+    # to report one failure and go on, or to keep a crashed run on record.
+    "BLE001",
+    # A guard and the test it protects read better as two ifs, and merged they overrun the line.
+    "SIM102",
+    # Every subprocess.run here reads the exit status itself: the tests assert on it,
+    # and the evals read a failed reply as data. check=True would raise in their place.
+    "PLW1510",
+]
+
+[lint.per-file-ignores]
+# Its lambdas stand in for a run's methods and are called within the loop iteration that makes them.
+"evals/test_checks.py" = ["B023"]

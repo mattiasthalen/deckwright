@@ -41,9 +41,22 @@ STOPPED_BY_BUDGET = "publish budget"
 # File and lookup tools Deckwright needs, granted up front because a headless run
 # cannot stop to ask; a compound shell command needs every part allowed. Files never go into the person's chat (decided
 # 2026-11-10): a run's picture cards would land there.
-DECKWRIGHT_ALLOWED = ["Read", "Write", "Edit", "Glob", "Grep", "Artifact", "WebFetch",
-                      "Bash(curl:*)", "Bash(mkdir:*)", "Bash(ls:*)", "Bash(python3:*)",
-                      "Bash(cp:*)", "Bash(cd:*)", "Bash(mv:*)"]
+DECKWRIGHT_ALLOWED = [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Artifact",
+    "WebFetch",
+    "Bash(curl:*)",
+    "Bash(mkdir:*)",
+    "Bash(ls:*)",
+    "Bash(python3:*)",
+    "Bash(cp:*)",
+    "Bash(cd:*)",
+    "Bash(mv:*)",
+]
 DECKWRIGHT_DISALLOWED = ["SendUserFile", "PushNotification", "ScheduleWakeup", "CronCreate"]
 
 STAND_IN_RULES = f"""You are playing a Magic: The Gathering player who is building a deck in a
@@ -67,15 +80,17 @@ def read_brief(path: pathlib.Path) -> tuple[str, str, str | None, str | None]:
     text = path.read_text()
 
     def section(name: str) -> str | None:
-        found = re.search(rf"## {name}\n+(.+?)\s*(?=\n## |\Z)", text, re.S)
+        found = re.search(rf"## {name}\n+(.+?)\s*(?=\n## |\Z)", text, re.DOTALL)
         return found and found.group(1).strip()
+
     return section("Opening"), section("Player"), section("Start"), section("Ends")
 
 
 def claude(args: list[str], prompt: str, cwd: pathlib.Path, memory: pathlib.Path) -> list[dict]:
     """One headless turn; returns its stream-json events."""
-    proc = headless.claude(["--output-format", "stream-json", "--verbose", *args], prompt, memory,
-                           cwd=cwd, timeout=3600)
+    proc = headless.claude(
+        ["--output-format", "stream-json", "--verbose", *args], prompt, memory, cwd=cwd, timeout=3600
+    )
     events = []
     for line in proc.stdout.splitlines():
         try:
@@ -91,10 +106,17 @@ def result_of(events: list[dict]) -> dict:
     return next(e for e in reversed(events) if e.get("type") == "result")
 
 
-def deckwright_turn(message: str, session: str, first: bool, arm: str, cwd: pathlib.Path,
-                    memory: pathlib.Path) -> list[dict]:
-    args = ["--model", DECKWRIGHT_MODEL, "--allowedTools", *DECKWRIGHT_ALLOWED,
-            "--disallowedTools", *DECKWRIGHT_DISALLOWED]
+def deckwright_turn(
+    message: str, session: str, first: bool, arm: str, cwd: pathlib.Path, memory: pathlib.Path
+) -> list[dict]:
+    args = [
+        "--model",
+        DECKWRIGHT_MODEL,
+        "--allowedTools",
+        *DECKWRIGHT_ALLOWED,
+        "--disallowedTools",
+        *DECKWRIGHT_DISALLOWED,
+    ]
     args += ["--session-id", session] if first else ["--resume", session]
     if arm == "skill":
         args += ["--plugin-dir", str(PLUGIN_DIR)]
@@ -102,7 +124,14 @@ def deckwright_turn(message: str, session: str, first: bool, arm: str, cwd: path
 
 
 def stand_in_turn(message: str, session: str, first: bool, player: str, cwd: pathlib.Path) -> dict:
-    args = ["--model", STAND_IN_MODEL, "--tools", "", "--system-prompt", STAND_IN_RULES + "\n## Your brief\n\n" + player]
+    args = [
+        "--model",
+        STAND_IN_MODEL,
+        "--tools",
+        "",
+        "--system-prompt",
+        STAND_IN_RULES + "\n## Your brief\n\n" + player,
+    ]
     args += ["--session-id", session] if first else ["--resume", session]
     return result_of(claude(args, message, cwd, cwd.parent / "memory" / "stand-in"))
 
@@ -154,8 +183,9 @@ class PublishBudget:
         return self.ledger / datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
 
 
-def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int,
-        budget: PublishBudget | None = None) -> dict:
+def run(
+    brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int, budget: PublishBudget | None = None
+) -> dict:
     """Play one conversation to its end and write it under `out`.
 
     `run.json` is written however the run ends, so a run that dies still counts.
@@ -202,13 +232,21 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int,
             budget.count(events)
             result = result_of(events)
             # A resumed session reports its whole running total, not this turn's.
-            totals = [e["total_cost_usd"] for e in events
-                      if e.get("type") == "result" and e.get("total_cost_usd") is not None]
+            totals = [
+                e["total_cost_usd"] for e in events if e.get("type") == "result" and e.get("total_cost_usd") is not None
+            ]
             if totals:
                 cost_by_conversation[conversation_no] = max(totals)
             reply = (result.get("result") or "").strip()
-            log(conversation, {"role": "deckwright", "conversation": conversation_no, "text": reply,
-                               "error": bool(result.get("is_error"))})
+            log(
+                conversation,
+                {
+                    "role": "deckwright",
+                    "conversation": conversation_no,
+                    "text": reply,
+                    "error": bool(result.get("is_error")),
+                },
+            )
             if result.get("is_error"):
                 ended = "deckwright error"
                 break
@@ -222,15 +260,22 @@ def run(brief: pathlib.Path, arm: str, out: pathlib.Path, max_exchanges: int,
                 ended = "player ended"
                 break
             if message.startswith(NEW_CONVERSATION):
-                message = message[len(NEW_CONVERSATION):].strip()
+                message = message[len(NEW_CONVERSATION) :].strip()
                 deckwright_session, conversation_no, first_deckwright = str(uuid.uuid4()), conversation_no + 1, True
             if budget.used_up():
                 ended = STOPPED_BY_BUDGET
                 break
     except Exception as error:  # a timeout or a crash still leaves the run on record
         ended = f"runner error: {type(error).__name__}"
-    summary = {"brief": brief.stem, "arm": arm, "start": start, "ends": ends, "ended": ended,
-               "exchanges": exchange + 1, "deckwright_cost_usd": round(sum(cost_by_conversation.values()), 2)}
+    summary = {
+        "brief": brief.stem,
+        "arm": arm,
+        "start": start,
+        "ends": ends,
+        "ended": ended,
+        "exchanges": exchange + 1,
+        "deckwright_cost_usd": round(sum(cost_by_conversation.values()), 2),
+    }
     (out / "run.json").write_text(json.dumps(summary, indent=2))
     return summary
 
@@ -243,8 +288,15 @@ def finished(out: pathlib.Path) -> bool:
         return False
 
 
-def play_round(briefs: list[pathlib.Path], arm: str, runs: int, round_dir: pathlib.Path, jobs: int,
-               max_exchanges: int, budget: PublishBudget):
+def play_round(
+    briefs: list[pathlib.Path],
+    arm: str,
+    runs: int,
+    round_dir: pathlib.Path,
+    jobs: int,
+    max_exchanges: int,
+    budget: PublishBudget,
+):
     """Play the round's runs, yielding their summaries in order.
 
     A finished run is skipped. Any other run folder, cut off mid-run or stopped by the
@@ -252,6 +304,7 @@ def play_round(briefs: list[pathlib.Path], arm: str, runs: int, round_dir: pathl
     budget is used up no further run starts: a run not started gets no folder and an
     unfinished one keeps what it has, so `--resume` plays both.
     """
+
     def play(brief: pathlib.Path, out: pathlib.Path) -> dict:
         if budget.used_up():
             return {"brief": brief.stem, "arm": arm, "ended": f"not started: {STOPPED_BY_BUDGET}"}

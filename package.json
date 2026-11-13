@@ -1,6 +1,13 @@
 {
   "private": true,
   "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "eslint-plugin-html": "8.2.1",
+    "globals": "17.13.0",
     "playwright": "1.63.0"
+  },
+  "scripts": {
+    "lint": "uvx ruff@0.17.3 check && uvx ruff@0.17.3 format --check && eslint"
   }
 }

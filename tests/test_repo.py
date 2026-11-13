@@ -27,9 +27,15 @@ SERVER_ONLY_KEYS = {"id", "node_id", "_links", "created_at", "updated_at", "curr
 
 # The live ruleset's pull_request rule, as exported from GitHub on 2026-11-13; the file must carry it unchanged.
 LIVE_PULL_REQUEST_PARAMETERS = {
-    "required_approving_review_count": 0, "dismiss_stale_reviews_on_push": False, "required_reviewers": [],
-    "require_code_owner_review": False, "require_last_push_approval": False, "required_review_thread_resolution": False,
-    "require_extra_approval_for_unattributed_changes": True, "allowed_merge_methods": ["merge", "squash", "rebase"]}
+    "required_approving_review_count": 0,
+    "dismiss_stale_reviews_on_push": False,
+    "required_reviewers": [],
+    "require_code_owner_review": False,
+    "require_last_push_approval": False,
+    "required_review_thread_resolution": False,
+    "require_extra_approval_for_unattributed_changes": True,
+    "allowed_merge_methods": ["merge", "squash", "rebase"],
+}
 
 EXACT_VERSION = re.compile(r"\d+\.\d+\.\d+")
 
@@ -70,11 +76,13 @@ def jobs_of(text):
     jobs = []
     for key, body in re.findall(r"^  ([\w-]+):[ \t]*\n((?:    .*\n|[ \t]*\n)*)", block.group(1), re.MULTILINE):
         name = re.search(r"^    name:[ \t]*(.+?)[ \t]*$", body, re.MULTILINE)
-        jobs.append({
-            "name": unquoted(name.group(1)) if name else key,
-            "uses": [unquoted(u) for u in re.findall(r"^\s*(?:- )?uses:[ \t]*(.+?)[ \t]*$", body, re.MULTILINE)],
-            "runs": [unquoted(r) for r in re.findall(r"^\s*(?:- )?run:[ \t]*(.+?)[ \t]*$", body, re.MULTILINE)],
-        })
+        jobs.append(
+            {
+                "name": unquoted(name.group(1)) if name else key,
+                "uses": [unquoted(u) for u in re.findall(r"^\s*(?:- )?uses:[ \t]*(.+?)[ \t]*$", body, re.MULTILINE)],
+                "runs": [unquoted(r) for r in re.findall(r"^\s*(?:- )?run:[ \t]*(.+?)[ \t]*$", body, re.MULTILINE)],
+            }
+        )
     return jobs
 
 
@@ -112,8 +120,8 @@ def ruff_runs(commands, subcommand):
     runs = []
     for words in commands:
         if len(words) >= 2 and words[0] == "uvx" and words[1].startswith("ruff@"):
-            if words[2:2 + len(subcommand)] == subcommand:
-                runs.append((words[1][len("ruff@"):], words[2 + len(subcommand):]))
+            if words[2 : 2 + len(subcommand)] == subcommand:
+                runs.append((words[1][len("ruff@") :], words[2 + len(subcommand) :]))
     return runs
 
 
@@ -133,16 +141,23 @@ def named_paths(markdown):
     prose = re.sub(r"^```.*?^```", "", markdown, flags=re.MULTILINE | re.DOTALL)
     targets = [t.split("#", 1)[0] for t in re.findall(r"\]\(([^)\s]+)\)", prose)]
     words = [w for span in re.findall(r"`([^`\n]+)`", prose) for w in span.split()]
-    looks_like_path = lambda w: ("/" in w or re.search(r"\.(md|py|json|cjs)$", w)) and not re.match(r"[a-z]+:", w) \
+    looks_like_path = lambda w: (
+        ("/" in w or re.search(r"\.(md|py|json|cjs)$", w))
+        and not re.match(r"[a-z]+:", w)
         and not w.startswith(("@", "-"))
-    paths = [t for t in targets if t and not re.match(r"[a-z]+:", t)] + [w.rstrip(".,;:") for w in words if looks_like_path(w)]
+    )
+    paths = [t for t in targets if t and not re.match(r"[a-z]+:", t)] + [
+        w.rstrip(".,;:") for w in words if looks_like_path(w)
+    ]
     return sorted(set(paths))
 
 
 class RulesetTest(unittest.TestCase):
     def test_u1_the_ruleset_file_is_the_live_ruleset_in_import_shape_with_lint_required(self):
         rules = ruleset()
-        self.assertEqual(SERVER_ONLY_KEYS & set(rules), set(), "the ruleset file carries keys only GitHub's server sets")
+        self.assertEqual(
+            SERVER_ONLY_KEYS & set(rules), set(), "the ruleset file carries keys only GitHub's server sets"
+        )
         self.assertEqual(rules.get("name"), "main needs tests")
         self.assertEqual(rules.get("target"), "branch")
         self.assertEqual(rules.get("enforcement"), "active")
@@ -160,16 +175,26 @@ class RulesetTest(unittest.TestCase):
         self.assertEqual(by_type["pull_request"].get("parameters"), LIVE_PULL_REQUEST_PARAMETERS)
 
     def test_u1_every_required_check_is_the_name_of_a_ci_job(self):
-        contexts = {c["context"] for rule in ruleset()["rules"] if rule["type"] == "required_status_checks"
-                    for c in rule["parameters"]["required_status_checks"]}
+        contexts = {
+            c["context"]
+            for rule in ruleset()["rules"]
+            if rule["type"] == "required_status_checks"
+            for c in rule["parameters"]["required_status_checks"]
+        }
         job_names = {job["name"] for _, jobs in workflows().values() for job in jobs}
-        self.assertEqual(contexts - job_names, set(), f"required checks no CI job is named for; the jobs are {sorted(job_names)}")
+        self.assertEqual(
+            contexts - job_names, set(), f"required checks no CI job is named for; the jobs are {sorted(job_names)}"
+        )
 
     def test_u1_u3_the_readme_names_the_ruleset_file_and_the_lint_command(self):
         readme = read("README.md")
         self.assertIn(RULESET_PATH, named_paths(readme), "README.md does not name the ruleset file's path")
         self.assertTrue((REPO / RULESET_PATH).is_file(), f"README.md names {RULESET_PATH}, which does not exist")
-        self.assertIn(LINT, fenced_commands(readme, languages="sh|bash|shell|") + re.findall(r"`([^`\n]+)`", readme), "README.md does not name `npm run lint`")
+        self.assertIn(
+            LINT,
+            fenced_commands(readme, languages="sh|bash|shell|") + re.findall(r"`([^`\n]+)`", readme),
+            "README.md does not name `npm run lint`",
+        )
 
 
 class LintTest(unittest.TestCase):
@@ -177,7 +202,9 @@ class LintTest(unittest.TestCase):
         pkg = package()
         scripts = pkg.get("scripts", {})
         self.assertIn("lint", scripts, "package.json has no lint script")
-        self.assertNotRegex(" ".join(scripts.values()), r"\bnpx\s+ruff\b", "a script runs the npm package ruff, a different tool")
+        self.assertNotRegex(
+            " ".join(scripts.values()), r"\bnpx\s+ruff\b", "a script runs the npm package ruff, a different tool"
+        )
         for deps in ("dependencies", "devDependencies"):
             self.assertNotIn("ruff", pkg.get(deps, {}), f"ruff is in {deps}: the npm package ruff is a different tool")
         commands = lint_commands(scripts)
@@ -186,9 +213,13 @@ class LintTest(unittest.TestCase):
                 runs = ruff_runs(commands, subcommand)
                 self.assertTrue(runs, f"npm run lint never runs `uvx ruff@X.Y.Z {' '.join(subcommand)}`")
                 for version, rest in runs:
-                    self.assertRegex(version, rf"^{EXACT_VERSION.pattern}$", f"ruff is pinned as {version!r}, not an exact version")
+                    self.assertRegex(
+                        version, rf"^{EXACT_VERSION.pattern}$", f"ruff is pinned as {version!r}, not an exact version"
+                    )
                     paths = [w for w in rest if not w.startswith("-")]
-                    self.assertIn(paths, ([], ["."]), f"ruff {' '.join(subcommand)} runs over {paths}, not every Python file")
+                    self.assertIn(
+                        paths, ([], ["."]), f"ruff {' '.join(subcommand)} runs over {paths}, not every Python file"
+                    )
         self.assertTrue(any("eslint" in w for words in commands for w in words[:2]), "npm run lint never runs eslint")
 
     def test_u2_eslint_and_its_config_packages_are_pinned_exactly_and_locked(self):
@@ -200,14 +231,22 @@ class LintTest(unittest.TestCase):
             self.assertRegex(dev[name], rf"^{EXACT_VERSION.pattern}$", f"{name} is {dev[name]!r}, not an exact version")
         self.assertEqual(dev["eslint"].split(".")[0], "10", f"eslint is {dev['eslint']}, not ESLint 10")
         locked = json.loads(read("package-lock.json"))["packages"][""]
-        self.assertEqual(locked.get("devDependencies"), dev, "package-lock.json does not lock package.json's devDependencies, so npm ci fails")
+        self.assertEqual(
+            locked.get("devDependencies"),
+            dev,
+            "package-lock.json does not lock package.json's devDependencies, so npm ci fails",
+        )
 
     def test_u2_the_eslint_flat_config_uses_the_three_packages_over_tests_and_the_deck_page(self):
         configs = [p for p in (REPO / f"eslint.config.{ext}" for ext in ("mjs", "js", "cjs")) if p.is_file()]
-        self.assertEqual(len(configs), 1, f"there is not exactly one eslint.config.* at the root: {[p.name for p in configs]}")
+        self.assertEqual(
+            len(configs), 1, f"there is not exactly one eslint.config.* at the root: {[p.name for p in configs]}"
+        )
         config = configs[0].read_text(encoding="utf-8")
         for name in ("@eslint/js", "eslint-plugin-html", "globals"):
-            self.assertRegex(config, rf"""(?:from\s+|require\(\s*)['"]{re.escape(name)}['"]""", f"the config does not load {name}")
+            self.assertRegex(
+                config, rf"""(?:from\s+|require\(\s*)['"]{re.escape(name)}['"]""", f"the config does not load {name}"
+            )
         literals = re.findall(r"""['"`]([^'"`\n]+)['"`]""", config)
         self.assertTrue(any(lit.startswith("tests/") for lit in literals), "no file glob in the config covers tests/")
         page_globs = [lit for lit in literals if lit.endswith("page/index.html")]
@@ -217,13 +256,26 @@ class LintTest(unittest.TestCase):
 
 class CiTest(unittest.TestCase):
     def test_u3_a_lint_job_with_node_and_python_runs_npm_run_lint_on_push_and_pull_request(self):
-        lint_jobs = [(file, triggers, job) for file, (triggers, jobs) in workflows().items() for job in jobs if job["name"] == "lint"]
-        self.assertEqual(len(lint_jobs), 1, f"there is not exactly one CI job named lint: {[(f, j['name']) for f, _, j in lint_jobs]}")
+        lint_jobs = [
+            (file, triggers, job)
+            for file, (triggers, jobs) in workflows().items()
+            for job in jobs
+            if job["name"] == "lint"
+        ]
+        self.assertEqual(
+            len(lint_jobs),
+            1,
+            f"there is not exactly one CI job named lint: {[(f, j['name']) for f, _, j in lint_jobs]}",
+        )
         file, triggers, job = lint_jobs[0]
-        self.assertTrue({"push", "pull_request"} <= triggers, f"{file} runs on {sorted(triggers)}, not on push and pull_request")
+        self.assertTrue(
+            {"push", "pull_request"} <= triggers, f"{file} runs on {sorted(triggers)}, not on push and pull_request"
+        )
         actions = [u.split("@", 1)[0] for u in job["uses"]]
         self.assertIn("actions/setup-node", actions, "the lint job does not set up Node")
-        self.assertTrue({"actions/setup-python", "astral-sh/setup-uv"} & set(actions), "the lint job sets up neither Python nor uv")
+        self.assertTrue(
+            {"actions/setup-python", "astral-sh/setup-uv"} & set(actions), "the lint job sets up neither Python nor uv"
+        )
         self.assertIn(LINT, job["runs"], "the lint job does not run npm run lint")
 
 
