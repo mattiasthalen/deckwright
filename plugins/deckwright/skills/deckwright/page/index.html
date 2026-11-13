@@ -377,8 +377,9 @@ const FORMATS = new Map([['brawl', {name: 'Brawl', size: 100, startingLife: 25}]
 const format = () => FORMATS.get(String(deck.format).toLowerCase()) || FORMATS.get('standard');
 // The deck's cards by name, for scenes, the handbook and the ledger. The cards
 // that open the card dialog, by name, as the dialog shows them: the maybeboard
-// and the round on offer are not in the deck, but their tiles open it too.
-const cardsInDeck = new Map(), cardsToOpen = new Map();
+// is not in the deck, but its tiles open it too. The round on offer opens it by
+// number, since a card on offer may share a name with another or have none.
+const cardsInDeck = new Map(), cardsToOpen = new Map(), cardsOnOffer = [];
 let cardNamePattern = null;
 
 // ---------- reading cards ----------
@@ -545,7 +546,7 @@ function drawHero() {
 // groups as the chat numbers them. Each opens the card dialog, as a deck card does.
 function drawOffered(c, number) {
   const marks = [c.suggested ? '<span class="mark suggested">Suggested</span>' : '', c.crossover ? '<span class="mark">Crossover</span>' : ''].join('');
-  return `<button class="offered" type="button" data-card="${esc(c.name)}"><span class="number">${number}</span><span class="face">${picture(c.scryfall_id, c.name || '')}</span>`
+  return `<button class="offered" type="button" data-offered="${number}"><span class="number">${number}</span><span class="face">${picture(c.scryfall_id, c.name || '')}</span>`
     + `<span class="caption">${marks ? `<span class="marks">${marks}</span>` : ''}${c.name ? `<b>${esc(c.name)}</b>` : ''}`
     + `${c.reason ? `<span class="reason">${esc(c.reason)}</span>` : ''}`
     + `${c.printed_name ? `<span class="printed-name">Printed on Arena as ${esc(c.printed_name)}</span>` : ''}</span></button>`;
@@ -776,12 +777,11 @@ function drawImport() {
 
 // ---------- card dialog ----------
 
-function openCard(name) {
-  const c = cardsToOpen.get(name);
+function openCard(c) {
   if (!c) return;
   const show = (id, value) => { $(id).hidden = !value; return $(id); };
-  $('dialog-picture').innerHTML = picture(c.scryfall_id, c.name);
-  $('dialog-name').textContent = c.name;
+  $('dialog-picture').innerHTML = picture(c.scryfall_id, c.name || '');
+  $('dialog-name').textContent = c.name || '';
   $('dialog-category').textContent = [c.label, isRareOrMythic(c) ? c.copy.rarity : ''].filter(Boolean).join(' · ');
   show('dialog-cost', c.copy?.mana_cost).innerHTML = manaCost(c.copy?.mana_cost || '');
   show('dialog-type-line', c.copy?.type_line).textContent = c.copy?.type_line || '';
@@ -794,7 +794,10 @@ function openCard(name) {
 }
 
 function listenForCards() {
-  document.addEventListener('click', e => { const opener = e.target.closest('[data-card]'); if (opener) openCard(opener.dataset.card); });
+  document.addEventListener('click', e => {
+    const opener = e.target.closest('[data-card], [data-offered]');
+    if (opener) openCard(opener.dataset.offered ? cardsOnOffer[opener.dataset.offered - 1] : cardsToOpen.get(opener.dataset.card));
+  });
   $('dialog-close').onclick = () => $('card-dialog').close();
   $('card-dialog').addEventListener('click', e => { if (e.target === $('card-dialog')) $('card-dialog').close(); });
 }
@@ -837,9 +840,9 @@ async function main() {
     return;
   }
   deck.cards.forEach(c => cardsInDeck.set(c.name, c));
-  // A card in the deck wins a name it shares with one on the maybeboard or on offer.
   const onOffer = ['On offer', deck.offer?.category].filter(Boolean).join(' · ');
-  (deck.offer?.groups ?? []).flatMap(g => g.cards).forEach(c => cardsToOpen.set(c.name, {...c, why: c.reason, label: onOffer}));
+  (deck.offer?.groups ?? []).flatMap(g => g.cards).forEach(c => cardsOnOffer.push({...c, why: c.reason, label: onOffer}));
+  // A card in the deck wins a name it shares with one on the maybeboard.
   deck.maybeboard.forEach(c => cardsToOpen.set(c.name, {...c, label: c.category || 'Maybeboard'}));
   deck.cards.forEach(c => cardsToOpen.set(c.name, {...c, label: c.category}));
   matchCardNames();
