@@ -426,8 +426,7 @@ class Run:
         own = str(self.path.resolve())
         scratch = f"{self.path.parent.name}-{self.path.name}-workspace"  # the run's session scratchpad
         results = [json.dumps(e.get("message", {}).get("content", [])) for e in self.trace if e.get("type") == "user"]
-        mine = {url for text in results if "Published" in text
-                for url in re.findall(r"claude\.ai/(?:code/)?artifact/[\w-]+", text)}
+        mine = {artifact for text in results if "Published" in text for artifact in ARTIFACT_URL.findall(text)}
         hits = []
         for _, _, name, given, _ in self.tool_uses():
             text = json.dumps(given)
@@ -497,11 +496,11 @@ class Run:
         lines = [f"[{i}] {m['role'].upper()}: {m['text']}" for i, m in enumerate(self.messages)]
         # A page holds no fact the reader is asked for, and a packed one is mostly pictures.
         saved = {name: text for name, text in self.files.items() if not name.endswith(".html")}
-        workspace = (self.path / "workspace").resolve()
-        for name in ("deck.json", "LEDGER.md"):
-            source = self.page_files.get(name)
-            if source and workspace not in source.resolve().parents:
-                saved[f"published {name}"] = source.read_text(errors="replace")
+        # Without a deck folder in the workspace the deck is the published page's.
+        if not self.folder:
+            for name in ("deck.json", "LEDGER.md"):
+                if source := self.page_files.get(name):
+                    saved[f"published {name}"] = source.read_text(errors="replace")
         files = [f"--- {name} ---\n{text[:60000]}" for name, text in saved.items()]
         prompt = READER_PROMPT.format(transcript="\n\n".join(lines) + "\n\nSAVED FILES\n" + "\n".join(files))
         proc = headless.claude(["--model", READER_MODEL, "--tools", "", "--output-format", "json",
@@ -585,9 +584,9 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     saves = run.saves_by_exchange()
     pick_exchanges = {message_to_exchange(run, c["message"]) for c in facts["confirmations"] if c["cards"]}
     unsaved, unseen = unsaved_picks(run, pick_exchanges, "deck.json")
-    results["C4"] = (("n/a" if not pick_exchanges or (unseen and not unsaved) else "pass" if not unsaved else "fail"),
-                     f"{len(saves)} exchanges with a save; picks not saved in their exchange: {len(unsaved)} of {len(pick_exchanges)}"
-                     + (f"; a script the trace does not show may have saved exchanges {unseen}" if unseen else ""))
+    saved = f"{len(saves)} exchanges with a save; picks not saved in their exchange: {len(unsaved)} of {len(pick_exchanges)}"
+    results["C4"] = verdict_of([saved] if unsaved else [], bool(pick_exchanges),
+                               [f"a script may have saved exchanges {unseen}"] if unseen else [], saved)
 
     if facts["review_type_counts"] and cards:
         # A two-faced card may be counted by its front face or by every face: a
@@ -642,7 +641,7 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
         results["C7"] = ("n/a", "no pressure in this brief")
 
     size = sum(cards.values()) + int(bool(commander) and commander not in cards)
-    want = {"brawl": 100, "standard": 60}.get(fmt)
+    want = DECK_SIZE.get(fmt)
     unknown = [n for n in cards if not (scryfall(n, cache) or {}).get("on_arena")]
     ok = bool(cards) and size == want and not unknown and (fmt != "brawl" or commander)
     if run.summary.get("ends"):
