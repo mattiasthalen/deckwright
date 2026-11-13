@@ -900,12 +900,15 @@ def singulars(word: str) -> set[str]:
 
 
 def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> tuple[str, str]:
-    """The deck is a folder of plain files in the template's shape."""
+    """The deck is a folder of plain files in the template's shape, with card images
+    once it holds a card or an offer."""
     problems = []
     for name in ("index.html", "deck.json", "LEDGER.md"):
         if name not in run.page_files:
             problems.append(f"no {name} in the deck folder")
-    if not any(k.startswith("cards/") and k.endswith(".jpg") for k in run.page_files):
+    deck = run.deck() or {}
+    to_picture = listed(deck)[0] or offered_cards(deck.get("offer"))
+    if to_picture and not any(k.startswith("cards/") and k.endswith(".jpg") for k in run.page_files):
         problems.append("no card images in the deck folder")
     # A two-faced spell with a land back is a spell: a land counts by its front face.
     lands = sum(n for name, n in cards.items() if "Land" in type_line_of(name, cache).split(" // ")[0])
@@ -1116,7 +1119,8 @@ def round_shown(run: Run, facts: dict) -> tuple[str, str]:
     or as review swaps the maybeboard gained in it (at least half of the cards the
     reader saw offered in it, a two-faced card matched by a face); each exchange that
     offers cards or saves ran `pack.py`, and its reply names the packed file, a link
-    given beside it or not; no reply gives a Scryfall URL or shows a picture. A file
+    given beside it or not (an exchange that offers cards with nothing saved since
+    the last run of `pack.py` may name the file that run packed); no reply gives a Scryfall URL or shows a picture. A file
     sent into the chat is not judged: the runner disallows the tool."""
     problems = []
     packed: dict[int, str] = {}
@@ -1150,10 +1154,11 @@ def round_shown(run: Run, facts: dict) -> tuple[str, str]:
                     f"{len(on_offer)} of them after it"
                 )
         doing = "offers cards" if names else "saves"
-        if e not in packed:
+        last = max((p for p in packed if p <= e), default=None)
+        if last is None or any(saves[s] for s in range(last + 1, e + 1)):
             problems.append(f"exchange {e} {doing} and never runs pack.py")
-        elif packed[e] not in replies.get(e, ""):
-            problems.append(f"exchange {e}'s reply does not name the packed file {packed[e]}")
+        elif packed[last] not in replies.get(e, ""):
+            problems.append(f"exchange {e}'s reply does not name the packed file {packed[last]}")
     for text in run.deckwright_texts():
         problems += [f"a Scryfall URL in a reply: {link}" for link in SCRYFALL_LINK.findall(text)]
         problems += [f"a card picture in a reply: {image}" for image in PICTURE.findall(text)]
@@ -1381,8 +1386,8 @@ def folder_named(run: Run, facts: dict, deck: dict | None) -> tuple[str, str]:
     after, numbered from 2 when taken; a rename is a `name` line in the ledger. A theme
     folder may be made of some of the theme's words, singular or plural (`brawl-tokens`
     for "Creature tokens", `brawl-rats` for "Rat typal"). A run from a start is judged
-    only once its ledger gains a `name` line or its folder is renamed: until then its
-    folder is the runner's.
+    only once its ledger gains a `name` line recording a rename or its folder is
+    renamed: until then its folder is the runner's.
 
     The deck's name is `deck.json`'s alone. A `name` line records a rename
     (`deck → brawl-creature-tokens` in one of its `·` fields) and never names the
@@ -1399,7 +1404,8 @@ def folder_named(run: Run, facts: dict, deck: dict | None) -> tuple[str, str]:
         if NAME_LINE.search(line) and line not in at_start
     ]
     moved = renames(run)
-    if run.summary.get("start") and not name_lines and not any(old in run.start_state for old, _, _ in moved):
+    renamed_in_ledger = any("→" in line for line in name_lines)
+    if run.summary.get("start") and not renamed_in_ledger and not any(old in run.start_state for old, _, _ in moved):
         return "n/a", "began from a start, in the folder the runner names"
     theme = next(
         (c.get("text") for c in deck.get("criteria") or [] if isinstance(c, dict) and c.get("kind") == "theme"), None

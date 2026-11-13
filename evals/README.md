@@ -50,7 +50,7 @@ got no check.
 | C9 | One question at a time, what is left said after each answer, no card search before the criteria, no question about strength or price | AC1, AC2, AC3 |
 | C10 | Narrowing said, nonbasics offered, a category searched by rules text alone warned, each as the reader finds it; the ladder is S3's | AC14, AC15, AC16, AC24 |
 | C11 | No step unasked; every departure from the template said, reasoned and confirmed | AC11, AC26, the intent's "never assume what the player wants next" |
-| C12 | A deck folder with `index.html`, `deck.json`, `LEDGER.md` and card images; the template's land count and number of categories; no creature-type category | AC8, AC9, AC10, AC23, AC27, AC30 |
+| C12 | A deck folder with `index.html`, `deck.json`, `LEDGER.md`, and card images once it holds a card or an offer; the template's land count and number of categories; no creature-type category | AC8, AC9, AC10, AC23, AC27, AC30 |
 
 Free-text outcomes (which cards the player confirmed, what a review counted) are
 extracted once per run by a reader model into `reader.json`, and code decides C1 to
@@ -74,9 +74,11 @@ and a start as copied in into `after/start/`. The checks read these as `Run.stat
 
 - a **save** is an exchange that changed a `deck.json` or made a new deck folder,
   not a publish (C4); S2 needs every save, as every exchange that offers cards, to
-  run `pack.py` and name the packed file in its reply, a link beside it or not. The
-  packed file is `<deck folder name>.html` as `pack.py` prints it: the printed page
-  of the folder argument's name, else the last printed page that is not `index.html`;
+  run `pack.py` and name the packed file in its reply, a link beside it or not; an
+  exchange that offers cards with nothing saved since the last run of `pack.py` may
+  name the file that run packed instead. The packed file is `<deck folder name>.html`
+  as `pack.py` prints it: the printed page of the folder argument's name, else the
+  last printed page that is not `index.html`;
 - a **pick** is saved when its card is in `deck.json` after its exchange and was not
   before (or its count rose), and the ledger gained a line naming it (S1);
 - a **round** is each distinct `offer` the states hold; S2 needs one after every
@@ -97,8 +99,8 @@ and a start as copied in into `after/start/`. The checks read these as `Run.stat
   the last line's `→` must be the deck's, numbered or not. The deck's name comes only
   from `deck.json`, so while it is null the folder is judged by the theme. A run
   from a start is judged for its folder only once its ledger gains a `name` line
-  that `after/start` lacks or its folder is renamed; until then the folder is the
-  runner's, and S12 is n/a.
+  recording a rename that `after/start` lacks or its folder is renamed; until then
+  the folder is the runner's, and S12 is n/a.
   Renaming the folder of a start needs the player's agreement in words, which the
   reader finds.
 
