@@ -365,12 +365,13 @@ async function drawnWithout(page, errors, deckName, leftOut) {
 
 // ======================================================================
 describe('The look', () => {
-  test('AC1: The page has no tab control, and its sections appear in this order: hero, scenes, cards, curve, handbook, ledger, Arena list', () =>
-    open('rich', async ({ page, deck }) => {
+  test('AC1 (ADR-0013): The page has no tab control, and its sections appear in this order: hero, cards on offer, scenes, cards, curve, handbook, ledger, Arena list', () =>
+    open('offered', async ({ page, deck }) => {
       const tabs = await page.locator('[role="tab"], [role="tablist"], [aria-selected]').count();
       assert.equal(tabs, 0, 'the page has a tab control');
       const markers = {
         hero: deck.name,
+        'cards on offer': deck.offer.groups[0].cards[0].reason,
         scenes: deck.scenes[0].title,
         cards: 'Commander',
         curve: 'Other spells',
@@ -1492,6 +1493,186 @@ print((build.HERE / name / "deck.json").read_text())
       await page.waitForLoadState('networkidle');
       assert.deepEqual(requested.filter(p => /\/(deck\.json|LEDGER\.md)$|\/(cards|art)\//.test(p)), [], 'the page asked the server for a packed file');
     }));
+});
+
+// ======================================================================
+// What #offer draws for each card on offer, in the order deck.json gives them:
+// the smallest box around its reason that also shows its picture, or its name
+// on a blank card, and no other offered card's reason. Null for a card with no
+// such box.
+async function readOffer(page, deckName) {
+  const offer = page.locator('#offer');
+  assert.ok(await visible(offer), 'the #offer section is not drawn');
+  await settlePictures(offer);
+  return offer.evaluate((root, { cards, folder }) => {
+    const reasons = cards.map(c => c.reason);
+    const cardShaped = e => e.offsetWidth > 0 && e.offsetHeight / e.offsetWidth > 1.3 && e.offsetHeight / e.offsetWidth < 1.5;
+    const all = [...root.querySelectorAll('*')];
+    return cards.map(c => {
+      const src = `/${folder}/cards/${c.scryfall_id}.jpg`;
+      const img = el => [...el.querySelectorAll('img')].find(i => new URL(i.src, location.href).pathname === src);
+      const blank = el => [...el.querySelectorAll('*')].find(b => b.tagName !== 'IMG' && cardShaped(b) && !b.querySelector('img') && b.textContent.trim() === c.name && b.checkVisibility());
+      let box = all.filter(e => e.textContent.includes(c.reason)).at(-1);
+      while (box && box !== root && !img(box) && !blank(box)) box = box.parentElement;
+      if (!box || box === root || reasons.some(r => r !== c.reason && box.textContent.includes(r))) return null;
+      const picture = img(box);
+      return {
+        at: all.indexOf(box),
+        picture: picture ? { loaded: picture.complete && picture.naturalWidth > 0 } : null,
+        blank: !!blank(box),
+        leaves: [...box.querySelectorAll('*')].filter(e => e.children.length === 0 && e.checkVisibility()).map(e => e.textContent.trim()).filter(Boolean),
+        text: box.textContent.replace(/\s+/g, ' '),
+      };
+    });
+  }, { cards: offeredCards(deckOf(deckName)), folder: deckName });
+}
+
+const numberedAs = (seen, n) => seen.leaves.some(t => new RegExp(`^(No\\.?\\s*|#)?${n}(?![\\d/])`).test(t));
+async function offerHeadings(page) {
+  const offer = page.locator('#offer');
+  assert.ok(await visible(offer), 'the #offer section is not drawn');
+  return offer.evaluate(o => [...o.querySelectorAll('h1, h2, h3, h4, h5, h6')].filter(h => h.checkVisibility()).map(h => h.textContent.trim()));
+}
+
+describe('Cards on offer', () => {
+  test('P1: A deck with a round on offer draws #offer between the hero and the scenes, under a heading naming the category, each card numbered across the groups with its picture and its reason', () =>
+    open('offered', async ({ page, deck }) => {
+      const where = await page.evaluate(() => {
+        const [top, offer, engine] = ['top', 'offer', 'engine'].map(id => document.getElementById(id));
+        if (!offer) return null;
+        return { afterHero: !!(top.compareDocumentPosition(offer) & Node.DOCUMENT_POSITION_FOLLOWING), beforeScenes: !!(offer.compareDocumentPosition(engine) & Node.DOCUMENT_POSITION_FOLLOWING) };
+      });
+      assert.ok(where, 'the page has no #offer section');
+      assert.deepEqual(where, { afterHero: true, beforeScenes: true }, '#offer is not between the hero and the scenes');
+      const headings = await offerHeadings(page);
+      assert.ok(headings.some(h => h.includes(deck.offer.category)), `no heading in #offer names the category ${deck.offer.category}: ${JSON.stringify(headings)}`);
+      const cards = offeredCards(deck), seen = await readOffer(page, 'offered');
+      cards.forEach((c, i) => {
+        assert.ok(seen[i], `${c.name}: no box in #offer shows its reason with its picture`);
+        assert.ok(numberedAs(seen[i], i + 1), `${c.name} is not numbered ${i + 1}: ${JSON.stringify(seen[i].leaves)}`);
+        if (c.scryfall_id === MISSING_OFFERED_PICTURE) assert.ok(seen[i].blank && !seen[i].picture, `${c.name}, whose picture was never saved, is not its name on a blank card`);
+        else assert.ok(seen[i].picture?.loaded, `${c.name}'s picture did not load`);
+      });
+      assert.deepEqual(seen.map(s => s.at), seen.map(s => s.at).sort((a, b) => a - b), 'the cards on offer are not drawn in the order they are numbered');
+      const marked = await page.locator('#offer').evaluate(o => o.querySelectorAll('i').length === 0 && o.textContent.includes('& <i>grows</i>'));
+      assert.ok(marked, 'a reason holding markup is not shown as written');
+    }));
+
+  test('P2: Each group is drawn under its heading, with "N of TOTAL shown" when it has a total; a round of one group with no heading draws no group heading', async () => {
+    await open('offered', async ({ page, deck }) => {
+      const [first, second] = deck.offer.groups;
+      const headings = await offerHeadings(page);
+      for (const g of [first, second]) assert.ok(headings.includes(g.heading), `the group "${g.heading}" has no heading: ${JSON.stringify(headings)}`);
+      const text = (await page.locator('#offer').textContent()).replace(/\s+/g, ' ');
+      const shown = `${first.cards.length} of ${first.total} shown`;
+      assert.deepEqual(text.match(/\d+ of \d+ shown/g), [shown], `#offer does not say "${shown}" once, for the one group with a total`);
+      const at = t => text.indexOf(t);
+      assert.ok(at(first.heading) < at(shown) && at(shown) < at(first.cards[0].reason), `"${shown}" is not drawn between its group's heading and its first card`);
+      assert.ok(at(first.cards.at(-1).reason) < at(second.heading) && at(second.heading) < at(second.cards[0].reason), 'the second group\'s heading is not drawn between the two groups\' cards');
+    });
+    await open('offered-unheaded', async ({ page, deck }) => {
+      const headings = await offerHeadings(page);
+      assert.equal(headings.length, 1, `a round of one unheaded group draws the headings ${JSON.stringify(headings)}`);
+      assert.ok(headings[0].includes(deck.offer.category), `the one heading, ${JSON.stringify(headings[0])}, does not name the category`);
+      assert.doesNotMatch(await page.locator('#offer').textContent(), /\bshown\b/, 'a group with no total says how many are shown');
+      const seen = await readOffer(page, 'offered-unheaded');
+      offeredCards(deck).forEach((c, i) => assert.ok(seen[i] && numberedAs(seen[i], i + 1), `${c.name} is not drawn numbered ${i + 1}`));
+    });
+  });
+
+  test('P3: A suggested card is marked "Suggested", a crossover card "Crossover" with "Printed on Arena as" its printed name when it has one, and no card is marked otherwise', () =>
+    open('offered', async ({ page, deck }) => {
+      const cards = offeredCards(deck), seen = await readOffer(page, 'offered');
+      cards.forEach((c, i) => {
+        assert.ok(seen[i], `${c.name}: no box in #offer shows its reason with its picture`);
+        assert.equal(seen[i].leaves.includes('Suggested'), c.suggested === true, `${c.name} is ${c.suggested ? 'not ' : ''}marked Suggested: ${JSON.stringify(seen[i].leaves)}`);
+        assert.equal(seen[i].leaves.includes('Crossover'), c.crossover === true, `${c.name} is ${c.crossover ? 'not ' : ''}marked Crossover: ${JSON.stringify(seen[i].leaves)}`);
+        const printed = c.printed_name ? `Printed on Arena as ${c.printed_name}` : 'Printed on Arena as';
+        assert.equal(seen[i].text.includes(printed), !!c.printed_name, `${c.name}: ${c.printed_name ? `"${printed}" is not shown` : 'a printed name is shown for a card with none'}: ${seen[i].text}`);
+      });
+    }));
+
+  test('P4: With no round on offer, or a round with no cards, #offer is hidden and holds nothing', async () => {
+    for (const name of ['rich', 'offer-no-groups', 'offer-no-cards']) {
+      await open(name, async ({ page }) => {
+        const offer = await page.evaluate(() => {
+          const o = document.getElementById('offer');
+          return o && { shown: o.checkVisibility(), children: o.childElementCount, text: o.textContent.trim() };
+        });
+        assert.ok(offer, `${name}: the page has no #offer section`);
+        assert.deepEqual(offer, { shown: false, children: 0, text: '' }, `${name}: #offer is drawn or holds something`);
+      });
+    }
+  });
+
+  test('P4: Cards on offer are not counted in the headline numbers, the curve or the Arena list', async () => {
+    await open('offered', async ({ page, deck }) => {
+      assert.ok(await visible(page.locator('#offer')), 'the #offer section is not drawn, so this test proves nothing');
+      const want = deckStats(deck);
+      const { found } = await headline(page, { cards: 'cards', rats: 'Rats?', lands: 'lands', average: 'average mana value', rares: 'rares and mythics' });
+      assert.equal(found.cards, want.cards, 'cards');
+      assert.equal(found.rats, 5, 'Rats');
+      assert.equal(found.lands, want.lands, 'lands');
+      assert.ok(Math.abs(found.average - want.average) < 0.051, `average mana value ${found.average}, want ${want.average.toFixed(2)}`);
+      assert.equal(found.rares, want.rares, 'rares and mythics');
+      assert.equal(await page.locator('#hero-line').textContent(), 'Brawl · 29 of 100 cards · In progress');
+      assert.equal(await page.locator('#arena-list').textContent(), arenaList(deck));
+    });
+    await open('offered', { reducedMotion: 'reduce' }, async ({ page, deck }) => {
+      const curve = await finishedCurve(page);
+      assert.ok(curve?.legend, 'the curve is not drawn');
+      const want = curveBuckets(deck);
+      const unit = Math.max(...curve.columns.map(c => c.creature + c.other)) / Math.max(...want.map(b => b.creature + b.other));
+      curve.columns.forEach((col, i) => assert.ok(Math.abs(col.creature - want[i].creature * unit) < 2, `bar ${i}: creature part ${col.creature.toFixed(1)} px, want ${want[i].creature} cards`));
+    });
+  });
+});
+
+// ======================================================================
+describe('Without a name, by layout, by format', () => {
+  test('P5: A deck with no name, or an empty one, is titled by its format and its first theme criterion, or by its format alone', async () => {
+    for (const [name, title] of [['nameless-with-theme', 'Brawl · Rats'], ['nameless-empty-name', 'Standard · Big green creatures'], ['nameless-without-theme', 'Brawl']]) {
+      await open(name, async ({ page }) => {
+        assert.equal(await page.locator('#top h1').innerText(), title, `${name}: the hero's heading`);
+        assert.equal(await page.title(), title, `${name}: the page's title`);
+      });
+    }
+  });
+
+  test('P6: The Arena list writes a modal double-faced, transform, adventure or prepare card by its front face, and a split card, a card of another layout and one with no layout by its full name', () =>
+    open('layouts', async ({ page }) => {
+      const want = [
+        'Commander',
+        '1 Moorland Watcher',
+        '',
+        'Deck',
+        '1 Sundering Eruption',
+        '1 Ember Giant',
+        '1 Tidecaller Adept',
+        '1 Fire // Ice',
+        '1 Odd Shape // Other Shape',
+        '1 Night // Day',
+        '1 Quick Shock',
+        '5 Mountain',
+      ].join('\n');
+      assert.equal(await page.locator('#arena-list').textContent(), want, 'the Arena list as drawn');
+      const copy = page.locator('#import').getByRole('button', { name: /copy/i }).filter({ visible: true });
+      assert.equal(await copiedBy(page, copy), want, 'the Arena list as copied');
+    }));
+
+  test('P7: The Arena import says, word for word, how to set the deck\'s format in Arena', async () => {
+    const notes = {
+      rich: 'In Arena, set the deck\'s format to Brawl. When you craft missing cards, Arena can show cards as not valid in Standard or Alchemy. That is normal for a Brawl deck, because Brawl allows older cards.',
+      mono: 'In Arena, set the deck\'s format to Standard.',
+    };
+    for (const [name, note] of Object.entries(notes)) {
+      await open(name, async ({ page }) => {
+        const texts = await page.locator('#import').evaluate(s => [...s.querySelectorAll('*')].filter(e => e.checkVisibility()).map(e => e.innerText));
+        assert.ok(texts.includes(note), `${name}: no element of the Arena import reads exactly ${JSON.stringify(note)}`);
+        if (name === 'mono') assert.ok(!texts.some(t => t.includes('Brawl')), `${name}: the Arena import of a Standard deck mentions Brawl`);
+      });
+    }
+  });
 });
 
 // ======================================================================
