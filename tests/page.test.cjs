@@ -25,8 +25,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const {
-  REPO, EXAMPLE, FONT_HOSTS, UUID, chromium, scryfallId, RICH_LEDGER, OFFER, MISSING_OFFERED_PICTURE, offeredCards, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
-  LONG_WORD, startDeckServer, withDeck,
+  REPO, EXAMPLE, FONT_HOSTS, UUID, chromium, scryfallId, RICH_LEDGER, MISSING_OFFERED_PICTURE, offeredCards, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
+  LONG_WORD, startDeckServer, withDeck, untilDrawn,
 } = require('./page-harness.cjs');
 
 let browser, server;
@@ -1672,6 +1672,86 @@ describe('Without a name, by layout, by format', () => {
         if (name === 'mono') assert.ok(!texts.some(t => t.includes('Brawl')), `${name}: the Arena import of a Standard deck mentions Brawl`);
       });
     }
+  });
+});
+
+// ======================================================================
+// Every path in a deck: each key of an object, and the first element of each list.
+function* fieldPaths(value, at = []) {
+  const children = Array.isArray(value) ? value.slice(0, 1).map((v, i) => [i, v]) : value && typeof value === 'object' ? Object.entries(value) : [];
+  for (const [key, child] of children) {
+    yield [...at, key];
+    yield* fieldPaths(child, [...at, key]);
+  }
+}
+
+const HOSTILE = '<img src=x onerror=window.__pwned=1>';
+const wrongType = value => typeof value === 'string' ? 42 : 'wrong type';
+
+// The text of deck.json with the field at a path changed; dropping the root leaves the file empty.
+function mutated(deck, at, change) {
+  if (!at.length) return change === 'dropped' ? '' : JSON.stringify(change === 'wrong type' ? 'wrong type' : change === 'null' ? null : HOSTILE);
+  const copy = structuredClone(deck);
+  const parent = at.slice(0, -1).reduce((v, k) => v[k], copy), key = at.at(-1);
+  const old = parent[key];
+  if (change === 'dropped') Array.isArray(parent) ? parent.splice(key, 1) : delete parent[key];
+  else parent[key] = change === 'wrong type' ? wrongType(old) : change === 'null' ? null : HOSTILE;
+  return JSON.stringify(copy, null, 2);
+}
+
+const pathName = at => at.length ? at.map(k => typeof k === 'number' ? `[${k}]` : `.${k}`).join('').slice(1) : 'the document root';
+
+describe('Every field of the example', () => {
+  test('P11: Each field of deck.example.json dropped, of the wrong type, null or a hostile string still leaves the Arena list drawn, no console error but a section left out, and no element from the string', async () => {
+    const example = deckOf('example');
+    const mutations = [[], ...fieldPaths(example)].flatMap(at => ['dropped', 'wrong type', 'null', 'hostile'].map(change => ({ at, change })));
+    const context = await browser.newContext();
+    const picture = await (await context.request.get(`${server.origin}/example/cards/${example.cards[0].scryfall_id}.jpg`)).body();
+    await context.route('**/*', route => {
+      const url = new URL(route.request().url());
+      if (FONT_HOSTS.includes(url.hostname)) return route.fulfill({ status: 200, contentType: url.hostname === 'fonts.googleapis.com' ? 'text/css' : 'font/woff2', body: '' });
+      // Every picture a changed deck names is served, so the console holds only what the page says.
+      if (url.origin === server.origin && url.pathname.endsWith('.jpg')) return route.fulfill({ status: 200, contentType: 'image/jpeg', body: picture });
+      return url.origin === server.origin ? route.continue() : route.abort();
+    });
+    const failures = [];
+    const sweep = async queue => {
+      const page = await context.newPage();
+      let errors = [], text;
+      page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+      page.on('pageerror', e => errors.push(String(e)));
+      await page.route('**/example/deck.json', route => route.fulfill({ status: 200, contentType: 'application/json', body: text }));
+      for (let m; (m = queue.shift());) {
+        errors = [];
+        text = mutated(example, m.at, m.change);
+        const named = `${pathName(m.at)} ${m.change}`;
+        await page.goto(`${server.origin}/example/`, { waitUntil: 'load' });
+        const crashed = new Promise(settle => page.once('pageerror', settle));
+        const finished = await Promise.race([untilDrawn(page, 2000).then(() => true, () => false), crashed.then(() => false)]);
+        const seen = await page.evaluate(() => ({
+          list: (l => l && l.checkVisibility() ? l.textContent : null)(document.getElementById('arena-list')),
+          unread: /Could not read deck\.json/.test(document.getElementById('top')?.textContent || ''),
+          pwned: window.__pwned !== undefined,
+          injected: document.querySelectorAll('[onerror]').length,
+        }));
+        const problems = [];
+        if (!finished) problems.push('the page did not finish drawing');
+        if (m.at.length ? !seen.list : !seen.unread) problems.push(m.at.length ? 'no Arena list' : 'no "Could not read deck.json"');
+        const stray = errors.filter(e => !/^The #[\w-]+ section could not be drawn/.test(e));
+        if (stray.length) problems.push(`console: ${stray.join(' | ')}`);
+        if (seen.pwned || seen.injected) problems.push('the hostile string ran or made an element');
+        if (problems.length) failures.push(`${named}: ${problems.join('; ')}`);
+      }
+      await page.close();
+    };
+    try {
+      const queue = [...mutations];
+      await Promise.all(Array.from({ length: 4 }, () => sweep(queue)));
+    } finally {
+      await context.close();
+    }
+    assert.ok(mutations.length > 4 * 40, `only ${mutations.length} changes were made to the example, so the sweep proves little`);
+    assert.ok(!failures.length, `${failures.length} of ${mutations.length} changes to deck.example.json break the page:\n${failures.join('\n')}`);
   });
 });
 

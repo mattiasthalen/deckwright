@@ -655,14 +655,14 @@ async function openDeck(browser, server, name, options = {}) {
     await page.clock.pauseAt(CLOCK_START + 1);
   }
   await page.goto(`${server.origin}/${name}/`, { waitUntil: 'load' });
-  await drawn(page);
+  await untilDrawn(page);
   return { page, context, outside, fonts, errors, requested, missing, deck: server.folders[name].deck, close: () => context.close() };
 }
 
 // Returns once the page has drawn all it draws from its files: the ledger, read
 // last, is drawn or left out, or the hero says deck.json could not be read. The
 // page is watched rather than polled, since a paused clock stops its timers.
-async function drawn(page, ms = 4000) {
+async function untilDrawn(page, ms = 4000) {
   const watched = page.evaluate(() => new Promise(done => {
     const finished = () => /Could not read deck\.json/.test(document.getElementById('top')?.textContent || '')
       || (l => l && (l.childElementCount > 0 || l.hidden))(document.getElementById('ledger'));
@@ -683,5 +683,5 @@ async function withDeck(browser, server, name, options, use) {
 
 module.exports = {
   REPO, PAGE, EXAMPLE, FONT_HOSTS, UUID, chromium, scryfallId, RICH_LEDGER, OFFER, MISSING_OFFERED_PICTURE, offeredCards, deckFolders, testPictures, writeSavedFiles, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
-  LONG_WORD, startDeckServer, withDeck, drawn,
+  LONG_WORD, startDeckServer, withDeck, untilDrawn,
 };
