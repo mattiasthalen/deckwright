@@ -937,6 +937,20 @@ def test_c4_fails_a_pick_whose_exchange_changed_only_the_ledger():
     assert status == "fail", f"deck.json was unchanged, and C4 says the pick was saved: {(status, evidence)}"
 
 
+def test_c4_does_not_fail_a_pick_in_an_exchange_the_runner_never_recorded():
+    # The run died in exchange 1, a timeout say: the player's pick is logged and the turn never ended.
+    r = fake_run(PICKED[:3], [], states=[BEFORE_PICK])
+    status, evidence = verdict(r, "C4", facts(**PICK_FACTS))
+    assert status != "fail", f"a turn that never ended was judged as not saving: {(status, evidence)}"
+
+
+def test_c4_does_not_count_a_deck_json_left_unparseable_as_a_save():
+    broken = "{\"version\": 2, \"cards\": ["
+    r = picked(after={"brawl-rats": (broken, ledger(LEDGER_LINE))})
+    status, evidence = verdict(r, "C4", facts(**PICK_FACTS))
+    assert status == "fail", f"a pick whose exchange broke deck.json counted as saved: {(status, evidence)}"
+
+
 def test_c4_is_not_applicable_to_a_run_with_no_record_of_its_folder():
     r = fake_run(PICKED, [], workspace=deck_folder())
     status, evidence = verdict(r, "C4", facts(**PICK_FACTS))
@@ -1034,6 +1048,44 @@ def test_the_runner_records_the_start_as_copied_in():
     assert "Infernal Grasp" in (out / "after" / "0" / "deck" / "deck.json").read_text(), "after/0 is not the deck after it"
 
 
+def test_the_runner_records_an_exchange_that_leaves_no_deck_folder_as_empty():
+    def first(ws):
+        put(ws, deck_folder(deck_json()))
+        return SAID
+
+    def second(ws):
+        shutil.rmtree(ws / "brawl-rats")
+        return SAID
+
+    def third(ws):
+        put(ws, deck_folder(deck_json(), folder="brawl-rats-2"))
+        return SAID
+
+    out = play_recorded([first, second, third])
+    assert (out / "after" / "1").is_dir(), f"the exchange that removed the folder has no after/1: {recorded(out / 'after')}"
+    assert recorded(out / "after" / "1") == set(), recorded(out / "after" / "1")
+    states = checks.Run(out).states
+    assert states[1] == {}, f"the exchange that removed the folder reads as holding one: {sorted(states[1])}"
+
+
+def test_the_runner_records_the_workspace_of_an_exchange_whose_turn_raised():
+    def first(ws):
+        put(ws, deck_folder(deck_json()))
+        return SAID
+
+    def times_out(ws):
+        put(ws, {"brawl-rats/deck.json": deck_json([WICK, deck_card("Rat Colony"), deck_card("Infernal Grasp")])})
+        raise TimeoutError
+
+    out = play_recorded([first, times_out])
+    assert json.loads((out / "run.json").read_text())["ended"] == "runner error: TimeoutError"
+    saved = out / "after" / "1" / "brawl-rats" / "deck.json"
+    assert saved.is_file(), f"the turn that raised left no after/1: {recorded(out / 'after')}"
+    assert "Infernal Grasp" in saved.read_text(), "after/1 is not the deck as the turn that raised left it"
+    traced = [json.loads(line) for line in (out / "trace.jsonl").read_text().splitlines()]
+    assert [e["exchange"] for e in traced] == [0], f"the trace of exchange 0 was not kept: {traced}"
+
+
 # ---------- S1: a save writes the folder; a publish only on asking for a link ----------
 
 def test_s1_passes_a_pick_added_to_deck_json_and_ledger_with_no_publish():
@@ -1076,6 +1128,13 @@ def test_s1_counts_a_pick_of_a_card_already_in_the_deck_by_its_count():
     still_three = {"brawl-rats": (three["brawl-rats"][0], ledger(LEDGER_LINE, LEDGER_LINE))}
     status, evidence = verdict(fake_run(messages, [], states=[three, still_three]), "S1", f)
     assert status == "fail", f"the count stayed at three: {(status, evidence)}"
+
+
+def test_s1_fails_an_unsaved_pick_in_either_confirmation_of_one_message():
+    # The reader may split one message's picks into two entries.
+    f = facts(confirmations=[{"message": 2, "cards": ["Infernal Grasp"]}, {"message": 2, "cards": ["Rat Colony"]}])
+    status, evidence = verdict(picked(), "S1", f)
+    assert status == "fail", f"Infernal Grasp was never added, and S1 passed: {(status, evidence)}"
 
 
 def test_s1_is_not_applicable_to_a_run_with_no_record_of_its_folder():
@@ -1151,6 +1210,12 @@ def test_s2_fails_a_round_never_packed():
     assert "pack.py" in evidence, f"the evidence does not name pack.py: {evidence}"
 
 
+def test_s2_fails_a_round_whose_pack_failed():
+    failed = bash(PACK, 0, answer=f"Exit code 1\npack.py: no deck.json in {WORKSPACE}/brawl-rats")
+    status, evidence = verdict(shown_round(packed=False, more_calls=failed), "S2", facts(**ROUND_FACTS))
+    assert status == "fail", f"pack.py failed, and the round counted as packed: {(status, evidence)}"
+
+
 def test_s2_fails_a_round_whose_folder_holds_no_offer_after_it():
     status, evidence = verdict(shown_round(after=deck_json()), "S2", facts(**ROUND_FACTS))
     assert status == "fail", f"deck.json held no offer after the round: {(status, evidence)}"
@@ -1164,6 +1229,38 @@ def test_s2_fails_a_round_whose_offer_holds_no_cards():
         if status != "fail" or "offer" not in evidence:
             passed.append((empty, status))
     assert not passed, f"an offer with no cards counts as putting the round on offer: {passed}"
+
+
+def round_then(reply, cards):
+    """ROUND written and packed in exchange 0, then a reply in exchange 1 that the reader
+    saw offer `cards`, packed again with deck.json still holding ROUND's offer."""
+    messages = [*ROUND, {"role": "player", "text": "Next?"}, {"role": "deckwright", "text": reply}]
+    trace = bash(PACK, 0, answer=f"{WORKSPACE}/brawl-rats.html") + bash(PACK, 1, answer=f"{WORKSPACE}/brawl-rats.html")
+    state = {"brawl-rats": (ON_OFFER, ledger(LEDGER_LINE))}
+    r = fake_run(messages, trace, states=[state, state])
+    return r, facts(offers=[*ROUND_FACTS["offers"], {"message": 3, "cards": cards}])
+
+
+def test_s2_fails_a_new_round_left_unwritten_while_the_last_rounds_offer_stays():
+    r, f = round_then("Card draw on offer; open brawl-rats.html: Night's Whisper, Sign in Blood.",
+                      ["Night's Whisper", "Sign in Blood"])
+    status, evidence = verdict(r, "S2", f)
+    assert status == "fail", f"the card draw round was never written to deck.json: {(status, evidence)}"
+
+
+def test_s2_passes_a_round_shown_again_unchanged():
+    r, f = round_then("Still on offer in brawl-rats.html: Infernal Grasp, Feed the Swarm.",
+                      ["Infernal Grasp", "Feed the Swarm"])
+    status, evidence = verdict(r, "S2", f)
+    assert status == "pass", f"the same round, shown again from the same offer: {(status, evidence)}"
+
+
+def test_s2_passes_an_offer_holding_half_the_cards_shown_one_by_a_face():
+    after = deck_json(offer=offer(group(None, ["Fell the Profane // Fell Mire", "Infernal Grasp"])))
+    reply = "On offer in brawl-rats.html: Fell the Profane, Night's Whisper."
+    f = facts(offers=[{"message": 1, "cards": ["Fell the Profane", "Night's Whisper"]}])
+    status, evidence = verdict(shown_round(reply, after=after), "S2", f)
+    assert status == "pass", f"one of the two cards shown is on offer, by its first face: {(status, evidence)}"
 
 
 def test_s2_fails_a_round_whose_reply_does_not_name_the_packed_file():
@@ -1310,15 +1407,32 @@ def test_s3_does_not_judge_a_commander_offer_as_a_ladder():
     assert status == "pass", f"a commander offer is no category's round: {(status, evidence)}"
 
 
+def after_a_round(earlier, offer_now, evidence):
+    """A run whose folder held `earlier` on offer after exchange 0 and `offer_now` after exchange 1."""
+    r = fake_run([], [], states=[{"brawl-rats": (on_offer(earlier), ledger(LEDGER_LINE))},
+                                 {"brawl-rats": (on_offer(offer_now), ledger(LEDGER_LINE))}])
+    return r, facts(ladder_steps_with_counts=fact(True, evidence))
+
+
 def test_s3_passes_a_further_round_of_one_step_with_its_heading_and_count():
     said = "three steps in the first round; then more Rats that remove on the player's word"
     one_step = offer(group("Rats that remove", [f"Rat {n}" for n in range(1, 6)], total=14, suggested=("Rat 1",)))
-    r, f = ladder_round(one_step, evidence=said)
+    r, f = after_a_round(ladder(), one_step, said)
     status, evidence = verdict(r, "S3", f)
     assert status == "pass", f"a further round of one step, shown on the player's word: {evidence}"
-    r, f = ladder_round(offer(group("Rats that remove", [f"Rat {n}" for n in range(1, 6)])), evidence=said)
+    r, f = after_a_round(ladder(), offer(group("Rats that remove", [f"Rat {n}" for n in range(1, 6)])), said)
     status, evidence = verdict(r, "S3", f)
     assert status == "fail", f"a round of one step must still state its full count: {(status, evidence)}"
+
+
+def test_s3_fails_a_round_of_one_step_with_no_earlier_three_step_round_of_its_category():
+    one_step = offer(group("Rats that remove", [f"Rat {n}" for n in range(1, 9)], total=8, suggested=("Rat 1",)))
+    r, f = ladder_round(one_step, evidence="...")
+    status, evidence = verdict(r, "S3", f)
+    assert status == "fail", f"a first round of one step stood for the ladder: {(status, evidence)}"
+    r, f = after_a_round({**ladder(), "category": "Payoffs"}, one_step, "...")
+    status, evidence = verdict(r, "S3", f)
+    assert status == "fail", f"the three-step round before it was of Payoffs, not Removal: {(status, evidence)}"
 
 
 def test_s3_judges_a_round_gone_from_the_deck_by_the_end():
@@ -1643,6 +1757,16 @@ def test_s8_fails_a_count_its_script_printed_only_inside_a_file_name():
     status, evidence = verdict(r, "S8", facts(**COUNT_FACTS))
     assert status == "fail", f"31 is part of a file name, not a count printed: {(status, evidence)}"
     assert "31 Rats" in evidence, f"the evidence does not quote the count: {evidence}"
+
+
+def test_s8_fails_a_count_found_only_in_a_traceback():
+    script = "python3 -c \"import json; d=json.load(open('brawl-rats/deck.json')); print(len(d['cards'])+x)\""
+    crashed = ("Exit code 1\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n"
+               "NameError: name 'x' is not defined")
+    messages = [COUNTED[0], {"role": "deckwright", "text": "The deck has 1 card."}]
+    r = fake_run(messages, bash(script, 0, answer=crashed), workspace=deck_folder())
+    status, evidence = verdict(r, "S8", facts(deck_counts_stated=[{"message": 1, "said": "1 card in the deck"}]))
+    assert status == "fail", f"the script crashed, and its traceback's line 1 counted as printing 1: {(status, evidence)}"
 
 
 def test_s8_passes_a_count_printed_by_a_command_that_failed_at_a_later_step():
