@@ -15,7 +15,6 @@ import shlex
 import unittest
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-RULESET = REPO / ".github/rulesets/main-needs-tests.json"
 RULESET_PATH = ".github/rulesets/main-needs-tests.json"
 WORKFLOWS = REPO / ".github/workflows"
 PAGE = "plugins/deckwright/skills/deckwright/page/index.html"

@@ -506,7 +506,7 @@ def test_c5_accepts_a_count_without_the_commander():
     r = fake_run([], [])
     r.final_list = lambda: (Counter({"Vren, the Relentless": 1, "Rat Colony": 10}), "Vren, the Relentless")
     for said in (10, 11):
-        r.read = lambda: facts(review_type_counts=[{"message": 1, "card_type": "Creature", "count": said}])
+        r.read = lambda: facts(review_type_counts=[{"message": 1, "card_type": "Creature", "count": said}])  # noqa: B023
         assert checks.check(r, cache)["C5"][0] == "pass", said
 
 

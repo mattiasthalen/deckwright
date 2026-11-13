@@ -5,10 +5,7 @@ import globals from 'globals';
 const PAGE = 'plugins/deckwright/skills/deckwright/page/index.html';
 
 export default [
-  {
-    // pack.py writes packed files and copies of the page into deck folders; the evals' runs hold them.
-    ignores: ['evals/runs/', 'node_modules/', '**/*.html', `!${PAGE}`],
-  },
+  { ignores: ['evals/runs/'] },
   js.configs.recommended,
   {
     files: ['tests/**/*.cjs'],

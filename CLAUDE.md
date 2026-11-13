@@ -1,6 +1,6 @@
 # deckwright
 
-A Claude plugin that tutors a player through building a Magic deck for Arena; the player chooses every card.
+A Claude plugin that tutors a player through building a Magic deck for Arena.
 
 - `docs/lexicon.md`: the domain's words. Use only these, in code, tests and docs.
 - `docs/adr/`: the decisions. Read them before changing behaviour.

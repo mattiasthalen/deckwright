@@ -1,5 +1,8 @@
 line-length = 120
-target-version = "py313"
+# pack.py runs on the player's own python3, so its syntax must not need a recent one.
+target-version = "py310"
+# The evals' runs hold the scripts the runs wrote, and Markdown holds Python fences; neither is this repository's Python.
+extend-exclude = ["evals/runs", "*.md"]
 
 [lint]
 ignore = [
@@ -12,7 +15,3 @@ ignore = [
     # and the evals read a failed reply as data. check=True would raise in their place.
     "PLW1510",
 ]
-
-[lint.per-file-ignores]
-# Its lambdas stand in for a run's methods and are called within the loop iteration that makes them.
-"evals/test_checks.py" = ["B023"]

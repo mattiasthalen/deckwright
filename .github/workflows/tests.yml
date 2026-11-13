@@ -57,5 +57,8 @@ jobs:
           cache: npm
       # npm run lint runs ruff through uvx.
       - uses: astral-sh/setup-uv@v7
+        with:
+          # No uv.lock to key the cache on.
+          enable-cache: false
       - run: npm ci
       - run: npm run lint

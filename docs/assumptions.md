@@ -21,6 +21,8 @@ milestone 1 design interview, 2026-11-10.
 | A14 | A packed deck page of a full Brawl deck, about 12 MB with a round on offer, attached to a message, opens in a project thread's chat on a phone and on a desktop and draws its pictures and fonts | Page | The player cannot open the attached page of a full deck, or it shows blank cards |
 | A15 | Scryfall marks a crossover printing with `universesbeyond` in `promo_types` (search `is:ub`), per printing and not per card, and gives the name printed on a printing as `flavor_name`, on the first face of a two-faced card. Scryfall's own `printed_name` is the localised name and is not used; the `printed_name` of a card on offer in `deck.json` holds Scryfall's `flavor_name` | Search | A crossover printing is offered unmarked, or the name printed on Arena is missing or wrong |
 | A16 | A packed page attached again under the same file name shows its new content in the chat without a reload | Page | The player sees the previous round after a new one was attached |
+| A17 | GitHub's Import a ruleset accepts `.github/rulesets/main-needs-tests.json` as committed, without the keys GitHub adds to a ruleset it serves, and drops none of its rules | CI | The import is refused, or the imported ruleset lacks a rule the file has |
+| A18 | The `lint` job's ruff comes from PyPI through `uvx` at the version `package.json` fixes, and the job reports to a pull request as the check `lint` the ruleset requires | CI | The `lint` job fails at `uvx`, or a pull request's `lint` check stays waiting for status |
 
 ## Measured facts
 
