@@ -308,11 +308,13 @@ dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); 
 // Every file of the deck folder is reached through url and read, by its path
 // relative to the page. A deck page packed into a single file sets
 // window.DECK_FILES in a script before this one: a map from each such path to
-// the file's text (deck.json, LEDGER.md) or a data URL (pictures and art).
-const PACKED = window.DECK_FILES || {};
-const url = path => PACKED[path] || path;
+// the file's text (deck.json, LEDGER.md) or a data URL (pictures and art). A
+// packed page holds every file it has, so a path it does not hold is missing and
+// is never asked for: url gives nothing for it, and read gives it as empty.
+const PACKED = window.DECK_FILES;
+const url = path => !PACKED ? path : Object.hasOwn(PACKED, path) ? PACKED[path] : undefined;
 // A file that is missing or cannot be fetched reads as empty.
-const read = async path => path in PACKED ? PACKED[path] : fetch(path, {cache: 'no-store'}).then(r => r.ok ? r.text() : '', () => '');
+const read = async path => PACKED ? url(path) ?? '' : fetch(path, {cache: 'no-store'}).then(r => r.ok ? r.text() : '', () => '');
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -426,9 +428,8 @@ const withManaDrawn = text => esc(text).replace(/(\{[^}]+\})+/g, manaRun);
 const missingPictures = new Set();
 const blankCard = name => `<div class="blank-card">${esc(name)}</div>`;
 const picture = (id, alt) => {
-  if (!id) return blankCard(alt);
-  const src = url(`cards/${id}.jpg`);
-  return missingPictures.has(src) ? blankCard(alt) : `<img loading="lazy" src="${esc(src)}" alt="${esc(alt)}">`;
+  const src = id && url(`cards/${id}.jpg`);
+  return !src || missingPictures.has(src) ? blankCard(alt) : `<img loading="lazy" src="${esc(src)}" alt="${esc(alt)}">`;
 };
 const cardPicture = name => cardsInDeck.has(name) ? picture(cardsInDeck.get(name).scryfall_id, name) : blankCard(name);
 
@@ -520,8 +521,9 @@ function drawHero() {
   $('pitch').hidden = !deck.pitch;
   $('criteria').innerHTML = (deck.criteria || []).map(c => `<span>${esc(c.text)}</span>`).join('');
   const heroCard = deck.hero && deck.cards.find(c => c.scryfall_id === deck.hero);
-  if (deck.hero) {
-    const art = $('hero-art'), src = url(`art/${deck.hero}.jpg`), probe = new Image();
+  const src = deck.hero && url(`art/${deck.hero}.jpg`);
+  if (src) {
+    const art = $('hero-art'), probe = new Image();
     probe.onload = () => {
       art.style.backgroundImage = `url("${src}")`;
       art.setAttribute('role', 'img');
