@@ -77,7 +77,10 @@
         "mana_cost": "{5}{R}{R}",
         "type_line": "Legendary Creature — Elder Dinosaur // Legendary Creature — Phyrexian Elder Dinosaur",
         "text": "Trample\nWhen Etali enters, each player exiles cards from the top of their library until they exile a nonland card. You may cast any number of spells from among the nonland cards exiled this way without paying their mana costs.\n{9}{G/P}: Transform Etali. Activate only as a sorcery.\n//\nTrample, indestructible\nWhenever Etali deals combat damage to a player, they get that many poison counters. (A player with ten or more poison counters loses the game.)",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 7.0,
+        "layout": "transform"
       }
     },
     {
@@ -94,7 +97,10 @@
         "mana_cost": "{2}",
         "type_line": "Artifact",
         "text": "{T}: Add one mana of any color in your commander's color identity.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -111,7 +117,10 @@
         "mana_cost": "{2}{G}",
         "type_line": "Sorcery",
         "text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -128,7 +137,10 @@
         "mana_cost": "{1}{G}",
         "type_line": "Sorcery",
         "text": "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -145,7 +157,10 @@
         "mana_cost": "{1}{G}",
         "type_line": "Sorcery",
         "text": "Search your library for a Forest card, put that card onto the battlefield, then shuffle.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -162,7 +177,10 @@
         "mana_cost": "{1}{G}",
         "type_line": "Sorcery",
         "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -179,7 +197,10 @@
         "mana_cost": "{2}",
         "type_line": "Artifact",
         "text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -196,7 +217,10 @@
         "mana_cost": "{G}",
         "type_line": "Creature — Bird",
         "text": "Flying\n{T}: Add one mana of any color.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -213,7 +237,10 @@
         "mana_cost": "{4}",
         "type_line": "Artifact Creature — Golem",
         "text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -230,7 +257,10 @@
         "mana_cost": "{2}{G}",
         "type_line": "Enchantment",
         "text": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card.\nCreatures you control have trample. (Each of those creatures can deal excess combat damage to the player or planeswalker it's attacking.)\nWhenever a creature you control with power 4 or greater enters, draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -247,7 +277,10 @@
         "mana_cost": "{4}",
         "type_line": "Legendary Artifact",
         "text": "Indestructible\nWhen The One Ring enters, if you cast it, you gain protection from everything until your next turn.\nAt the beginning of your upkeep, you lose 1 life for each burden counter on The One Ring.\n{T}: Put a burden counter on The One Ring, then draw a card for each burden counter on The One Ring.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -264,7 +297,10 @@
         "mana_cost": "{R}",
         "type_line": "Sorcery",
         "text": "Draw two cards, then discard two cards.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -281,7 +317,10 @@
         "mana_cost": "{2}{R}",
         "type_line": "Sorcery",
         "text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n• Add {R} for each card in target opponent's hand.\n• Exile the top three cards of your library. You may play them this turn.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -298,7 +337,10 @@
         "mana_cost": "{1}{G}{G}",
         "type_line": "Creature — Human Shaman",
         "text": "When this creature enters, you may return target card from your graveyard to your hand.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -315,7 +357,10 @@
         "mana_cost": "{3}{R}",
         "type_line": "Instant",
         "text": "As an additional cost to cast this spell, discard a card.\nDraw two cards and create two Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -332,7 +377,10 @@
         "mana_cost": "{3}",
         "type_line": "Artifact",
         "text": "As this artifact enters, choose a creature type.\nCreature spells you cast of the chosen type cost {1} less to cast.\nAt the beginning of your upkeep, look at the top card of your library. If it's a creature card of the chosen type, you may reveal it and put it into your hand.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -349,7 +397,10 @@
         "mana_cost": "{4}{G}",
         "type_line": "Instant",
         "text": "Choose one —\n• Draw cards equal to the greatest power among non-Human creatures you control.\n• Non-Human creatures you control get +3/+3 until end of turn.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 5.0,
+        "layout": "normal"
       }
     },
     {
@@ -366,7 +417,10 @@
         "mana_cost": "{8}{R}",
         "type_line": "Sorcery",
         "text": "This spell costs {1} less to cast for each creature on the battlefield.\nBlasphemous Act deals 13 damage to each creature.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 9.0,
+        "layout": "normal"
       }
     },
     {
@@ -383,7 +437,10 @@
         "mana_cost": "{2}{G}",
         "type_line": "Instant",
         "text": "Destroy target permanent. Its controller creates a 3/3 green Beast creature token.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -400,7 +457,10 @@
         "mana_cost": "{2}{R}",
         "type_line": "Instant",
         "text": "The owner of target permanent shuffles it into their library, then reveals the top card of their library. If it's a permanent card, they put it onto the battlefield.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -417,7 +477,10 @@
         "mana_cost": "{1}{R}",
         "type_line": "Instant",
         "text": "Choose one —\n• Abrade deals 3 damage to target creature.\n• Destroy target artifact.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -434,7 +497,10 @@
         "mana_cost": "{R}",
         "type_line": "Instant",
         "text": "Lightning Bolt deals 3 damage to any target.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -451,7 +517,10 @@
         "mana_cost": "{1}{R}",
         "type_line": "Instant",
         "text": "Choose one —\n• Destroy target artifact.\n• Change the target of target spell or ability with a single target.\n• One or two target creatures can't block this turn.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -468,7 +537,10 @@
         "mana_cost": "{2}{G}",
         "type_line": "Creature — Elf Shaman",
         "text": "When this creature enters, you may destroy target artifact or enchantment.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -485,7 +557,10 @@
         "mana_cost": "{4}",
         "type_line": "Artifact",
         "text": "Whenever you cast a spell, you gain 1 life for each spell you've cast this turn.\nPay 50 life: This artifact deals 50 damage to any target.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     }
   ],

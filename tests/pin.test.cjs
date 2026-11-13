@@ -23,3 +23,14 @@ test('Playwright is pinned to the exact version installed and locked', () => {
   const locked = readJson('package-lock.json').packages?.['node_modules/playwright']?.version;
   assert.equal(locked, pinned, `package-lock.json locks Playwright ${locked}, package.json pins ${pinned}`);
 });
+
+// The name is put together here so that this file does not hold it.
+const REAL_TIME_WAIT = ['waitFor', 'Timeout'].join('');
+
+test(`P12: No file under tests/ calls ${REAL_TIME_WAIT}: the scene tests drive the page's clock`, () => {
+  const files = fs.readdirSync(path.join(REPO, 'tests'), { recursive: true, withFileTypes: true })
+    .filter(f => f.isFile()).map(f => path.relative(REPO, path.join(f.parentPath, f.name)));
+  assert.ok(files.length > 1, 'no test files were read, so this test proves nothing');
+  const waiting = files.filter(f => fs.readFileSync(path.join(REPO, f), 'utf8').includes(REAL_TIME_WAIT));
+  assert.deepEqual(waiting, [], `${REAL_TIME_WAIT} is called in ${waiting.join(', ')}`);
+});

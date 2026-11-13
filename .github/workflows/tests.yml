@@ -20,6 +20,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: python3 evals/test_checks.py
+      - run: python3 tests/test_pack.py
 
   browser-tests:
     name: browser tests
@@ -33,6 +34,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # tests/pack.test.cjs packs its decks with pack.py.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: node --test tests/*.test.cjs

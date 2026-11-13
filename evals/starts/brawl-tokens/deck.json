@@ -77,7 +77,10 @@
         "mana_cost": "{3}{G}{G}{W}{W}",
         "type_line": "Legendary Creature — Dinosaur Vampire",
         "text": "Trample\nWhenever you attack, choose one —\n• Create a tapped and attacking X/X green Dinosaur creature token with trample, where X is the greatest power among other attacking creatures.\n• Create X 1/1 white Vampire creature tokens with lifelink, where X is the number of other attacking creatures.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 7.0,
+        "layout": "normal"
       }
     },
     {
@@ -94,7 +97,10 @@
         "mana_cost": "{2}{G}",
         "type_line": "Instant",
         "text": "Destroy target permanent. Its controller creates a 3/3 green Beast creature token.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -111,7 +117,10 @@
         "mana_cost": "{2}{W}",
         "type_line": "Instant",
         "text": "Destroy target nonland permanent. Its controller creates a 1/1 white Human creature token.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -128,7 +137,10 @@
         "mana_cost": "{2}{G}",
         "type_line": "Creature — Insect",
         "text": "Landfall — Whenever a land you control enters, create a 1/1 green Insect creature token. If you control six or more lands, create a token that's a copy of this creature instead.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -145,7 +157,10 @@
         "mana_cost": "{4}{G}{G}",
         "type_line": "Creature — Beast",
         "text": "Trample\nLandfall — Whenever a land you control enters, create a 4/4 green Beast creature token.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 6.0,
+        "layout": "normal"
       }
     },
     {
@@ -162,7 +177,10 @@
         "mana_cost": "{1}{W}{W}",
         "type_line": "Legendary Creature — Human Knight",
         "text": "Vigilance\nAdeline's power is equal to the number of creatures you control.\nWhenever you attack, for each opponent, create a 1/1 white Human creature token that's tapped and attacking that player or a planeswalker they control.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -179,7 +197,10 @@
         "mana_cost": "{4}",
         "type_line": "Artifact",
         "text": "Creatures you control are every creature type. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.\n{3}, {T}: Create a 2/2 blue Shapeshifter creature token with changeling. (It is every creature type.)",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -196,7 +217,10 @@
         "mana_cost": "{3}{W}",
         "type_line": "Enchantment",
         "text": "Landfall — Whenever a land you control enters, choose one —\n• Create a 2/2 white Cat Beast creature token.\n• Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -213,7 +237,10 @@
         "mana_cost": "{3}{W}{W}",
         "type_line": "Legendary Planeswalker — Elspeth",
         "text": "If one or more tokens would be created under your control, twice that many of those tokens are created instead.\n+1: Create a 1/1 white Soldier creature token.\n0: Put a +1/+1 counter on each creature you control. Those creatures gain flying until your next turn.\n−3: Destroy target creature an opponent controls with mana value 3 or greater.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 5.0,
+        "layout": "normal"
       }
     },
     {
@@ -230,7 +257,10 @@
         "mana_cost": "{2}",
         "type_line": "Artifact",
         "text": "{T}: Add one mana of any color in your commander's color identity.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -247,7 +277,10 @@
         "mana_cost": "{W}",
         "type_line": "Instant",
         "text": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -264,7 +297,10 @@
         "mana_cost": "{2}{G}",
         "type_line": "Sorcery",
         "text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -281,7 +317,10 @@
         "mana_cost": "{1}{G}",
         "type_line": "Sorcery",
         "text": "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -298,7 +337,10 @@
         "mana_cost": "{1}{G}",
         "type_line": "Sorcery",
         "text": "Search your library for a Forest card, put that card onto the battlefield, then shuffle.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -315,7 +357,10 @@
         "mana_cost": "{1}{G}",
         "type_line": "Sorcery",
         "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -332,7 +377,10 @@
         "mana_cost": "{2}",
         "type_line": "Artifact",
         "text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -349,7 +397,10 @@
         "mana_cost": "{G}",
         "type_line": "Creature — Bird",
         "text": "Flying\n{T}: Add one mana of any color.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     }
   ],

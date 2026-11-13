@@ -76,6 +76,9 @@ def copy_of(card: dict) -> dict:
     # Scryfall's cmc is the mana value; without it the page counts the cost's symbols.
     if "cmc" in card:
         copy["mana_value"] = card["cmc"]
+    # The layout tells the Arena list a card Arena knows by its front face alone.
+    if "layout" in card:
+        copy["layout"] = card["layout"]
     return copy
 
 

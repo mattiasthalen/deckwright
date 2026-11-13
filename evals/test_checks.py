@@ -549,6 +549,24 @@ def test_the_workflow_never_starts_claude():
     assert "claude" not in text.lower(), "the workflow names Claude"
 
 
+def test_p14_every_saved_start_carries_every_copy_field_the_example_carries():
+    # A start saved without a field the page reads draws the deck otherwise than a real build.
+    import json
+    repo = pathlib.Path(__file__).resolve().parent.parent
+    example = json.loads((repo / "plugins/deckwright/skills/deckwright/page/deck.example.json").read_text())
+    fields = set.intersection(*(set(c["copy"]) for c in example["cards"]))
+    starts = sorted((repo / "evals" / "starts").glob("*/deck.json"))
+    assert starts, "no saved start was found, so this test proves nothing"
+    lacking = {}
+    for start in starts:
+        for c in json.loads(start.read_text())["cards"]:
+            missing = fields - set(c.get("copy", {}))
+            if missing:
+                lacking.setdefault(start.parent.name, set()).update(missing)
+    assert not lacking, "saved starts lack copy fields every example card carries: " + "; ".join(
+        f"{name} lacks {', '.join(sorted(missing))}" for name, missing in sorted(lacking.items()))
+
+
 class NetworkBlocked(RuntimeError):
     """Not an OSError: checks.scryfall_get retries those, and urllib wraps them in URLError."""
 

@@ -4,12 +4,15 @@
 //
 // Hooks the page must keep (everything else is read the way a reader sees it):
 //   #top       the hero
+//   #hero-line the hero's line of format, card count and progress
+//   #offer     the cards on offer section
 //   #engine    the scenes section
 //   #cards     the cards section
 //   #curve     the mana curve section
 //   #handbook  the handbook section, also the hero's handbook link target
 //   #ledger    the ledger section
 //   #import    the Arena list section
+//   #arena-list the Arena list itself
 //   .scene     one scene's box
 //   .thing     one thing in a scene step
 //   .mana      a run of mana symbols, one child element per symbol
@@ -22,8 +25,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const {
-  REPO, EXAMPLE, UUID, chromium, scryfallId, RICH_LEDGER, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
-  LONG_WORD, startDeckServer, withDeck,
+  REPO, PAGE, EXAMPLE, FONT_HOSTS, answerFontHost, UUID, chromium, scryfallId, RICH_LEDGER, MISSING_OFFERED_PICTURE, offeredCards, TRIBES, TRIBES_WITHOUT_S, LINE_THE_PAGE_CANNOT_SPLIT, LINE_THE_PAGE_CANNOT_SPLIT_WITH_ID,
+  LONG_WORD, startDeckServer, withDeck, untilDrawn,
 } = require('./page-harness.cjs');
 
 let browser, server;
@@ -175,8 +178,22 @@ const blankCardNamed = (scope, name) => scope.evaluate((root, name) => [...root.
 const controlsNamed = (scope, name) => scope.locator('button, a, [role="button"], [role="link"]').filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) }).count();
 const heroArt = hero => hero.evaluate(h => [h, ...h.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundImage).find(b => b.includes('/art/') || b.includes('data:image')) || null);
 
-// Advances the fake clock in small steps until the caption leaves the scope.
+// Scrolls a scene into view and returns once an IntersectionObserver has seen it
+// there. The page's own observer of the scene was made earlier, so it has been
+// told first, and the scene moves when the clock runs.
+async function onScreen(locator) {
+  await locator.scrollIntoViewIfNeeded();
+  await locator.evaluate(root => new Promise(seen => {
+    const box = root.closest('.scene') || root.querySelector('.scene') || root;
+    new IntersectionObserver((entries, observer) => {
+      if (entries.at(-1).isIntersecting) { observer.disconnect(); seen(); }
+    }).observe(box);
+  }));
+}
+
+// Advances the paused clock in small steps until the caption leaves the scope.
 async function nextStep(page, scope, caption, limit = 4000) {
+  await onScreen(scope);
   for (let spent = 0; spent <= limit; spent += 200) {
     if (!(await scope.innerText()).includes(caption)) return spent;
     await page.clock.runFor(200);
@@ -188,10 +205,8 @@ async function nextStep(page, scope, caption, limit = 4000) {
 // pictures have loaded or failed: the text of each element shown at more than
 // half opacity, its pictures, and its blank cards (card-shaped boxes holding no
 // picture and no smaller card shape). At 'start' every motion in the thing is
-// rewound to its beginning first; at 'end' every motion is finished. The
-// installed clock also runs at real pace and can redraw the step between two
-// calls into the page, so the caption and the thing are read in one; null when
-// the scene shows another step, or redraws it while its pictures settle.
+// rewound to its beginning first; at 'end' every motion is finished. The caption
+// and the thing are read in one call; null when the scene shows another step.
 const readThing = (scene, caption, index, at) => scene.evaluate(async (s, { caption, index, at }) => {
   const t = s.innerText.includes(caption) && s.querySelectorAll('.thing')[index];
   if (!t) return null;
@@ -272,8 +287,7 @@ const partsOfThing = (scene, caption, index) => scene.evaluate((s, { caption, in
 async function toLastStep(page, deckName, sceneIndex) {
   const scene = page.locator('#engine .scene').nth(sceneIndex);
   assert.ok(await visible(scene), `scene ${sceneIndex} of ${deckName} is not drawn`);
-  await scene.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(150);
+  await onScreen(scene);
   const [first, last] = deckOf(deckName).scenes[sceneIndex].steps;
   for (let spent = 0; !(await scene.innerText()).includes(first.caption); spent += 100) {
     assert.ok(spent <= 6000, `"${first.caption}" was not shown within ${spent} ms`);
@@ -315,15 +329,10 @@ const readCurve = page => page.evaluate(() => {
   return { legend: true, creature: creature.colour, other: other.colour, columns: columns.sort((a, b) => a.x - b.x) };
 });
 
-async function steadyCurve(page) {
-  let last = await readCurve(page);
-  for (let i = 0; i < 30 && last?.legend; i++) {
-    await page.waitForTimeout(100);
-    const now = await readCurve(page);
-    if (JSON.stringify(now) === JSON.stringify(last)) return now;
-    last = now;
-  }
-  return last;
+// The curve once every motion in it has finished.
+async function finishedCurve(page) {
+  await page.evaluate(() => document.getElementById('curve')?.getAnimations({ subtree: true }).forEach(a => { try { a.finish(); } catch {} }));
+  return readCurve(page);
 }
 
 const curveBuckets = deck => {
@@ -345,7 +354,7 @@ async function drawnWithout(page, errors, deckName, leftOut) {
   }
   const pre = page.locator('pre').filter({ visible: true });
   assert.equal(await pre.count(), 1, 'the Arena list is not drawn');
-  assert.equal((await pre.innerText()).trim(), arenaList(deck));
+  assert.equal(await page.locator('#arena-list').textContent(), arenaList(deck));
   assert.ok(await until(async () => (await page.locator('#ledger').innerText()).includes('the commander')), 'the ledger entry is not drawn');
   const d = await openCard(page, deckName, 'Quick Shock');
   assert.ok((await d.innerText()).includes('Quick Shock'), 'the card dialog does not open');
@@ -356,12 +365,13 @@ async function drawnWithout(page, errors, deckName, leftOut) {
 
 // ======================================================================
 describe('The look', () => {
-  test('AC1: The page has no tab control, and its sections appear in this order: hero, scenes, cards, curve, handbook, ledger, Arena list', () =>
-    open('rich', async ({ page, deck }) => {
+  test('AC1 (ADR-0013): The page has no tab control, and its sections appear in this order: hero, cards on offer, scenes, cards, curve, handbook, ledger, Arena list', () =>
+    open('offered', async ({ page, deck }) => {
       const tabs = await page.locator('[role="tab"], [role="tablist"], [aria-selected]').count();
       assert.equal(tabs, 0, 'the page has a tab control');
       const markers = {
         hero: deck.name,
+        'cards on offer': deck.offer.groups[0].cards[0].reason,
         scenes: deck.scenes[0].title,
         cards: 'Commander',
         curve: 'Other spells',
@@ -423,7 +433,7 @@ describe('The look', () => {
       await open(name, async ({ page, deck }) => {
         const hero = page.locator('#top');
         assert.ok(await visible(hero), 'the hero is not on the page');
-        const art = await hero.evaluate(h => [h, ...h.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundImage).find(b => b.includes('/art/')) || null);
+        const art = await until(() => hero.evaluate(h => [h, ...h.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundImage).find(b => b.includes('/art/')) || null));
         assert.ok(art, `${name}: no element in the hero has the art file as its background`);
         assert.ok(art.includes(`/${name}/art/${deck.hero}.jpg`), `${name}: the hero background is ${art}`);
         assert.equal((await hero.locator('h1').innerText()).replace(/\s+/g, ' ').trim(), deck.name);
@@ -626,8 +636,7 @@ describe('Scenes', () => {
       const engine = page.locator('#engine');
       assert.ok(await visible(engine), 'the scenes section is not on the page');
       assert.equal(await engine.locator('button, [role="button"], a[href], input').count(), 0, 'the scenes section has a control');
-      await engine.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(150);
+      await onScreen(engine);
       const steps = deck.scenes[0].steps;
       for (const step of steps) {
         assert.ok((await engine.innerText()).includes(step.caption), `the step "${step.caption}" is not shown`);
@@ -739,8 +748,7 @@ describe('Scenes', () => {
     open('rich', { clock: true, reducedMotion: 'reduce' }, async ({ page, deck }) => {
       const engine = page.locator('#engine');
       assert.ok(await visible(engine), 'the scenes section is not on the page');
-      await engine.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(150);
+      await onScreen(engine);
       const shows = async () => {
         const text = await engine.innerText();
         for (const s of deck.scenes) {
@@ -780,7 +788,7 @@ describe('Scenes', () => {
       assert.ok(before >= 1, 'the missing picture was never asked for, so this test proves nothing');
       const steps = deck.scenes[0].steps;
       for (let i = 0; i < 4; i++) await nextStep(page, engine, steps[i % steps.length].caption);
-      await page.waitForTimeout(300);
+      await settlePictures(engine);
       assert.equal(asked(), before, `the missing picture was asked for ${asked() - before} more times over four steps`);
       assert.ok(await blankCardNamed(engine, 'Faded Rat'), 'the scene does not show the name on a blank card');
     }));
@@ -862,7 +870,7 @@ describe('Scenes', () => {
         assert.equal(backs.length, Math.min(draw, 5), `with reduced motion, a draw of ${draw} shows ${backs.length} card backs`);
         assert.equal(hit.running + fan.running, 0, `with reduced motion, ${hit.running} motions run in the damage and ${fan.running} in the draw`);
         const still = [await layout(hitThing), await layout(fanThing)];
-        await page.waitForTimeout(1200);
+        await page.evaluate(() => document.getAnimations().forEach(a => { try { a.finish(); } catch {} }));
         await page.clock.runFor(10000);
         assert.deepEqual([await layout(hitThing), await layout(fanThing)], still, 'with reduced motion, the damage or the draw moves');
       }
@@ -873,6 +881,7 @@ describe('Scenes', () => {
       const scene = page.locator('#main-scene');
       assert.ok(await visible(scene), 'the scene with damage and drawn cards that move is not drawn');
       await settlePictures(scene);
+      await onScreen(scene);
       const [still, leaves, glows] = deck.scenes[0].steps;
       const read = {};
       for (const step of [still, leaves, glows]) {
@@ -1127,7 +1136,7 @@ describe('Cards and dialog', () => {
 describe('Curve', () => {
   test('AC22: Each bar holds a creature part and an other-spells part whose sizes match the test deck, and the legend names both', () =>
     open('rich', { reducedMotion: 'reduce' }, async ({ page, deck }) => {
-      const curve = await steadyCurve(page);
+      const curve = await finishedCurve(page);
       assert.ok(curve, 'the curve section is not on the page');
       assert.ok(curve.legend, 'the legend does not name both creatures and other spells');
       const want = curveBuckets(deck);
@@ -1144,7 +1153,7 @@ describe('Curve', () => {
     const seen = {};
     for (const name of ['rich', 'mono', 'colourless']) {
       await open(name, { reducedMotion: 'reduce' }, async ({ page }) => {
-        const curve = await steadyCurve(page);
+        const curve = await finishedCurve(page);
         assert.ok(curve?.legend, `${name}: the curve has no legend naming both parts`);
         seen[name] = { creature: curve.creature, other: curve.other };
       });
@@ -1158,7 +1167,7 @@ describe('Curve', () => {
 
   test('AC24: The curve note is shown above the bars', () =>
     open('rich', { reducedMotion: 'reduce' }, async ({ page, deck }) => {
-      const curve = await steadyCurve(page);
+      const curve = await finishedCurve(page);
       assert.ok(curve?.legend, 'the curve has no legend naming both parts');
       const note = await page.evaluate(text => {
         const e = [...document.querySelectorAll('#curve *')].filter(e => e.textContent.trim() === text).at(-1);
@@ -1332,7 +1341,7 @@ describe('Ledger', () => {
       await closeDialog(page);
       const pre = page.locator('pre').filter({ visible: true });
       assert.equal(await pre.count(), 1, 'the Arena list is not drawn');
-      assert.equal((await pre.innerText()).trim(), arenaList(deck));
+      assert.equal(await page.locator('#arena-list').textContent(), arenaList(deck));
     }));
 });
 
@@ -1341,22 +1350,20 @@ describe('Written in the repo', () => {
   const skill = () => fs.readFileSync(path.join(REPO, 'plugins/deckwright/skills/deckwright/SKILL.md'), 'utf8');
   const example = () => JSON.parse(fs.readFileSync(EXAMPLE, 'utf8'));
 
-  test('AC33: SKILL.md step 7 and deck.example.json describe scenes as steps played with cards and no longer mention SVG', () => {
-    const step7 = skill().split('\n').find(l => /^7\.\s/.test(l));
-    assert.ok(step7, 'SKILL.md has no step 7');
-    assert.doesNotMatch(step7, /svg/i, 'step 7 mentions SVG');
-    assert.match(step7, /scenes?/i);
-    assert.match(step7, /steps?/i, 'step 7 does not describe scenes as steps');
-    assert.match(step7, /cards?/i, 'step 7 does not say scenes are played with cards');
-    const raw = fs.readFileSync(EXAMPLE, 'utf8');
-    assert.doesNotMatch(raw, /svg/i, 'deck.example.json mentions SVG');
-    const scenes = example().scenes || [];
-    assert.ok(scenes.length, 'deck.example.json has no scenes');
-    for (const s of scenes) {
-      assert.ok((s.steps || []).length, `the example scene "${s.title}" has no steps`);
-      assert.ok(s.steps.some(step => (step.things || []).some(t => t.card)), `the example scene "${s.title}" plays no card`);
-    }
-  });
+  test('P13, AC33: A scene is drawn from whole card pictures: each card or token thing of a step is one image of its picture, and no scene is an SVG drawing', () =>
+    open('rich', { clock: true }, async ({ page, deck }) => {
+      const engine = page.locator('#engine');
+      assert.ok(await visible(engine), 'the scenes section is not on the page');
+      await settlePictures(engine);
+      const idOf = t => t.card ? byName(deck, t.card).scryfall_id : deck.tokens.find(k => k.name === t.token).scryfall_id;
+      const drawn = await engine.evaluate(e => ({
+        svg: e.querySelectorAll('svg').length,
+        scenes: [...e.querySelectorAll('.scene')].map(s => [...s.querySelectorAll('.thing')].map(t => [...t.querySelectorAll('img')].map(i => new URL(i.src, location.href).pathname))),
+      }));
+      assert.equal(drawn.svg, 0, 'a scene draws an SVG');
+      const want = deck.scenes.map(s => s.steps[0].things.map(t => t.card || t.token ? [picturePath('rich', idOf(t))] : []));
+      assert.deepEqual(drawn.scenes, want, 'a scene\'s first step does not draw one picture for each card or token thing and none for any other thing');
+    }));
 
   test('AC34: deck.example.json is version 2 and the page draws it with no console error', () =>
     open('example', async ({ page, errors, deck }) => {
@@ -1383,7 +1390,7 @@ describe('Written in the repo', () => {
       const list = arenaList(deck);
       const pre = page.locator('pre').filter({ hasText: 'Commander' }).filter({ visible: true });
       assert.equal(await pre.count(), 1, 'the Arena list is not shown on the page');
-      assert.equal((await pre.innerText()).trim(), list);
+      assert.equal(await page.locator('#arena-list').textContent(), list);
       const section = pre.locator('xpath=ancestor::section[1]');
       const copy = section.getByRole('button', { name: /copy/i }).filter({ visible: true });
       assert.equal(await copy.count(), 1, 'the Arena list has no copy button beside it');
@@ -1476,7 +1483,7 @@ print((build.HERE / name / "deck.json").read_text())
   test('A page given every file in window.DECK_FILES draws the deck without asking for deck.json, LEDGER.md or any picture', () =>
     open('packed', async ({ page, deck, requested }) => {
       assert.equal((await page.locator('h1').innerText()).replace(/\s+/g, ' ').trim(), deck.name, 'the packed deck is not drawn');
-      assert.ok((await heroArt(page.locator('#top')))?.includes('data:image'), 'the hero does not show the packed art');
+      assert.ok((await until(() => heroArt(page.locator('#top'))))?.includes('data:image'), 'the hero does not show the packed art');
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       const cards = page.locator('#cards');
       await settlePictures(cards);
@@ -1489,12 +1496,428 @@ print((build.HERE / name / "deck.json").read_text())
 });
 
 // ======================================================================
+// What #offer draws for each card on offer, in the order deck.json gives them:
+// the smallest box around its reason that also shows its picture, or its name
+// on a blank card, and no other offered card's reason. Null for a card with no
+// such box.
+async function readOffer(page, deckName) {
+  const offer = page.locator('#offer');
+  assert.ok(await visible(offer), 'the #offer section is not drawn');
+  await settlePictures(offer);
+  return offer.evaluate((root, { cards, folder }) => {
+    const reasons = cards.map(c => c.reason);
+    const cardShaped = e => e.offsetWidth > 0 && e.offsetHeight / e.offsetWidth > 1.3 && e.offsetHeight / e.offsetWidth < 1.5;
+    const all = [...root.querySelectorAll('*')];
+    return cards.map(c => {
+      const src = `/${folder}/cards/${c.scryfall_id}.jpg`;
+      const img = el => [...el.querySelectorAll('img')].find(i => new URL(i.src, location.href).pathname === src);
+      const blank = el => [...el.querySelectorAll('*')].find(b => b.tagName !== 'IMG' && cardShaped(b) && !b.querySelector('img') && b.textContent.trim() === c.name && b.checkVisibility());
+      let box = all.filter(e => e.textContent.includes(c.reason)).at(-1);
+      while (box && box !== root && !img(box) && !blank(box)) box = box.parentElement;
+      if (!box || box === root || reasons.some(r => r !== c.reason && box.textContent.includes(r))) return null;
+      const picture = img(box);
+      return {
+        at: all.indexOf(box),
+        picture: picture ? { loaded: picture.complete && picture.naturalWidth > 0 } : null,
+        blank: !!blank(box),
+        leaves: [...box.querySelectorAll('*')].filter(e => e.children.length === 0 && e.checkVisibility()).map(e => e.textContent.trim()).filter(Boolean),
+        text: box.textContent.replace(/\s+/g, ' '),
+      };
+    });
+  }, { cards: offeredCards(deckOf(deckName)), folder: deckName });
+}
+
+const numberedAs = (seen, n) => seen.leaves.some(t => new RegExp(`^(No\\.?\\s*|#)?${n}(?![\\d/])`).test(t));
+async function offerHeadings(page) {
+  const offer = page.locator('#offer');
+  assert.ok(await visible(offer), 'the #offer section is not drawn');
+  return offer.evaluate(o => [...o.querySelectorAll('h1, h2, h3, h4, h5, h6')].filter(h => h.checkVisibility()).map(h => h.textContent.trim()));
+}
+
+// What the open card dialog shows: its name, its category line and its why.
+const dialogShows = page => page.evaluate(() => ({
+  name: document.getElementById('dialog-name').textContent,
+  category: document.getElementById('dialog-category').textContent,
+  why: document.getElementById('dialog-why').checkVisibility() ? document.getElementById('dialog-why').textContent : '',
+}));
+
+// Clicks the smallest focusable element in #offer that holds the reason, and returns
+// what the dialog then shows, or null when none opens.
+async function openOffered(page, reason) {
+  const FOCUSABLE = 'button, a[href], [tabindex]:not([tabindex="-1"])';
+  const offer = page.locator('#offer');
+  const at = await offer.evaluate((root, { selector, reason }) => {
+    const opens = [...root.querySelectorAll(selector)];
+    const fits = opens.filter(e => e.textContent.includes(reason));
+    return opens.indexOf(fits.find(e => !fits.some(f => f !== e && e.contains(f))));
+  }, { selector: FOCUSABLE, reason });
+  assert.ok(at >= 0, `no focusable element in #offer holds "${reason}"`);
+  await offer.locator(FOCUSABLE).nth(at).click();
+  if (!(await until(() => dialog(page).count(), 1500))) return null;
+  const shown = await dialogShows(page);
+  await closeDialog(page);
+  assert.ok(await until(async () => (await dialog(page).count()) === 0), 'the dialog does not close');
+  return shown;
+}
+
+describe('Cards on offer', () => {
+  test('P1: A deck with a round on offer draws #offer between the hero and the scenes, under a heading naming the category, each card numbered across the groups with its picture and its reason', () =>
+    open('offered', async ({ page, deck }) => {
+      const where = await page.evaluate(() => {
+        const [top, offer, engine] = ['top', 'offer', 'engine'].map(id => document.getElementById(id));
+        if (!offer) return null;
+        return { afterHero: !!(top.compareDocumentPosition(offer) & Node.DOCUMENT_POSITION_FOLLOWING), beforeScenes: !!(offer.compareDocumentPosition(engine) & Node.DOCUMENT_POSITION_FOLLOWING) };
+      });
+      assert.ok(where, 'the page has no #offer section');
+      assert.deepEqual(where, { afterHero: true, beforeScenes: true }, '#offer is not between the hero and the scenes');
+      const headings = await offerHeadings(page);
+      assert.ok(headings.some(h => h.includes(deck.offer.category)), `no heading in #offer names the category ${deck.offer.category}: ${JSON.stringify(headings)}`);
+      const cards = offeredCards(deck), seen = await readOffer(page, 'offered');
+      cards.forEach((c, i) => {
+        assert.ok(seen[i], `${c.name}: no box in #offer shows its reason with its picture`);
+        assert.ok(numberedAs(seen[i], i + 1), `${c.name} is not numbered ${i + 1}: ${JSON.stringify(seen[i].leaves)}`);
+        if (c.scryfall_id === MISSING_OFFERED_PICTURE) assert.ok(seen[i].blank && !seen[i].picture, `${c.name}, whose picture was never saved, is not its name on a blank card`);
+        else assert.ok(seen[i].picture?.loaded, `${c.name}'s picture did not load`);
+      });
+      assert.deepEqual(seen.map(s => s.at), seen.map(s => s.at).sort((a, b) => a - b), 'the cards on offer are not drawn in the order they are numbered');
+      const marked = await page.locator('#offer').evaluate(o => o.querySelectorAll('i').length === 0 && o.textContent.includes('& <i>grows</i>'));
+      assert.ok(marked, 'a reason holding markup is not shown as written');
+    }));
+
+  test('P2, R2: Each group is drawn under its heading, with "N of TOTAL shown" when it has a total, whether or not it has a heading; a round of one group with no heading draws no group heading', async () => {
+    await open('offered', async ({ page, deck }) => {
+      const [first, second] = deck.offer.groups;
+      const headings = await offerHeadings(page);
+      for (const g of [first, second]) assert.ok(headings.includes(g.heading), `the group "${g.heading}" has no heading: ${JSON.stringify(headings)}`);
+      const text = (await page.locator('#offer').textContent()).replace(/\s+/g, ' ');
+      const shown = `${first.cards.length} of ${first.total} shown`;
+      assert.deepEqual(text.match(/\d+ of \d+ shown/g), [shown], `#offer does not say "${shown}" once, for the one group with a total`);
+      const at = t => text.indexOf(t);
+      assert.ok(at(first.heading) < at(shown) && at(shown) < at(first.cards[0].reason), `"${shown}" is not drawn between its group's heading and its first card`);
+      assert.ok(at(first.cards.at(-1).reason) < at(second.heading) && at(second.heading) < at(second.cards[0].reason), 'the second group\'s heading is not drawn between the two groups\' cards');
+    });
+    await open('offered-unheaded', async ({ page, deck }) => {
+      const headings = await offerHeadings(page);
+      assert.equal(headings.length, 1, `a round of one unheaded group draws the headings ${JSON.stringify(headings)}`);
+      assert.ok(headings[0].includes(deck.offer.category), `the one heading, ${JSON.stringify(headings[0])}, does not name the category`);
+      assert.doesNotMatch(await page.locator('#offer').textContent(), /\bshown\b/, 'a group with no total says how many are shown');
+      const seen = await readOffer(page, 'offered-unheaded');
+      offeredCards(deck).forEach((c, i) => assert.ok(seen[i] && numberedAs(seen[i], i + 1), `${c.name} is not drawn numbered ${i + 1}`));
+    });
+    await open('offered-unheaded-total', async ({ page, deck }) => {
+      const [group] = deck.offer.groups;
+      assert.ok(!group.heading && group.total === 9 && group.cards.length === 2, 'the deck is not one unheaded group of two cards with a total of 9, so this test proves less than it says');
+      const text = (await page.locator('#offer').textContent()).replace(/\s+/g, ' ');
+      assert.deepEqual(text.match(/\d+ of \d+ shown/g), ['2 of 9 shown'], 'an unheaded group with a total does not say "2 of 9 shown" once');
+      assert.equal(await page.locator('#offer h3').count(), 0, 'an unheaded group with a total draws a group heading');
+      assert.equal((await offerHeadings(page)).length, 1, 'an unheaded group with a total draws a heading besides the category\'s');
+    });
+  });
+
+  // An offered card opens the same dialog a deck card opens (#29), though it is in neither the deck nor the maybeboard.
+  test('R6: An offered card opens the card dialog by click or by Enter, with its name, picture, cost, type line, rules text, reason and "On offer · <category>"', () =>
+    open('offered', async ({ page, deck }) => {
+      const FOCUSABLE = 'button, a[href], [tabindex]:not([tabindex="-1"])';
+      const offer = page.locator('#offer');
+      for (const [name, how] of [['Gnawing Executioner', 'click'], ['Sewer Hexblade', 'Enter']]) {
+        const c = offeredCards(deck).find(o => o.name === name);
+        assert.ok(c && ![...deck.cards, ...deck.maybeboard].some(o => o.name === name), `${name} is not an offered card outside the deck, so this test proves less than it says`);
+        // The smallest focusable element in #offer that shows this card's picture or name and no other offered card's.
+        const at = await offer.evaluate((root, { selector, c, others }) => {
+          const opens = [...root.querySelectorAll(selector)];
+          const holds = e => [...e.querySelectorAll('img')].some(i => i.src.endsWith(`/cards/${c.scryfall_id}.jpg`)) || e.textContent.includes(c.name);
+          const fits = opens.filter(e => holds(e) && !others.some(o => e.textContent.includes(o)));
+          return opens.indexOf(fits.find(e => !fits.some(f => f !== e && e.contains(f))));
+        }, { selector: FOCUSABLE, c, others: offeredCards(deck).filter(o => o !== c).map(o => o.name) });
+        assert.ok(at >= 0, `${name} on offer is not a button or anything else that takes the keyboard's focus`);
+        const opener = offer.locator(FOCUSABLE).nth(at);
+        if (how === 'click') await opener.click();
+        else { await opener.focus(); await page.keyboard.press('Enter'); }
+        const d = dialog(page);
+        assert.ok(await until(() => d.count()), `${how === 'click' ? 'clicking' : 'Enter on'} ${name} on offer shows no dialog`);
+        assert.equal(await d.first().getAttribute('id'), 'card-dialog', `${name} on offer opens a dialog that is not the card dialog`);
+        assert.equal(await page.locator('#dialog-name').textContent(), name, 'the dialog\'s name');
+        await settlePictures(page.locator('#dialog-picture'));
+        assert.ok((await pictures(page.locator('#dialog-picture'))).some(p => p.src === picturePath('offered', c.scryfall_id) && p.loaded), 'the dialog does not show the offered card\'s picture');
+        const cost = page.locator('#dialog-cost');
+        assert.ok(await cost.isVisible(), 'the dialog shows no cost');
+        assert.deepEqual(await cost.locator('.mana').evaluateAll(runs => runs.map(m => m.children.length)), [2], `${c.copy.mana_cost} is not drawn as one run of two symbols`);
+        assert.doesNotMatch(await cost.innerText(), /[{}]/, 'the dialog shows raw braces');
+        assert.equal(await page.locator('#dialog-type-line').textContent(), c.copy.type_line, 'the dialog\'s type line');
+        assert.equal((await page.locator('#dialog-rules').innerText()).trim(), c.copy.text, 'the dialog\'s rules text');
+        assert.ok(await page.locator('#dialog-why').isVisible(), 'the dialog does not show the offered card\'s reason');
+        assert.equal(await page.locator('#dialog-why').textContent(), c.reason, 'the dialog\'s reason');
+        assert.ok((await page.locator('#dialog-category').textContent()).includes(`On offer · ${deck.offer.category}`), `the dialog does not say "On offer · ${deck.offer.category}"`);
+        await closeDialog(page);
+      }
+    }));
+
+  // Each card on offer is its own entry, though it shares a name with another on offer, on the maybeboard or in the deck.
+  test('R10: The same card offered in two groups for two reasons opens, from each button, with that button\'s reason', () =>
+    open('offered-twice', async ({ page, deck }) => {
+      const twice = offeredCards(deck).filter(c => c.name === 'Gnawing Executioner');
+      assert.ok(twice.length === 2 && twice[0].scryfall_id === twice[1].scryfall_id && twice[0].reason !== twice[1].reason
+        && deck.offer.groups.every(g => g.cards.includes(twice[0]) || g.cards.includes(twice[1])),
+      'the deck does not offer one card in two groups for two reasons, so this test proves less than it says');
+      for (const c of twice) {
+        const shown = await openOffered(page, c.reason);
+        assert.ok(shown, `the button holding "${c.reason}" opens no dialog`);
+        assert.equal(shown.name, c.name, 'the dialog\'s name');
+        assert.equal(shown.why, c.reason, `the button holding "${c.reason}" opens with the reason "${shown.why}"`);
+        assert.ok(shown.category.includes(`On offer · ${deck.offer.category}`), `the button holding "${c.reason}" opens as "${shown.category}"`);
+      }
+    }));
+
+  test('R10: A maybeboard card also on offer opens from its offered button as "On offer · <category>" with the offer\'s reason, and from its maybeboard tile as the maybeboard\'s card', () =>
+    open('offered-maybe', async ({ page, deck }) => {
+      const maybe = deck.maybeboard.find(m => m.name === 'Shade of Doubt');
+      const c = offeredCards(deck).find(o => o.name === maybe?.name);
+      assert.ok(maybe && c && c.scryfall_id === maybe.scryfall_id && c.reason !== maybe.why, 'the deck does not offer its maybeboard card, so this test proves less than it says');
+      const shown = await openOffered(page, c.reason);
+      assert.ok(shown, `${c.name} on offer opens no dialog`);
+      assert.ok(shown.category.includes(`On offer · ${deck.offer.category}`), `${c.name} on offer opens as "${shown.category}", not "On offer · ${deck.offer.category}"`);
+      assert.equal(shown.why, c.reason, `${c.name} on offer opens with the reason "${shown.why}"`);
+      const d = await openCard(page, 'offered-maybe', maybe.name);
+      const fromTile = await dialogShows(page);
+      assert.ok(!fromTile.category.includes('On offer'), `${maybe.name}'s maybeboard tile opens as "${fromTile.category}"`);
+      assert.match(fromTile.category, /Maybeboard/, `${maybe.name}'s maybeboard tile does not open as the maybeboard's card`);
+      assert.ok((await d.innerText()).includes(maybe.why), `${maybe.name}'s maybeboard tile does not show its why`);
+      await closeDialog(page);
+    }));
+
+  // A card on offer named as one in the deck: the page promises only that the deck's tile opens the deck's card.
+  test('R10: A deck card whose name a card on offer shares opens from the grid as the deck\'s card', () =>
+    open('offered-maybe', async ({ page, deck }) => {
+      const inDeck = byName(deck, 'Grim Bargain');
+      assert.ok(inDeck && offeredCards(deck).some(o => o.name === inDeck.name), 'no card on offer shares a deck card\'s name, so this test proves nothing');
+      await openCard(page, 'offered-maybe', inDeck.name);
+      const shown = await dialogShows(page);
+      assert.ok(shown.category.startsWith(inDeck.category) && !shown.category.includes('On offer'), `${inDeck.name}'s tile in the deck opens as "${shown.category}"`);
+      assert.equal(shown.why, inDeck.why, `${inDeck.name}'s tile in the deck opens with "${shown.why}"`);
+      await closeDialog(page);
+    }));
+
+  test('R10: An offered card with no name is no button that does nothing: every focusable element in #offer opens the dialog with its own reason', () =>
+    open('offered-nameless', async ({ page, deck }) => {
+      const nameless = offeredCards(deck).find(c => !c.name);
+      assert.ok(nameless && offeredCards(deck).some(c => c.name), 'the deck offers no nameless card beside a named one, so this test proves less than it says');
+      const FOCUSABLE = 'button, a[href], [tabindex]:not([tabindex="-1"])';
+      const offer = page.locator('#offer');
+      const reasons = offeredCards(deck).map(c => c.reason);
+      const openers = await offer.locator(FOCUSABLE).count();
+      assert.ok(openers >= 1, 'no card on offer takes the keyboard\'s focus, so this test proves nothing');
+      for (let i = 0; i < openers; i++) {
+        const opener = offer.locator(FOCUSABLE).nth(i);
+        const text = await opener.textContent();
+        const reason = reasons.find(r => r && text.includes(r));
+        await opener.click();
+        const opened = await until(() => dialog(page).count(), 1500);
+        assert.ok(opened, `the focusable element ${i + 1} in #offer, "${text.replace(/\s+/g, ' ').trim()}", opens no dialog`);
+        const shown = await dialogShows(page);
+        if (reason) assert.equal(shown.why, reason, `the focusable element holding "${reason}" opens with "${shown.why}"`);
+        await closeDialog(page);
+        assert.ok(await until(async () => (await dialog(page).count()) === 0), 'the dialog does not close');
+      }
+      // Nor is the nameless card's box a control of another kind that does nothing.
+      const control = await offer.evaluate((root, reason) => {
+        const at = [...root.querySelectorAll('*')].filter(e => e.textContent.includes(reason)).at(-1);
+        const c = at?.closest('button, a, [role="button"], [data-card], [onclick]');
+        if (!c || !root.contains(c)) return -1;
+        c.setAttribute('data-r10-control', '');
+        return 1;
+      }, nameless.reason);
+      if (control > 0) {
+        await offer.locator('[data-r10-control]').click();
+        assert.ok(await until(() => dialog(page).count(), 1500), 'the nameless card on offer is a control that opens no dialog');
+        assert.equal((await dialogShows(page)).why, nameless.reason, 'the nameless card on offer opens with another reason');
+      }
+    }));
+
+  test('P3: A suggested card is marked "Suggested", a crossover card "Crossover" with "Printed on Arena as" its printed name when it has one, and no card is marked otherwise', () =>
+    open('offered', async ({ page, deck }) => {
+      const cards = offeredCards(deck), seen = await readOffer(page, 'offered');
+      cards.forEach((c, i) => {
+        assert.ok(seen[i], `${c.name}: no box in #offer shows its reason with its picture`);
+        assert.equal(seen[i].leaves.includes('Suggested'), c.suggested === true, `${c.name} is ${c.suggested ? 'not ' : ''}marked Suggested: ${JSON.stringify(seen[i].leaves)}`);
+        assert.equal(seen[i].leaves.includes('Crossover'), c.crossover === true, `${c.name} is ${c.crossover ? 'not ' : ''}marked Crossover: ${JSON.stringify(seen[i].leaves)}`);
+        const printed = c.printed_name ? `Printed on Arena as ${c.printed_name}` : 'Printed on Arena as';
+        assert.equal(seen[i].text.includes(printed), !!c.printed_name, `${c.name}: ${c.printed_name ? `"${printed}" is not shown` : 'a printed name is shown for a card with none'}: ${seen[i].text}`);
+      });
+    }));
+
+  test('P4: With no round on offer, or a round with no cards, #offer is hidden and holds nothing', async () => {
+    for (const name of ['rich', 'offer-no-groups', 'offer-no-cards']) {
+      await open(name, async ({ page }) => {
+        const offer = await page.evaluate(() => {
+          const o = document.getElementById('offer');
+          return o && { shown: o.checkVisibility(), children: o.childElementCount, text: o.textContent.trim() };
+        });
+        assert.ok(offer, `${name}: the page has no #offer section`);
+        assert.deepEqual(offer, { shown: false, children: 0, text: '' }, `${name}: #offer is drawn or holds something`);
+      });
+    }
+  });
+
+  test('P4: Cards on offer are not counted in the headline numbers, the curve or the Arena list', async () => {
+    await open('offered', async ({ page, deck }) => {
+      assert.ok(await visible(page.locator('#offer')), 'the #offer section is not drawn, so this test proves nothing');
+      const want = deckStats(deck);
+      const { found } = await headline(page, { cards: 'cards', rats: 'Rats?', lands: 'lands', average: 'average mana value', rares: 'rares and mythics' });
+      assert.equal(found.cards, want.cards, 'cards');
+      assert.equal(found.rats, 5, 'Rats');
+      assert.equal(found.lands, want.lands, 'lands');
+      assert.ok(Math.abs(found.average - want.average) < 0.051, `average mana value ${found.average}, want ${want.average.toFixed(2)}`);
+      assert.equal(found.rares, want.rares, 'rares and mythics');
+      assert.equal(await page.locator('#hero-line').textContent(), 'Brawl · 29 of 100 cards · In progress');
+      assert.equal(await page.locator('#arena-list').textContent(), arenaList(deck));
+    });
+    await open('offered', { reducedMotion: 'reduce' }, async ({ page, deck }) => {
+      const curve = await finishedCurve(page);
+      assert.ok(curve?.legend, 'the curve is not drawn');
+      const want = curveBuckets(deck);
+      const unit = Math.max(...curve.columns.map(c => c.creature + c.other)) / Math.max(...want.map(b => b.creature + b.other));
+      curve.columns.forEach((col, i) => assert.ok(Math.abs(col.creature - want[i].creature * unit) < 2, `bar ${i}: creature part ${col.creature.toFixed(1)} px, want ${want[i].creature} cards`));
+    });
+  });
+});
+
+// ======================================================================
+describe('Without a name, by layout, by format', () => {
+  test('P5: A deck with no name, or an empty one, is titled by its format and its first theme criterion, or by its format alone', async () => {
+    for (const [name, title] of [['nameless-with-theme', 'Brawl · Rats'], ['nameless-empty-name', 'Standard · Big green creatures'], ['nameless-without-theme', 'Brawl']]) {
+      await open(name, async ({ page }) => {
+        assert.equal(await page.locator('#top h1').innerText(), title, `${name}: the hero's heading`);
+        assert.equal(await page.title(), title, `${name}: the page's title`);
+      });
+    }
+  });
+
+  test('R7: The deck page is titled "Deckwright" before its script runs', () => {
+    assert.match(fs.readFileSync(PAGE, 'utf8'), /<title>Deckwright<\/title>/, 'the deck page\'s <title> in the file is not "Deckwright"');
+  });
+
+  test('P6: The Arena list writes a modal double-faced, transform, adventure or prepare card by its front face, and a split card, a card of another layout and one with no layout by its full name', () =>
+    open('layouts', async ({ page }) => {
+      const want = [
+        'Commander',
+        '1 Moorland Watcher',
+        '',
+        'Deck',
+        '1 Sundering Eruption',
+        '1 Ember Giant',
+        '1 Tidecaller Adept',
+        '1 Fire // Ice',
+        '1 Odd Shape // Other Shape',
+        '1 Night // Day',
+        '1 Quick Shock',
+        '5 Mountain',
+      ].join('\n');
+      assert.equal(await page.locator('#arena-list').textContent(), want, 'the Arena list as drawn');
+      const copy = page.locator('#import').getByRole('button', { name: /copy/i }).filter({ visible: true });
+      assert.equal(await copiedBy(page, copy), want, 'the Arena list as copied');
+    }));
+
+  test('P7: The Arena import says, word for word, how to set the deck\'s format in Arena', async () => {
+    const notes = {
+      rich: 'In Arena, set the deck\'s format to Brawl. When you craft missing cards, Arena can show cards as not valid in Standard or Alchemy. That is normal for a Brawl deck, because Brawl allows older cards.',
+      mono: 'In Arena, set the deck\'s format to Standard.',
+    };
+    for (const [name, note] of Object.entries(notes)) {
+      await open(name, async ({ page }) => {
+        const texts = await page.locator('#import').evaluate(s => [...s.querySelectorAll('*')].filter(e => e.checkVisibility()).map(e => e.innerText));
+        assert.ok(texts.includes(note), `${name}: no element of the Arena import reads exactly ${JSON.stringify(note)}`);
+        if (name === 'mono') assert.ok(!texts.some(t => t.includes('Brawl')), `${name}: the Arena import of a Standard deck mentions Brawl`);
+      });
+    }
+  });
+});
+
+// ======================================================================
+// Every path in a deck: each key of an object, and the first element of each list.
+function* fieldPaths(value, at = []) {
+  const children = Array.isArray(value) ? value.slice(0, 1).map((v, i) => [i, v]) : value && typeof value === 'object' ? Object.entries(value) : [];
+  for (const [key, child] of children) {
+    yield [...at, key];
+    yield* fieldPaths(child, [...at, key]);
+  }
+}
+
+const HOSTILE = '<img src=x onerror=window.__pwned=1>';
+const wrongType = value => typeof value === 'string' ? 42 : 'wrong type';
+
+// The text of deck.json with the field at a path changed; dropping the root leaves the file empty.
+function mutated(deck, at, change) {
+  if (!at.length) return change === 'dropped' ? '' : JSON.stringify(change === 'wrong type' ? 'wrong type' : change === 'null' ? null : HOSTILE);
+  const copy = structuredClone(deck);
+  const parent = at.slice(0, -1).reduce((v, k) => v[k], copy), key = at.at(-1);
+  const old = parent[key];
+  if (change === 'dropped') Array.isArray(parent) ? parent.splice(key, 1) : delete parent[key];
+  else parent[key] = change === 'wrong type' ? wrongType(old) : change === 'null' ? null : HOSTILE;
+  return JSON.stringify(copy, null, 2);
+}
+
+const pathName = at => at.length ? at.map(k => typeof k === 'number' ? `[${k}]` : `.${k}`).join('').slice(1) : 'the document root';
+
+describe('Every field of the example', () => {
+  test('P11: Each field of deck.example.json dropped, of the wrong type, null or a hostile string still leaves the Arena list drawn, no console error but a section left out, and no element from the string', async () => {
+    const example = deckOf('example');
+    const mutations = [[], ...fieldPaths(example)].flatMap(at => ['dropped', 'wrong type', 'null', 'hostile'].map(change => ({ at, change })));
+    const context = await browser.newContext();
+    const picture = await (await context.request.get(`${server.origin}/example/cards/${example.cards[0].scryfall_id}.jpg`)).body();
+    await context.route('**/*', route => {
+      const url = new URL(route.request().url());
+      if (FONT_HOSTS.includes(url.hostname)) return answerFontHost(route);
+      // Every picture a changed deck names is served, so the console holds only what the page says.
+      if (url.origin === server.origin && url.pathname.endsWith('.jpg')) return route.fulfill({ status: 200, contentType: 'image/jpeg', body: picture });
+      return url.origin === server.origin ? route.continue() : route.abort();
+    });
+    const failures = [];
+    const sweep = async queue => {
+      const page = await context.newPage();
+      let errors = [], text;
+      page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+      page.on('pageerror', e => errors.push(String(e)));
+      await page.route('**/example/deck.json', route => route.fulfill({ status: 200, contentType: 'application/json', body: text }));
+      for (let m; (m = queue.shift());) {
+        errors = [];
+        text = mutated(example, m.at, m.change);
+        const named = `${pathName(m.at)} ${m.change}`;
+        await page.goto(`${server.origin}/example/`, { waitUntil: 'load' });
+        const crashed = new Promise(settle => page.once('pageerror', settle));
+        const finished = await Promise.race([untilDrawn(page, 2000).then(() => true, () => false), crashed.then(() => false)]);
+        const seen = await page.evaluate(() => ({
+          list: (l => l && l.checkVisibility() ? l.textContent : null)(document.getElementById('arena-list')),
+          unread: /Could not read deck\.json/.test(document.getElementById('top')?.textContent || ''),
+          pwned: window.__pwned !== undefined,
+          injected: document.querySelectorAll('[onerror]').length,
+        }));
+        const problems = [];
+        if (!finished) problems.push('the page did not finish drawing');
+        if (m.at.length ? !seen.list : !seen.unread) problems.push(m.at.length ? 'no Arena list' : 'no "Could not read deck.json"');
+        const stray = errors.filter(e => !/^The #[\w-]+ section could not be drawn/.test(e));
+        if (stray.length) problems.push(`console: ${stray.join(' | ')}`);
+        if (seen.pwned || seen.injected) problems.push('the hostile string ran or made an element');
+        if (problems.length) failures.push(`${named}: ${problems.join('; ')}`);
+      }
+      await page.close();
+    };
+    try {
+      const queue = [...mutations];
+      await Promise.all(Array.from({ length: 4 }, () => sweep(queue)));
+    } finally {
+      await context.close();
+    }
+    assert.ok(mutations.length > 4 * 40, `only ${mutations.length} changes were made to the example, so the sweep proves little`);
+    assert.ok(!failures.length, `${failures.length} of ${mutations.length} changes to deck.example.json break the page:\n${failures.join('\n')}`);
+  });
+});
+
+// ======================================================================
 describe('Edge cases', () => {
   test('The format is read whatever its case, and a format the page does not know is drawn as Standard', async () => {
     for (const [name, format, size, life] of [['drawn-capital-brawl', 'Brawl', 100, 25], ['drawn-no-format', 'Standard', 60, 20]]) {
       await open(name, { reducedMotion: 'reduce' }, async ({ page, deck }) => {
-        const hero = await sectionText(page, 'top');
-        assert.match(hero, new RegExp(`${format} · 10 of ${size} cards`, 'i'), `format "${deck.format}": the hero line reads ${JSON.stringify(hero.split('\n')[0])}`);
+        assert.equal(await page.locator('#hero-line').textContent(), `${format} · 10 of ${size} cards · In progress`, `format "${deck.format}": the hero line`);
         const scene = page.locator('#main-scene');
         await settlePictures(scene);
         const step = deck.scenes[0].steps.at(-1), index = step.things.findIndex(t => t.damage !== undefined);
@@ -1506,11 +1929,10 @@ describe('Edge cases', () => {
     }
   });
 
-  test('The hero shows the format, the card count against the format\'s size, and Approved or In progress', async () => {
-    for (const [name, line] of [['rich', [/Brawl/i, /\b29 of 100\b/i, /In progress/i]], ['mono', [/Standard/i, /\b36 of 60\b/i, /Approved/i]]]) {
+  test('P13: The hero line shows the format, the card count against the format\'s size, and Approved or In progress, exactly as drawn', async () => {
+    for (const [name, line] of [['rich', 'Brawl · 29 of 100 cards · In progress'], ['mono', 'Standard · 36 of 60 cards · Approved']]) {
       await open(name, async ({ page }) => {
-        const text = await sectionText(page, 'top');
-        for (const part of line) assert.match(text, part, `${name}: the hero line lacks ${part}`);
+        assert.equal(await page.locator('#hero-line').textContent(), line, `${name}: the hero line`);
       });
     }
   });
@@ -1568,7 +1990,7 @@ describe('Edge cases', () => {
       const pre = page.locator('pre').filter({ visible: true });
       const inView = await until(() => pre.evaluate(e => { const r = e.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }));
       assert.ok(inView, 'the Arena list is not brought into view');
-      assert.equal((await pre.innerText()).trim(), arenaList(deck));
+      assert.equal(await page.locator('#arena-list').textContent(), arenaList(deck));
     }));
 
   test('The clipboard refused a second time still brings the Arena list into view', () =>
@@ -1598,8 +2020,8 @@ describe('Edge cases', () => {
     open('half-mana-value', { reducedMotion: 'reduce' }, async ({ page, errors }) => {
       const pre = page.locator('pre').filter({ visible: true });
       assert.equal(await pre.count(), 1, `the Arena list is not drawn; errors: ${errors.join(' | ')}`);
-      assert.equal((await pre.innerText()).trim(), arenaList(deckOf('half-mana-value')));
-      const curve = await steadyCurve(page);
+      assert.equal(await page.locator('#arena-list').textContent(), arenaList(deckOf('half-mana-value')));
+      const curve = await finishedCurve(page);
       assert.ok(curve?.legend, 'the curve is not drawn');
       const parts = curve.columns.map(c => c.other > 0 ? 'other' : c.creature > 0 ? 'creature' : '');
       assert.deepEqual(parts.slice(0, 3), ['other', 'other', 'creature'], 'Half Spark (0.5) is not in column 0 beside the two one-mana spells in column 1 and the commander in column 2');

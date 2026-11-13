@@ -77,7 +77,10 @@
         "mana_cost": "{U}{U}{U}{R}{R}{R}",
         "type_line": "Legendary Creature — Dragon Wizard",
         "text": "This spell can't be countered.\nFlying\nWhenever you draw a card, Niv-Mizzet deals 1 damage to any target.\nWhenever a player casts an instant or sorcery spell, you draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 6.0,
+        "layout": "normal"
       }
     },
     {
@@ -94,7 +97,10 @@
         "mana_cost": "{2}",
         "type_line": "Artifact",
         "text": "{T}: Add one mana of any color in your commander's color identity.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -111,7 +117,10 @@
         "mana_cost": "{2}",
         "type_line": "Artifact",
         "text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -128,7 +137,10 @@
         "mana_cost": "{4}",
         "type_line": "Artifact Creature — Golem",
         "text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -145,7 +157,10 @@
         "mana_cost": "{3}",
         "type_line": "Artifact",
         "text": "Lands you control have \"{T}: Add one mana of any color.\"\n{T}: Add one mana of any color.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -162,7 +177,10 @@
         "mana_cost": "{2}{R}",
         "type_line": "Sorcery",
         "text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n• Add {R} for each card in target opponent's hand.\n• Exile the top three cards of your library. You may play them this turn.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -179,7 +197,10 @@
         "mana_cost": "{2}",
         "type_line": "Artifact",
         "text": "{T}: Add {C}.\n{T}: Add {U} or {R}. This artifact deals 1 damage to you.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -196,7 +217,10 @@
         "mana_cost": "{1}",
         "type_line": "Artifact",
         "text": "{2}, {T}, Sacrifice this artifact: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -213,7 +237,10 @@
         "mana_cost": "{3}",
         "type_line": "Artifact",
         "text": "Sacrifice a creature: Add {C}{C}.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -230,7 +257,10 @@
         "mana_cost": "{2}{U}",
         "type_line": "Enchantment",
         "text": "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -247,7 +277,10 @@
         "mana_cost": "{U}",
         "type_line": "Instant",
         "text": "Draw three cards, then put two cards from your hand on top of your library in any order.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -264,7 +297,10 @@
         "mana_cost": "{4}",
         "type_line": "Legendary Artifact",
         "text": "Indestructible\nWhen The One Ring enters, if you cast it, you gain protection from everything until your next turn.\nAt the beginning of your upkeep, you lose 1 life for each burden counter on The One Ring.\n{T}: Put a burden counter on The One Ring, then draw a card for each burden counter on The One Ring.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -281,7 +317,10 @@
         "mana_cost": "{2}{U}",
         "type_line": "Instant",
         "text": "Draw two cards, then discard two cards. Untap up to three lands.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -298,7 +337,10 @@
         "mana_cost": "{R}",
         "type_line": "Sorcery",
         "text": "Draw two cards, then discard two cards.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -315,7 +357,10 @@
         "mana_cost": "{U}",
         "type_line": "Enchantment",
         "text": "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhenever an opponent casts a noncreature spell, you may draw a card unless that player pays {4}.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -332,7 +377,10 @@
         "mana_cost": "{3}{R}",
         "type_line": "Instant",
         "text": "As an additional cost to cast this spell, discard a card.\nDraw two cards and create two Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -349,7 +397,10 @@
         "mana_cost": "{U}",
         "type_line": "Sorcery",
         "text": "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -366,7 +417,10 @@
         "mana_cost": "{8}{R}",
         "type_line": "Sorcery",
         "text": "This spell costs {1} less to cast for each creature on the battlefield.\nBlasphemous Act deals 13 damage to each creature.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 9.0,
+        "layout": "normal"
       }
     },
     {
@@ -383,7 +437,10 @@
         "mana_cost": "{2}{R}",
         "type_line": "Instant",
         "text": "The owner of target permanent shuffles it into their library, then reveals the top card of their library. If it's a permanent card, they put it onto the battlefield.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -400,7 +457,10 @@
         "mana_cost": "{1}{U}",
         "type_line": "Instant",
         "text": "Return target nonland permanent you don't control to its owner's hand.\nOverload {6}{U} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -417,7 +477,10 @@
         "mana_cost": "{1}{R}",
         "type_line": "Instant",
         "text": "Choose one —\n• Abrade deals 3 damage to target creature.\n• Destroy target artifact.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -434,7 +497,10 @@
         "mana_cost": "{U}",
         "type_line": "Instant",
         "text": "Destroy target creature. It can't be regenerated. Its controller creates a 3/3 green Ape creature token.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -451,7 +517,10 @@
         "mana_cost": "{R}",
         "type_line": "Instant",
         "text": "Lightning Bolt deals 3 damage to any target.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -468,7 +537,10 @@
         "mana_cost": "{U}",
         "type_line": "Instant",
         "text": "Destroy target creature. It can't be regenerated. That creature's controller creates a 3/3 green Frog Lizard creature token.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -485,7 +557,10 @@
         "mana_cost": "{1}{R}",
         "type_line": "Instant",
         "text": "Choose one —\n• Destroy target artifact.\n• Change the target of target spell or ability with a single target.\n• One or two target creatures can't block this turn.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -502,7 +577,10 @@
         "mana_cost": "{U}{U}",
         "type_line": "Instant",
         "text": "Counter target spell.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -519,7 +597,10 @@
         "mana_cost": "{U}",
         "type_line": "Instant",
         "text": "Counter target noncreature spell. Its controller creates two Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -536,7 +617,10 @@
         "mana_cost": "{1}{U}",
         "type_line": "Instant",
         "text": "Counter target noncreature spell.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -553,7 +637,10 @@
         "mana_cost": "{U}",
         "type_line": "Instant",
         "text": "Counter target enchantment, instant, or sorcery spell. Its controller creates a 2/2 blue Bird creature token with flying.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -570,7 +657,10 @@
         "mana_cost": "{U}",
         "type_line": "Instant",
         "text": "Search your library for an instant or sorcery card, reveal it, then shuffle and put that card on top.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -587,7 +677,10 @@
         "mana_cost": "{U}",
         "type_line": "Sorcery",
         "text": "Scry 2, then draw a card. (To scry 2, look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -604,7 +697,10 @@
         "mana_cost": "{1}{R}",
         "type_line": "Instant",
         "text": "As an additional cost to cast this spell, discard a card.\nDraw two cards.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -621,7 +717,10 @@
         "mana_cost": "{U}",
         "type_line": "Instant",
         "text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -638,7 +737,10 @@
         "mana_cost": "{3}{R}",
         "type_line": "Creature — Dwarf Shaman",
         "text": "This creature gets +1/+0 for each artifact you control.\nMagecraft — Whenever you cast or copy an instant or sorcery spell, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -655,7 +757,10 @@
         "mana_cost": "{2}{U}{U}",
         "type_line": "Creature — Human Wizard",
         "text": "Magecraft — Whenever you cast or copy an instant or sorcery spell, draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -672,7 +777,10 @@
         "mana_cost": "{2}{R}",
         "type_line": "Creature — Goblin Shaman",
         "text": "Whenever you cast an instant or sorcery spell, this creature deals 2 damage to each opponent.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -689,7 +797,10 @@
         "mana_cost": "{1}{R}{R}",
         "type_line": "Creature — Human Wizard",
         "text": "Flash\nWhen this creature enters, copy target instant or sorcery spell. You may choose new targets for the copy.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -706,7 +817,10 @@
         "mana_cost": "{2}{U}{U}",
         "type_line": "Legendary Creature — Merfolk Wizard",
         "text": "Whenever you cast an instant or sorcery spell, create a 2/2 blue Drake creature token with flying.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -723,7 +837,10 @@
         "mana_cost": "{1}{R}",
         "type_line": "Creature — Human Shaman",
         "text": "Whenever you cast an instant or sorcery spell, create a 1/1 red Elemental creature token.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -740,7 +857,10 @@
         "mana_cost": "{3}{U}{U}",
         "type_line": "Creature — Giant Wizard",
         "text": "Instant and sorcery spells you cast cost {1} less to cast.\nWhenever you cast an instant or sorcery spell, draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 5.0,
+        "layout": "normal"
       }
     },
     {
@@ -757,7 +877,10 @@
         "mana_cost": "{1}{R}{R}",
         "type_line": "Legendary Creature — Human Villain",
         "text": "Flying\nYou don't lose unspent red mana as steps and phases end.\nWhenever you cast an instant or sorcery spell, add {R}.\nWhen Electro leaves the battlefield, you may pay {X}. When you do, he deals X damage to target player.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -774,7 +897,10 @@
         "mana_cost": "{1}{U}{U}",
         "type_line": "Instant",
         "text": "If it's not your turn, you may exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -791,7 +917,10 @@
         "mana_cost": "{5}{U}{U}",
         "type_line": "Creature — Kraken Horror",
         "text": "Flash\nThis spell can't be countered.\nWhenever you cast a spell, choose up to one —\n• Return target spell you don't control to its owner's hand.\n• Return target nonland permanent to its owner's hand.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 7.0,
+        "layout": "normal"
       }
     },
     {
@@ -808,7 +937,10 @@
         "mana_cost": "{U}",
         "type_line": "Instant",
         "text": "Counter target instant or sorcery spell unless its controller pays {1}.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -825,7 +957,10 @@
         "mana_cost": "{0}",
         "type_line": "Instant",
         "text": "Counter target spell.\nAt the beginning of your next upkeep, pay {3}{U}{U}. If you don't, you lose the game.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 0.0,
+        "layout": "normal"
       }
     },
     {
@@ -842,7 +977,10 @@
         "mana_cost": "{2}{U}{U}",
         "type_line": "Instant — Trap",
         "text": "If an opponent cast three or more spells this turn, you may pay {0} rather than pay this spell's mana cost.\nExile any number of target spells.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -859,7 +997,10 @@
         "mana_cost": "{1}{R}",
         "type_line": "Instant",
         "text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -876,7 +1017,10 @@
         "mana_cost": "{U}{U}",
         "type_line": "Instant",
         "text": "Copy target instant or sorcery spell, then return it to its owner's hand. You may choose new targets for the copy.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -893,7 +1037,10 @@
         "mana_cost": "{U}",
         "type_line": "Instant",
         "text": "Counter target noncreature spell unless its controller pays {2}.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -910,7 +1057,10 @@
         "mana_cost": "{1}{R}",
         "type_line": "Enchantment",
         "text": "Whenever a creature you control enters, this enchantment deals 1 damage to each opponent.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -927,7 +1077,10 @@
         "mana_cost": "{4}",
         "type_line": "Artifact",
         "text": "Whenever you cast a spell, you gain 1 life for each spell you've cast this turn.\nPay 50 life: This artifact deals 50 damage to any target.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -944,7 +1097,10 @@
         "mana_cost": "{1}{R}",
         "type_line": "Enchantment",
         "text": "Sacrifice a creature: This enchantment deals 1 damage to any target.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -961,7 +1117,10 @@
         "mana_cost": "{3}{R}{R}",
         "type_line": "Sorcery",
         "text": "Target creature you control deals damage equal to its power to each other creature and each opponent.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 5.0,
+        "layout": "normal"
       }
     },
     {
@@ -978,7 +1137,10 @@
         "mana_cost": "{3}{R}{R}",
         "type_line": "Creature — Dragon",
         "text": "Flying\nSpells your opponents cast that target this creature cost an additional 3 life to cast.\nWhenever another creature you control enters, this creature deals damage equal to that creature's power to any target.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 5.0,
+        "layout": "normal"
       }
     },
     {
@@ -995,7 +1157,10 @@
         "mana_cost": "{1}{R}",
         "type_line": "Creature — Human Artificer",
         "text": "Whenever an artifact you control enters, this creature deals 1 damage to each opponent.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -1012,7 +1177,10 @@
         "mana_cost": "{3}{R}",
         "type_line": "Legendary Enchantment Creature — God",
         "text": "Indestructible\nAs long as your devotion to red is less than five, Purphoros isn't a creature.\nWhenever another creature you control enters, Purphoros deals 2 damage to each opponent.\n{2}{R}: Creatures you control get +1/+0 until end of turn.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -1029,7 +1197,10 @@
         "mana_cost": "{5}{R}",
         "type_line": "Enchantment",
         "text": "Whenever a creature you control enters, it deals damage equal to its power to any target.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 6.0,
+        "layout": "normal"
       }
     },
     {
@@ -1046,7 +1217,10 @@
         "mana_cost": "{1}{R}{R}",
         "type_line": "Instant",
         "text": "You may sacrifice a nontoken red creature rather than pay this spell's mana cost.\nCopy target instant or sorcery spell. You may choose new targets for the copy.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -1063,7 +1237,10 @@
         "mana_cost": "{4}",
         "type_line": "Legendary Artifact",
         "text": "{2}, {T}: Copy target activated or triggered ability you control. You may choose new targets for the copy.\n{3}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n{4}, {T}: Copy target permanent spell you control. (The copy becomes a token.)",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -1080,7 +1257,10 @@
         "mana_cost": "{1}{U}",
         "type_line": "Legendary Creature — Otter Wizard",
         "text": "Vigilance\nProwess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\n{T}: Draw a card, then discard a card.\n{2}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy. Activate only if Kitsa's power is 3 or greater.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -1097,7 +1277,10 @@
         "mana_cost": "{R}{R}",
         "type_line": "Instant",
         "text": "Copy target instant or sorcery spell you control. If this spell was cast from a graveyard, copy that spell twice instead. You may choose new targets for the copies.\nFlashback {3}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -1114,7 +1297,10 @@
         "mana_cost": "{U/R}{U/R} // {X}{U}{U}{R}{R}",
         "type_line": "Instant // Instant",
         "text": "Copy target instant or sorcery spell with mana value 4 or less. You may choose new targets for the copy.\n//\nExplosion deals X damage to any target. Target player draws X cards.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 6.0,
+        "layout": "split"
       }
     },
     {
@@ -1131,7 +1317,10 @@
         "mana_cost": "{1}{U}{R}",
         "type_line": "Legendary Creature — Human Rogue",
         "text": "Whenever you cast your second spell each turn, exile the top card of your library. Until the end of your next turn, you may play that card.\n{T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy. Activate only if you've cast three or more spells this turn.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -1148,7 +1337,10 @@
         "mana_cost": "{2}{U}{U}",
         "type_line": "Legendary Creature — Human Wizard",
         "text": "Flash\nWhen Naru Meha enters, copy target instant or sorcery spell you control. You may choose new targets for the copy.\nOther Wizards you control get +1/+1.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -1165,7 +1357,10 @@
         "mana_cost": "{3}{U}{R}",
         "type_line": "Legendary Creature — Avatar Wizard",
         "text": "Whenever you cast an instant or sorcery spell, choose one that hasn't been chosen —\n• You may tap or untap target permanent.\n• Gandalf deals 3 damage to each opponent.\n• Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n• Put Gandalf on top of its owner's library.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 5.0,
+        "layout": "normal"
       }
     }
   ],

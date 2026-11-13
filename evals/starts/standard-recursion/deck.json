@@ -77,7 +77,10 @@
         "mana_cost": "{G}",
         "type_line": "Creature — Elf Druid",
         "text": "{T}: Add {G}.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -94,7 +97,10 @@
         "mana_cost": "{1}{G}",
         "type_line": "Creature — Elf Druid",
         "text": "Vivid — {T}: For each color among permanents you control, add one mana of that color.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -111,7 +117,10 @@
         "mana_cost": "{B}",
         "type_line": "Instant",
         "text": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards.",
-        "taken": "2026-11-09"
+        "rarity": "common",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -128,7 +137,10 @@
         "mana_cost": "{B}",
         "type_line": "Enchantment",
         "text": "{1}{B}, Sacrifice a creature: You gain 1 life and draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 1.0,
+        "layout": "normal"
       }
     },
     {
@@ -145,7 +157,10 @@
         "mana_cost": "{4}",
         "type_line": "Artifact Creature — Golem",
         "text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 4.0,
+        "layout": "normal"
       }
     },
     {
@@ -162,7 +177,10 @@
         "mana_cost": "{1}{G}{G}",
         "type_line": "Enchantment Creature — Elk Glimmer",
         "text": "Vigilance\nCreatures you control have \"{T}: Add one mana of any color.\"\nWhen Enduring Vitality dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment. (It's not a creature.)",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 3.0,
+        "layout": "normal"
       }
     },
     {
@@ -179,7 +197,10 @@
         "mana_cost": "{1}{G}",
         "type_line": "Creature — Elf Detective",
         "text": "When this creature enters, mill three cards. (Put the top three cards of your library into your graveyard.)\n{3}{G}, Sacrifice this creature: Return all land cards from your graveyard to the battlefield tapped.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -196,7 +217,10 @@
         "mana_cost": "{1}{B}",
         "type_line": "Creature — Skeleton Warrior",
         "text": "{1}{B}: Return this card from your graveyard to the battlefield tapped.",
-        "taken": "2026-11-09"
+        "rarity": "uncommon",
+        "taken": "2026-11-09",
+        "mana_value": 2.0,
+        "layout": "normal"
       }
     },
     {
@@ -213,7 +237,10 @@
         "mana_cost": "{5}{G}{G}{G}",
         "type_line": "Creature — Beast",
         "text": "Haste\nWhen this creature enters, creatures you control gain trample and get +X/+X until end of turn, where X is the number of creatures you control.",
-        "taken": "2026-11-09"
+        "rarity": "mythic",
+        "taken": "2026-11-09",
+        "mana_value": 8.0,
+        "layout": "normal"
       }
     },
     {
@@ -230,7 +257,10 @@
         "mana_cost": "{4}{G}{G}",
         "type_line": "Creature — Beast",
         "text": "Trample\nLandfall — Whenever a land you control enters, create a 4/4 green Beast creature token.",
-        "taken": "2026-11-09"
+        "rarity": "rare",
+        "taken": "2026-11-09",
+        "mana_value": 6.0,
+        "layout": "normal"
       }
     }
   ],
