@@ -74,28 +74,35 @@ and a start as copied in into `after/start/`. The checks read these as `Run.stat
 
 - a **save** is an exchange that changed a `deck.json` or made a new deck folder,
   not a publish (C4); S2 needs every save, as every exchange that offers cards, to
-  run `pack.py` and name the packed file in its reply, a link beside it or not;
+  run `pack.py` and name the packed file in its reply, a link beside it or not. The
+  packed file is `<deck folder name>.html` as `pack.py` prints it: the printed page
+  of the folder argument's name, else the last printed page that is not `index.html`;
 - a **pick** is saved when its card is in `deck.json` after its exchange and was not
   before (or its count rose), and the ledger gained a line naming it (S1);
 - a **round** is each distinct `offer` the states hold; S2 needs one after every
-  exchange that offers cards, S3 and S4 judge the rounds of the deck's categories
-  other than Commander (S3 only when a creature type was wanted; S4 needs a card
-  marked `suggested` and a `reason` on every card, and the reader judges only that
-  the reply marks them), and S5 judges every offered card;
+  exchange that offers cards, or review swaps the maybeboard gained in it (entries
+  of `kind: "swap"`); S3 and S4 judge the rounds of the deck's categories other
+  than Commander (S3 only when a creature type was wanted, and holds a round as
+  first shown to 6 to 14 cards: an offer whose cards were all in the previous offer
+  of its category is that round shrinking, and the Lands round is exempt; S4 needs
+  a card marked `suggested` and a `reason` on every card, and the reader judges
+  only that the reply marks them), and S5 judges every offered card;
 - a **review** is judged against the deck as it stood after the review's exchange
   (C5), and against the final list in a run with no record;
 - the **name** must be absent from every state before the first complete one, and be
   said by the player after it (S10);
 - a **rename** is a deck folder gone while a new one's ledger starts with its lines,
-  and needs a `name` line (S12). A run from a start is judged for its folder only
-  once its ledger gains a `name` line that `after/start` lacks; until then the
-  folder is the runner's, and S12 is n/a.
+  and needs a `name` line (S12), which records it as `old → new`: the folder after
+  the last line's `→` must be the deck's, numbered or not. The deck's name comes only
+  from `deck.json`, so while it is null the folder is judged by the theme. A run
+  from a start is judged for its folder only once its ledger gains a `name` line
+  that `after/start` lacks; until then the folder is the runner's, and S12 is n/a.
 
 S7 is the reader's alone: a set limit is saved as a criterion of kind `limit`, like
 any other, so no saved field says a set was named.
 
-Publishes, `pack.py` runs and the scripts behind a stated count (S8) are read from
-the trace. A run recorded before the record began has no `after/`: what only the
+Publishes, `pack.py` runs and the python3 commands behind a stated count (S8) are
+read from the trace. A run recorded before the record began has no `after/`: what only the
 record shows is n/a there, saying "this run has no record of the deck folder after
 each exchange", and what the trace or the replies show is still judged. The deck
 is the last state's most recently changed one.
@@ -139,10 +146,13 @@ into `start/`, which the checks read.
 - The record is taken once an exchange ends: an offer written and removed within
   one exchange, or a save undone in it, is not seen. It holds only `deck.json` and
   `LEDGER.md`; C12's page and pictures are read from the workspace as the run left it.
-- S8 still reads the trace: a count printed by a script the trace does not show is
-  n/a, a count said without digits is not judged, and a stated 0 passes when any
-  python3 script over `deck.json` printed in that exchange, since a count by
-  category leaves out the category that has none.
+- S8 reads the trace: a count must be printed, as a whole number, by a python3
+  command in its exchange, whether or not the command names `deck.json` (a script
+  may import a helper that holds the path), so it cannot tell a count of the deck
+  from another number the command printed. Tracebacks and the `Exit code` line hold
+  no count. A count said without digits is not judged, and a stated 0 passes when
+  any python3 command printed in that exchange, since a count by category leaves out
+  the category that has none.
 - When several rounds are shown in one exchange, only the last `offer` is on
   record, so S3, S4 and S5 see only that round.
 - S2 cannot see a file sent into the chat, since runs may not send one; it checks

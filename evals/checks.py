@@ -166,7 +166,9 @@ situation never came up) and a short quoted `evidence`:
   counts. null if no set was named or no such count was made.
 - terms_explained_where_first_used: is each game term, rule exception and group name
   (such as "recursion") explained in a few words where the assistant first uses it?
-  null if none was used.
+  null if none was used. A term counts as explained if its own sentence or the one
+  just before says what it does. Search and tool words (a Scryfall tag) are not game
+  terms. Evergreen keywords (flying, lifelink, vigilance) are game terms.
 - name_asked_once_complete_before_handbook: does the assistant ask the player to name
   the deck once it is complete and before writing its handbook, using no name of
   its own before that? null if the deck was never complete.
@@ -278,45 +280,16 @@ def tool_uses(trace: list[dict]):
 ARTIFACT_URL = re.compile(r"claude\.ai/(?:code/)?artifact/([\w-]+)")
 
 
-SCRIPT_RUN = re.compile(r"\bpython3?\s+(?:-\S+\s+)*['\"]?([^\s'\";&|]+\.py)")
-
-
 def accepted_calls(trace: list[dict]):
-    """Each tool call that was not refused: (exchange, name, input, text, unseen, answer).
-
-    `text` is what the call puts on disk or runs: a Write's content, an Edit's new
-    text, or a Bash command followed by every script it runs that the trace wrote.
-    `unseen` is true when a command runs a script the trace does not show, whose
-    effect cannot be told. Running `pack.py`, the skill's own, is not unseen.
-    """
-    scripts: dict[str, str] = {}
+    """Each tool call that was not refused: (exchange, name, input, answer)."""
     for exchange, _, name, given, refused, answer in calls(trace):
-        if refused:
-            continue
-        text, unseen = "", False
-        if name == "Write":
-            text = given.get("content", "")
-            if str(given.get("file_path", "")).endswith(".py"):
-                scripts[given["file_path"]] = text
-        elif name == "Edit":
-            text = given.get("new_string", "")
-        elif name == "Bash":
-            text = given.get("command", "")
-            for script in SCRIPT_RUN.findall(text):
-                if pathlib.PurePath(script).name == "pack.py":
-                    continue
-                script = script.removeprefix("./")
-                shown = next((t for path, t in scripts.items() if path == script or path.endswith("/" + script)), None)
-                if shown is None:
-                    unseen = True
-                else:
-                    text += "\n" + shown
-        yield exchange, name, given, text, unseen, answer
+        if not refused:
+            yield exchange, name, given, answer
 
 
 def publishes(trace: list[dict]):
     """Each publish the Artifact tool accepted: (exchange, the artifact it went to, None if unnamed)."""
-    for exchange, name, given, _, _, answer in accepted_calls(trace):
+    for exchange, name, given, answer in accepted_calls(trace):
         if name == "Artifact" and given.get("action", "publish") == "publish":
             found = ARTIFACT_URL.search(answer) or ARTIFACT_URL.search(str(given.get("url", "")))
             yield exchange, found and found.group(1)
@@ -900,26 +873,51 @@ def saved_and_published(run: Run, facts: dict) -> tuple[str, str]:
                       f"{len(picks)} picks added to deck.json and LEDGER.md; {len(done)} publishes")
 
 
+def packed_file(command: str, answer: str) -> str | None:
+    """The file a Bash call running `pack.py` packed, by name; None if it packed nothing.
+
+    pack.py prints `<deck folder name>.html`, and a later step of the same chain may
+    print other pages (an `ls` of the folder lists its `index.html`). With the folder
+    argument known, a printed page of its name is the packed file; otherwise it is the
+    last printed page that is not `index.html` (an argument such as `"$deck"` names no
+    page). A command that exited non-zero packed only if it printed the page: a later
+    step of a chain may have failed.
+    """
+    printed = [pathlib.PurePath(path).name for path in re.findall(r"[^\s'\"]+\.html", answer)]
+    folder = re.search(r"pack\.py\s+['\"]?([^\s'\";&|]+)", command)
+    folder_name = pathlib.PurePath(folder.group(1)).name if folder else ""  # `pack.py .` names none
+    wanted = f"{folder_name}.html" if folder_name else None
+    pages = [page for page in printed if page != "index.html"]
+    if wanted in pages:
+        return wanted
+    if answer.startswith("Exit code") and not pages:
+        return None
+    return pages[-1] if pages else wanted or "the packed file"
+
+
+def swaps_gained(state: State, before: State) -> list[str]:
+    """The names of the review swaps (maybeboard entries of kind `swap`) a state holds
+    that the state before it did not."""
+    def swaps(s: State) -> list[dict]:
+        return [c for deck, _ in s.values() if deck for c in deck.get("maybeboard") or []
+                if isinstance(c, dict) and c.get("kind") == "swap"]
+    held = swaps(before)
+    return [c["name"] for c in swaps(state) if c not in held and isinstance(c.get("name"), str)]
+
+
 def round_shown(run: Run, facts: dict) -> tuple[str, str]:
-    """S2: after each exchange that offers cards the deck folder holds them as `offer`
-    (at least half of the cards the reader saw offered in it, a two-faced card matched
-    by a face); each exchange that offers cards or saves ran `pack.py`, and its reply
-    names the packed file, a link given beside it or not; no reply gives a Scryfall URL
-    or shows a picture. A file sent into the chat is not judged: the runner disallows
-    the tool."""
+    """S2: after each exchange that offers cards the deck folder holds them, as `offer`
+    or as review swaps the maybeboard gained in it (at least half of the cards the
+    reader saw offered in it, a two-faced card matched by a face); each exchange that
+    offers cards or saves ran `pack.py`, and its reply names the packed file, a link
+    given beside it or not; no reply gives a Scryfall URL or shows a picture. A file
+    sent into the chat is not judged: the runner disallows the tool."""
     problems = []
     packed: dict[int, str] = {}
-    for e, name, given, _, _, answer in accepted_calls(run.trace):
+    for e, name, given, answer in accepted_calls(run.trace):
         command = str(given.get("command", "")) if name == "Bash" else ""
-        if "pack.py" not in command:
-            continue
-        printed = re.findall(r"[^\s'\"]+\.html", answer)
-        # A command that exited non-zero packed only if it printed the page: a later step of a chain may have failed.
-        if answer.startswith("Exit code") and not printed:
-            continue
-        folder = re.search(r"pack\.py\s+['\"]?([^\s'\";&|]+)", command)
-        packed[e] = (pathlib.PurePath(printed[-1]).name if printed
-                     else f"{pathlib.PurePath(folder.group(1)).name}.html" if folder else "the packed file")
+        if "pack.py" in command and (page := packed_file(command, answer)):
+            packed[e] = page
     shown: dict[int, list[str]] = {}
     for o in sorted(facts["offers"], key=lambda o: o["message"]):
         if o["cards"]:
@@ -931,6 +929,7 @@ def round_shown(run: Run, facts: dict) -> tuple[str, str]:
         if names and e < len(run.states):
             held = [c["name"] for deck, _ in run.states[e].values() if deck
                     for c in offered_cards(deck.get("offer")) if isinstance(c.get("name"), str)]
+            held += swaps_gained(run.states[e], run.state_before(e))
             on_offer = [n for n in names if any(faces(n) & faces(h) for h in held)]
             if not held:
                 problems.append(f"exchange {e} offers cards and its deck folder holds no offer after it")
@@ -952,14 +951,22 @@ def ladder_shown(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> 
     """S3: with a creature type wanted, a category's round shows each step under its
     heading with its full count; a round of more than one step shows all three, about
     ten cards in all. A further round of one step is the player's to ask for (ADR-0012),
-    so it passes only after a round of three steps of its category."""
+    so it passes only after a round of three steps of its category.
+
+    Only a round as first shown is held to about ten: an offer whose cards were all in
+    the previous offer of its category is that round shrinking as picks come off. The
+    Lands round is never held to it."""
     names = ["ladder_steps_with_counts"]
     problems = list(failed_facts(facts, names).values())
     ladders = category_rounds(rounds) if holds(facts, names[0]) is not None else []
     laddered: set[str] = set()
+    previous: dict[str, set[str]] = {}
     for offer in ladders:
         category = str(offer.get("category", "")).lower()
         steps, called = groups_of(offer), f"the {offer.get('category', 'unnamed')} round"
+        cards = {str(c.get("name")) for c in offered_cards(offer)}
+        shrunk = category in previous and cards <= previous[category]
+        previous[category] = cards
         for step in steps:
             if not step.get("heading"):
                 problems.append(f"{called} has a step with no heading")
@@ -973,8 +980,8 @@ def ladder_shown(run: Run, facts: dict, rounds: list[tuple[dict, set[str]]]) -> 
             laddered.add(category)
         else:
             problems.append(f"{called} shows {len(steps)} steps of the ladder, not 3")
-        # [inferred] 8 to 12 cards for ADR-0012's "about ten".
-        if not 8 <= len(offered_cards(offer)) <= 12:
+        # 6 to 14 cards for ADR-0012's "about ten", as decided on 2026-11-13.
+        if not (shrunk or category == "lands" or 6 <= len(offered_cards(offer)) <= 14):
             problems.append(f"{called} offers {len(offered_cards(offer))} cards, not about ten")
     return verdict_of(problems, holds(facts, names[0]) is not None or bool(ladders), unrecorded(run))
 
@@ -1049,20 +1056,16 @@ def script_output(answer: str) -> str:
 
 
 def counts_from_scripts(run: Run, facts: dict) -> tuple[str, str]:
-    """S8: an exchange that states a count of the deck ran a python3 script over `deck.json`
-    that printed the number stated, the first whole number in the reader's `said`. A
-    stated 0 needs only that such a script printed something: a count by category
-    often leaves out the category that has none. A count said without digits is not
-    judged, since no number can be found for it."""
-    over_deck: dict[int, list[str]] = {}
-    unsure: dict[int, list[str]] = {}
-    for e, name, _, text, unseen, answer in accepted_calls(run.trace):
-        if name != "Bash" or not re.search(r"\bpython3?\b", text):
-            continue
-        if "deck.json" in text:
-            over_deck.setdefault(e, []).append(answer)
-        elif unseen:
-            unsure.setdefault(e, []).append(answer)
+    """S8: an exchange that states a count of the deck ran a python3 command that
+    printed the number stated, the first whole number in the reader's `said`. A stated
+    0 needs only that such a command printed something: a count by category often
+    leaves out the category that has none. The command need not name `deck.json`,
+    since a script may import a helper that holds the path. A count said without
+    digits is not judged, since no number can be found for it."""
+    answers: dict[int, list[str]] = {}
+    for e, name, given, answer in accepted_calls(run.trace):
+        if name == "Bash" and re.search(r"\bpython3?\b", str(given.get("command", ""))):
+            answers.setdefault(e, []).append(answer)
 
     def printed(outputs: list[str], number: str) -> bool:
         outputs = [script_output(out) for out in outputs]
@@ -1070,20 +1073,16 @@ def counts_from_scripts(run: Run, facts: dict) -> tuple[str, str]:
             return any(out.strip() for out in outputs)
         return any(re.search(rf"(?<![\w.]){number}(?!\w|\.\d)", FILE_NAME.sub(" ", out)) for out in outputs)
 
-    problems, unseen, judged = [], [], 0
+    problems, judged = [], 0
     for stated in facts.get("deck_counts_stated", []):
         number = re.search(r"\d+", stated["said"])
         if not number:
             continue
         judged += 1
         e, number = message_to_exchange(run, stated["message"]), str(int(number.group(0)))
-        if printed(over_deck.get(e, []), number):
-            continue
-        if printed(unsure.get(e, []), number):
-            unseen.append(f"'{stated['said']}' (exchange {e}) may have been printed by a script the trace does not show")
-        else:
-            problems.append(f"'{stated['said']}' (exchange {e}) with no python3 script over deck.json printing it in its exchange")
-    return verdict_of(problems, bool(judged), unseen, "" if judged or not facts.get("deck_counts_stated")
+        if not printed(answers.get(e, []), number):
+            problems.append(f"'{stated['said']}' (exchange {e}) with no python3 command printing it in its exchange")
+    return verdict_of(problems, bool(judged), passed="" if judged or not facts.get("deck_counts_stated")
                       else "every count was said without digits")
 
 
@@ -1149,19 +1148,21 @@ def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
     after, numbered from 2 when taken; a rename is a `name` line in the ledger. A theme
     folder may be made of some of the theme's words, singular or plural (`brawl-tokens`
     for "Creature tokens", `brawl-rats` for "Rat typal"). A run from a start is judged
-    only once its ledger gains a `name` line: until then its folder is the runner's."""
+    only once its ledger gains a `name` line: until then its folder is the runner's.
+
+    The deck's name is `deck.json`'s alone. A `name` line records a rename
+    (`deck → brawl-creature-tokens` in one of its `·` fields) and never names the
+    deck: the folder after the last such line's `→` must be the deck's folder, or it
+    numbered."""
     if not run.folder or not deck:
         return "n/a", "no deck folder"
     name = deck.get("name")
-    if run.summary.get("start"):
-        at_start = {line for _, lines in run.start_state.values() for line in lines}
-        ledger = run.folder / "LEDGER.md"
-        gained = [line for line in (ledger.read_text(errors="replace").splitlines() if ledger.is_file() else [])
+    at_start = {line for _, lines in run.start_state.values() for line in lines} if run.summary.get("start") else set()
+    ledger = run.folder / "LEDGER.md"
+    name_lines = [line for line in (ledger.read_text(errors="replace").splitlines() if ledger.is_file() else [])
                   if NAME_LINE.search(line) and line not in at_start]
-        if not gained:
-            return "n/a", "began from a start, in the folder the runner names"
-        # `- <date> · name · <the name> · …`
-        name = name or next((parts[2].strip() for parts in (line.split("·") for line in gained) if len(parts) > 2), None)
+    if run.summary.get("start") and not name_lines:
+        return "n/a", "began from a start, in the folder the runner names"
     theme = next((c.get("text") for c in deck.get("criteria") or [] if isinstance(c, dict) and c.get("kind") == "theme"), None)
     by = name or theme
     if not by:
@@ -1186,6 +1187,12 @@ def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
             problems.append(f"{folder} is numbered though {free} is free")
     else:
         problems.append(f"the deck is in {folder}, not {base}")
+    targets = [words[0].strip("`'\"") for line in name_lines for field in line.split("·") if "→" in field
+               if (words := field.split("→", 1)[1].split())]
+    if targets:
+        target = pathlib.PurePath(targets[-1]).name
+        if not re.fullmatch(re.escape(target) + r"(-\d+)?", folder):
+            problems.append(f"the deck is in {folder}, and its ledger's last name line renames it to {target}")
     problems += [f"the rename of {old} to {new} is not a name line in its ledger" for old, new, lines in renames(run)
                  if not any(NAME_LINE.search(line) for line in lines)]
     return verdict_of(problems, True, unrecorded(run))
