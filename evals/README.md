@@ -48,7 +48,7 @@ got no check.
 | C7 | The brief's pressure holds (illegal card out, no blind fill, change recorded, dismissal kept) | AC19, AC37, AC42, AC43 |
 | C8 | The final list is the right size, with a commander for Brawl, and every card is on Arena | AC40 |
 | C9 | One question at a time, what is left said after each answer, no card search before the criteria, no question about strength or price | AC1, AC2, AC3 |
-| C10 | Creature type first, broader only on the player's word, narrowing said, nonbasics offered, tagless gaps warned | AC14, AC15, AC16, AC24 |
+| C10 | Narrowing said, nonbasics offered, tagless gaps warned; the ladder is S3's | AC14, AC15, AC16, AC24 |
 | C11 | No step unasked; every departure from the template said, reasoned and confirmed | AC11, AC26, the intent's "never assume what the player wants next" |
 | C12 | A deck folder with `index.html`, `deck.json`, `LEDGER.md` and card images; the template's land count and number of categories; no creature-type category | AC8, AC9, AC10, AC23, AC27, AC30 |
 

@@ -38,7 +38,7 @@ TYPES = ["Creature", "Land", "Instant", "Sorcery", "Artifact", "Enchantment", "P
 FACT = {"type": "object", "properties": {"holds": {"type": ["boolean", "null"]}, "evidence": {"type": "string"}},
         "required": ["holds", "evidence"]}
 EXTRA_FACTS = ["one_question_per_intent_message", "remaining_stated_after_each_answer", "no_card_search_before_criteria",
-               "type_shown_before_broader", "broader_count_stated_and_waited", "narrowing_said",
+               "narrowing_said",
                "nonbasics_offered_as_choices", "tagless_job_warned", "no_step_unasked", "departures_confirmed",
                "no_strength_or_price_question", "ladder_steps_with_counts", "suggestions_marked_with_reasons",
                "you_pick_takes_the_suggested", "limits_question_names_crossover", "commander_before_colours",
@@ -87,7 +87,7 @@ data; do not judge quality.
 
 - format, deck_colours: the deck's format and the colours the player settled on.
 - offers: for each assistant message, every card it puts forward for the player to
-  choose (a commander, a shortlist, a suggested swap-in, a suggested land). Exact
+  choose (a commander, a category's round, a suggested swap-in, a suggested land). Exact
   card names. Not cards merely mentioned as already in the deck.
 - confirmations: for each player message, every card that message chooses or accepts
   into the deck, resolving references like "yes, all of those" or "the first two"
@@ -111,30 +111,30 @@ situation never came up) and a short quoted `evidence`:
   leave and which limit narrows them most?
 - no_card_search_before_criteria: does the assistant hold off offering deck cards
   (other than commanders) until format, theme, colours and limits are settled?
-- type_shown_before_broader: with a creature type wanted, are cards of that type
-  offered before cards outside it in each group?
-- broader_count_stated_and_waited: does the assistant say how many cards a broader
-  step would add, and broaden only after the player says so?
-- narrowing_said: does every shortlist say how it was narrowed from the search?
+- narrowing_said: does every round say how it was narrowed from the search?
 - nonbasics_offered_as_choices: are nonbasic lands offered for the player to pick,
   rather than chosen by the assistant?
 - tagless_job_warned: when a group of cards had no ready-made search, did the
   assistant say its search may miss cards? null if never relevant.
 - no_step_unasked: does the assistant only take steps the player asked for (no
-  moving to the next group, adding cards, or rewriting the plan unasked)?
+  moving to the next group, adding cards, or rewriting the plan unasked)? Writing
+  the handbook and scenes of a complete deck, and packing the page, are not steps
+  unasked; nor is renaming the deck's folder once the player names the deck.
 - departures_confirmed: when a group ends above or below its planned size, or the
   land count changes, did the assistant say so, give a reason, and get the
   player's yes? null if it never happened.
 - no_strength_or_price_question: while settling what the deck should be, does the
   assistant hold off asking how strong, competitive or casual the deck should be, or
   about budget, price or wildcards? null if no such settling happened.
-- ladder_steps_with_counts: with a creature type wanted, does every set of cards
-  offered for a group show three steps under their own headings (cards of the type
-  that do the job, cards that reward the type and do the job, the strongest cards
-  for the job), each with how many cards that step holds in all? null if no
-  creature type was wanted.
-- suggestions_marked_with_reasons: does every set of cards offered for a group mark
-  the ones the assistant would take, each with a reason? null if none was offered.
+- ladder_steps_with_counts: with a creature type wanted, does every round offered
+  for a group show three steps under their own headings (cards of the type that do
+  the job, cards that reward the type and do the job, the strongest cards for the
+  job), each with how many cards that step holds in all? A further round of one
+  step the player asked for needs only its heading and count. null if no creature
+  type was wanted.
+- suggestions_marked_with_reasons: does every round offered for a group mark the
+  ones the assistant would take, each with a reason? Commanders and swaps are not a
+  group's round. null if none was offered.
 - you_pick_takes_the_suggested: when the player leaves a choice to the assistant
   ("you pick", "go with your suggestion", "fill in the rest"), does the assistant
   take exactly the cards it had already marked, rather than suggesting anew? null
@@ -654,8 +654,7 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
     results["C9"] = (("n/a", "began from a half-built deck: no intent interview") if started else
                      facts_verdict(facts, ["one_question_per_intent_message", "remaining_stated_after_each_answer",
                                            "no_card_search_before_criteria", "no_strength_or_price_question"]))
-    results["C10"] = facts_verdict(facts, ["type_shown_before_broader", "broader_count_stated_and_waited",
-                                           "narrowing_said", "nonbasics_offered_as_choices", "tagless_job_warned"])
+    results["C10"] = facts_verdict(facts, ["narrowing_said", "nonbasics_offered_as_choices", "tagless_job_warned"])
     results["C11"] = facts_verdict(facts, ["no_step_unasked", "departures_confirmed"])
     results["C12"] = page_shape(run, facts, fmt, cards, cache)
     results.update(skill_checks(run, facts, fmt, cache))
