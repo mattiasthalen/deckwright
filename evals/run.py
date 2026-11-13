@@ -32,9 +32,9 @@ STARTS_DIR = pathlib.Path(__file__).resolve().parent / "starts"
 RUNS_DIR = pathlib.Path(__file__).resolve().parent / "runs"
 END = "<<END>>"
 NEW_CONVERSATION = "<<NEW_CONVERSATION>>"
-# The account may publish 200 pages a day, reset at midnight UTC, and every save in
-# a run is one publish. 2026-11-11's rounds used the lot, which stopped publishing in
-# every thread on the account; 150 leaves the owner 50.
+# The account may publish 200 pages a day, reset at midnight UTC. 2026-11-11's rounds,
+# which published at every save, used the lot, which stopped publishing in every
+# thread on the account; 150 leaves the owner 50.
 DEFAULT_PUBLISH_BUDGET = 150
 STOPPED_BY_BUDGET = "publish budget"
 
@@ -120,7 +120,7 @@ class PublishBudget:
 
     def count(self, events: list[dict]) -> None:
         """Add the publishes one Deckwright turn made that the Artifact tool accepted."""
-        accepted = sum(checks.saves_by_exchange(events).values())
+        accepted = sum(checks.publishes_by_exchange(events).values())
         with self.lock:
             self.published += accepted
             if self.ledger and accepted:

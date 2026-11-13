@@ -5,7 +5,14 @@
 Each check reads outcomes, never wording. Where an outcome sits in free text (which
 cards the player confirmed, what a review counted) a reader model extracts it as
 data once per run, and code decides C1 to C8 and C12. C9 to C11 are the reader's
-yes or no on a stated fact, with quoted evidence. Card facts come from Scryfall.
+yes or no on a stated fact, with quoted evidence. S1 to S13 are the skill's
+close-out criteria, decided from the trace and the deck folder where they can be,
+and by the reader's facts where only the conversation says. Card facts come from
+Scryfall.
+
+The deck is read from its folder in the run's workspace (ADR-0011): the folder of
+the last `deck.json` the trace wrote, else the one the workspace holds. A save is
+a write of `deck.json`, not a publish.
 """
 
 from __future__ import annotations
@@ -33,7 +40,10 @@ FACT = {"type": "object", "properties": {"holds": {"type": ["boolean", "null"]},
 EXTRA_FACTS = ["one_question_per_intent_message", "remaining_stated_after_each_answer", "no_card_search_before_criteria",
                "type_shown_before_broader", "broader_count_stated_and_waited", "narrowing_said",
                "nonbasics_offered_as_choices", "tagless_job_warned", "no_step_unasked", "departures_confirmed",
-               "no_strength_or_price_question"]
+               "no_strength_or_price_question", "ladder_steps_with_counts", "suggestions_marked_with_reasons",
+               "you_pick_takes_the_suggested", "limits_question_names_crossover", "commander_before_colours",
+               "set_count_says_any_printing", "terms_explained_where_first_used",
+               "name_asked_once_complete_before_handbook", "handbook_written_unasked"]
 
 READER_SCHEMA = {
     "type": "object",
@@ -61,11 +71,14 @@ READER_SCHEMA = {
         "saved_categories": {"type": "array", "items": {"type": "object", "properties": {
             "name": {"type": "string"}, "target": {"type": ["integer", "null"]}},
             "required": ["name", "target"]}},
+        "deck_counts_stated": {"type": "array", "items": {"type": "object", "properties": {
+            "message": {"type": "integer"}, "said": {"type": "string"}},
+            "required": ["message", "said"]}},
     },
     "required": ["format", "deck_colours", "offers", "confirmations", "basic_split_confirmed",
                  "review_type_counts", "criterion_change_recorded_with_reason",
                  "card_removed_without_player_word", "dismissed_finding_raised_again",
-                 *EXTRA_FACTS, "saved_categories"],
+                 *EXTRA_FACTS, "saved_categories", "deck_counts_stated"],
 }
 
 READER_PROMPT = """Below is a conversation between a deck-building assistant and a Magic player,
@@ -115,8 +128,41 @@ situation never came up) and a short quoted `evidence`:
 - no_strength_or_price_question: while settling what the deck should be, does the
   assistant hold off asking how strong, competitive or casual the deck should be, or
   about budget, price or wildcards? null if no such settling happened.
+- ladder_steps_with_counts: with a creature type wanted, does every set of cards
+  offered for a group show three steps under their own headings (cards of the type
+  that do the job, cards that reward the type and do the job, the strongest cards
+  for the job), each with how many cards that step holds in all? null if no
+  creature type was wanted.
+- suggestions_marked_with_reasons: does every set of cards offered for a group mark
+  the ones the assistant would take, each with a reason? null if none was offered.
+- you_pick_takes_the_suggested: when the player leaves a choice to the assistant
+  ("you pick", "go with your suggestion", "fill in the rest"), does the assistant
+  take exactly the cards it had already marked, rather than suggesting anew? null
+  if the player never did.
+- limits_question_names_crossover: when asking about the deck's limits, does the
+  assistant name crossover cards (printings from other franchises) as an example of
+  a limit, without saying whether to prefer or avoid them? null if no limits
+  question was asked.
+- commander_before_colours: in Brawl, is the commander chosen before the assistant
+  asks about colours, unless the player wanted to fix colours first? null if not
+  Brawl or no commander was chosen in this conversation.
+- set_count_says_any_printing: whenever the assistant counts cards "from a set", does
+  it say a card counts when any of its printings is in that set? null if no such
+  count.
+- terms_explained_where_first_used: is each game term, rule exception and group name
+  (such as "recursion") explained in a few words where the assistant first uses it?
+  null if none was used.
+- name_asked_once_complete_before_handbook: does the assistant ask the player to name
+  the deck once it is complete and before writing its handbook, using no name of
+  its own before that? null if the deck was never complete.
+- handbook_written_unasked: once the deck is complete, does the assistant write the
+  handbook and scenes without first asking whether to? null if the deck was never
+  complete.
 - saved_categories: the card groups the SAVED FILES record, each with its planned
   number of cards (null when none is recorded). Empty if the files hold none.
+- deck_counts_stated: every number the assistant states about the deck as it stands
+  (its cards, lands, creatures, cards of a type or of a group), with the message it
+  is in and the words that state it ("31 Rats"). Not counts of search results.
 
 {transcript}
 """
@@ -181,28 +227,125 @@ def scryfall(name: str, cache: dict) -> dict | None:
     return cache[name]
 
 
-def tool_uses(trace: list[dict]):
-    """Every tool call: (exchange, conversation, name, input, refused)."""
-    errors = {block.get("tool_use_id") for event in trace if event.get("type") == "user"
-              for block in event.get("message", {}).get("content", [])
-              if isinstance(block, dict) and block.get("type") == "tool_result" and (
-                  block.get("is_error") or "publish 429" in str(block.get("content"))[:300])}
+def calls(trace: list[dict]):
+    """Every tool call: (exchange, conversation, name, input, refused, answer)."""
+    answers = {block.get("tool_use_id"): block for event in trace if event.get("type") == "user"
+               for block in event.get("message", {}).get("content", [])
+               if isinstance(block, dict) and block.get("type") == "tool_result"}
     for event in trace:
         if event.get("type") != "assistant":
             continue
         for block in event.get("message", {}).get("content", []):
             if isinstance(block, dict) and block.get("type") == "tool_use":
+                answer = answers.get(block.get("id"), {})
+                content = answer.get("content")
+                text = content if isinstance(content, str) else json.dumps(content)
+                refused = bool(answer.get("is_error")) or "publish 429" in str(content)[:300]
                 yield (event.get("exchange", 0), event.get("conversation", 1), block.get("name"),
-                       block.get("input", {}), block.get("id") in errors)
+                       block.get("input", {}), refused, text)
+
+
+def tool_uses(trace: list[dict]):
+    """Every tool call: (exchange, conversation, name, input, refused)."""
+    for *call, _ in calls(trace):
+        yield tuple(call)
+
+
+ARTIFACT_URL = re.compile(r"claude\.ai/(?:code/)?artifact/([\w-]+)")
+
+
+def publishes(trace: list[dict]):
+    """Each publish the Artifact tool accepted: (exchange, the artifact it went to, None if unnamed)."""
+    for exchange, _, name, given, refused, answer in calls(trace):
+        if name == "Artifact" and given.get("action", "publish") == "publish" and not refused:
+            found = ARTIFACT_URL.search(answer) or ARTIFACT_URL.search(str(given.get("url", "")))
+            yield exchange, found and found.group(1)
+
+
+def publishes_by_exchange(trace: list[dict]) -> Counter:
+    return Counter(exchange for exchange, _ in publishes(trace))
+
+
+SCRIPT_RUN = re.compile(r"\bpython3?\s+(?:-\S+\s+)*['\"]?([^\s'\";&|]+\.py)")
+
+
+def commands(trace: list[dict]):
+    """Each accepted Bash command: (exchange, text, unseen).
+
+    `text` is the command followed by every script it runs that the trace wrote;
+    `unseen` is true when it runs a script the trace does not show, whose effect
+    cannot be told. Running `pack.py`, the skill's own, is not unseen.
+    """
+    scripts: dict[str, str] = {}
+    for exchange, _, name, given, refused, _ in calls(trace):
+        if refused:
+            continue
+        if name == "Write" and str(given.get("file_path", "")).endswith(".py"):
+            scripts[given["file_path"]] = given.get("content", "")
+        if name != "Bash":
+            continue
+        command = given.get("command", "")
+        text, unseen = command, False
+        for script in SCRIPT_RUN.findall(command):
+            if pathlib.PurePath(script).name == "pack.py":
+                continue
+            script = script.removeprefix("./")
+            shown = next((t for path, t in scripts.items() if path == script or path.endswith("/" + script)), None)
+            if shown is None:
+                unseen = True
+            else:
+                text += "\n" + shown
+        yield exchange, text, unseen
+
+
+def written_in(text: str, filename: str) -> bool:
+    """A command or script writes a file named `filename`, by what it says."""
+    name = re.escape(filename)
+    target = rf"['\"]?[^\s'\"();&|]*{name}"
+    return bool(re.search(rf"open\([^)]*{name}['\"]\s*,\s*['\"][wa]", text)
+                or re.search(rf">>?\s*{target}", text)
+                or re.search(rf"\btee\s+(?:-a\s+)?{target}", text)
+                or re.search(rf"\bsed\s+-i\b[^;&|]*{name}", text)
+                or (filename in text and re.search(r"write_text\(|\.write\(" + (r"|json\.dump\(" if filename.endswith(".json") else ""), text)))
+
+
+def writes(trace: list[dict], filename: str):
+    """Each accepted write of a file named `filename`: (exchange, path, text).
+
+    `path` is as the call names it, None when a command names the file without its
+    folder. `text` is what wrote it: the content, the edit's new text, or the
+    command with its scripts; None for a command running a script the trace does
+    not show, which may or may not have written the file.
+    """
+    bash = iter(commands(trace))
+    for exchange, _, name, given, refused, _ in calls(trace):
+        if name == "Bash" and not refused:
+            _, text, unseen = next(bash)
+            if written_in(text, filename):
+                found = re.search(rf"[^\s'\"();&|=]*{re.escape(filename)}", text)
+                yield exchange, (found.group(0) if found and "/" in found.group(0) else None), text
+            elif unseen:
+                yield exchange, None, None
+            continue
+        if refused or pathlib.PurePath(str(given.get("file_path", ""))).name != filename:
+            continue
+        if name == "Write":
+            yield exchange, given["file_path"], given.get("content", "")
+        elif name == "Edit":
+            yield exchange, given["file_path"], given.get("new_string", "")
 
 
 def saves_by_exchange(trace: list[dict]) -> Counter:
-    """Publishes the Artifact tool accepted, by exchange."""
-    saves = Counter()
-    for exchange, _, name, given, refused in tool_uses(trace):
-        if name == "Artifact" and given.get("action", "publish") == "publish" and not refused:
-            saves[exchange] += 1
-    return saves
+    """Writes of `deck.json` the trace shows, by exchange."""
+    return Counter(exchange for exchange, _, text in writes(trace, "deck.json") if text is not None)
+
+
+def parsed(text: str | None) -> dict | None:
+    try:
+        value = json.loads(text) if text else None
+    except (ValueError, RecursionError):
+        return None
+    return value if isinstance(value, dict) else None
 
 
 class Run:
@@ -215,12 +358,25 @@ class Run:
                       for p in (path / "workspace").rglob("*")
                       if p.is_file() and p.suffix in {".json", ".md", ".txt", ".html"} and ".claude" not in p.parts}
         self.published = self.last_published()
+        self.folder = self.deck_folder()
+        # Runs before ADR-0011 kept the deck only as a published page.
+        self.page_files = ({p.relative_to(self.folder).as_posix(): p for p in self.folder.rglob("*") if p.is_file()}
+                           if self.folder else self.published)
         # The start as the run began: runs copy it in; older runs predate the copy.
         start = path / "start" / "deck.json"
         self.start = json.loads(start.read_text()) if start.exists() else None
 
     def tool_uses(self):
         return tool_uses(self.trace)
+
+    def deck_folder(self) -> pathlib.Path | None:
+        """The folder of the last `deck.json` the trace wrote, else the one the workspace holds."""
+        workspace = self.path / "workspace"
+        named = [path for _, path, text in writes(self.trace, "deck.json") if path and text is not None]
+        if named and (workspace / named[-1]).is_file():  # an absolute path joins as itself
+            return (workspace / named[-1]).parent
+        held = [p.parent for p in workspace.rglob("deck.json") if ".claude" not in p.parts]
+        return max(held, key=lambda folder: (folder / "deck.json").stat().st_mtime, default=None)
 
     def last_published(self) -> dict[str, pathlib.Path]:
         """The page's files as the publishes left them, by published path, read from disk now.
@@ -258,7 +414,7 @@ class Run:
         return {k: v for k, v in files.items() if v.exists()}
 
     def deck(self) -> dict | None:
-        source = self.published.get("deck.json")
+        source = self.page_files.get("deck.json")
         try:
             return json.loads(source.read_text()) if source else None
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -306,7 +462,7 @@ class Run:
         return saves_by_exchange(self.trace)
 
     def final_list(self) -> tuple[Counter, str | None]:
-        """The deck as last published, else the last Arena import list in a reply or a
+        """The deck as last saved, else the last Arena import list in a reply or a
         saved file: cards and commander."""
         deck = self.deck()
         if deck and deck.get("cards"):
@@ -339,10 +495,13 @@ class Run:
         if cached.exists():
             return json.loads(cached.read_text())
         lines = [f"[{i}] {m['role'].upper()}: {m['text']}" for i, m in enumerate(self.messages)]
-        saved = dict(self.files)
+        # A page holds no fact the reader is asked for, and a packed one is mostly pictures.
+        saved = {name: text for name, text in self.files.items() if not name.endswith(".html")}
+        workspace = (self.path / "workspace").resolve()
         for name in ("deck.json", "LEDGER.md"):
-            if name in self.published:
-                saved[f"published {name}"] = self.published[name].read_text(errors="replace")
+            source = self.page_files.get(name)
+            if source and workspace not in source.resolve().parents:
+                saved[f"published {name}"] = source.read_text(errors="replace")
         files = [f"--- {name} ---\n{text[:60000]}" for name, text in saved.items()]
         prompt = READER_PROMPT.format(transcript="\n\n".join(lines) + "\n\nSAVED FILES\n" + "\n".join(files))
         proc = headless.claude(["--model", READER_MODEL, "--tools", "", "--output-format", "json",
@@ -425,9 +584,10 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
 
     saves = run.saves_by_exchange()
     pick_exchanges = {message_to_exchange(run, c["message"]) for c in facts["confirmations"] if c["cards"]}
-    unsaved = sorted(e for e in pick_exchanges if not saves.get(e))
-    results["C4"] = (("n/a" if not pick_exchanges else "pass" if not unsaved else "fail"),
-                     f"{len(saves)} exchanges with a save; picks not saved in their exchange: {len(unsaved)} of {len(pick_exchanges)}")
+    unsaved, unseen = unsaved_picks(run, pick_exchanges, "deck.json")
+    results["C4"] = (("n/a" if not pick_exchanges or (unseen and not unsaved) else "pass" if not unsaved else "fail"),
+                     f"{len(saves)} exchanges with a save; picks not saved in their exchange: {len(unsaved)} of {len(pick_exchanges)}"
+                     + (f"; a script the trace does not show may have saved exchanges {unseen}" if unseen else ""))
 
     if facts["review_type_counts"] and cards:
         # A two-faced card may be counted by its front face or by every face: a
@@ -489,24 +649,47 @@ def check(run: Run, cache: dict) -> dict[str, tuple[str, str]]:
         results["C8"] = ("n/a", f"the brief ends at the {run.summary['ends']}")
     else:
         results["C8"] = ("pass" if ok else "fail", f"size {size} of {want}; commander {commander}; not importable: {unknown[:5]}")
-    def fact(name: str) -> bool | None:
-        return facts.get(name, {"holds": None})["holds"]
-
-    def combine(names: list[str]) -> tuple[str, str]:
-        failed = [f"{n}: {facts[n]['evidence'][:90]}" for n in names if fact(n) is False]
-        exercised = any(fact(n) is not None for n in names)
-        return ("fail" if failed else "pass" if exercised else "n/a"), "; ".join(failed)
-
     # Checks added after the bare round of 2026-11-10, one per group of criteria
     # the bare runs failed (decided: a check only where a bare run fails).
     results["C9"] = (("n/a", "began from a half-built deck: no intent interview") if started else
-                     combine(["one_question_per_intent_message", "remaining_stated_after_each_answer",
-                              "no_card_search_before_criteria", "no_strength_or_price_question"]))
-    results["C10"] = combine(["type_shown_before_broader", "broader_count_stated_and_waited", "narrowing_said",
-                              "nonbasics_offered_as_choices", "tagless_job_warned"])
-    results["C11"] = combine(["no_step_unasked", "departures_confirmed"])
+                     facts_verdict(facts, ["one_question_per_intent_message", "remaining_stated_after_each_answer",
+                                           "no_card_search_before_criteria", "no_strength_or_price_question"]))
+    results["C10"] = facts_verdict(facts, ["type_shown_before_broader", "broader_count_stated_and_waited",
+                                           "narrowing_said", "nonbasics_offered_as_choices", "tagless_job_warned"])
+    results["C11"] = facts_verdict(facts, ["no_step_unasked", "departures_confirmed"])
     results["C12"] = page_shape(run, facts, fmt, cards, cache)
+    results.update(skill_checks(run, facts, fmt, cache))
     return results
+
+
+def holds(facts: dict, name: str) -> bool | None:
+    return facts.get(name, {"holds": None})["holds"]
+
+
+def facts_verdict(facts: dict, names: list[str]) -> tuple[str, str]:
+    failed = [f"{n}: {facts[n]['evidence'][:90]}" for n in names if holds(facts, n) is False]
+    exercised = any(holds(facts, n) is not None for n in names)
+    return ("fail" if failed else "pass" if exercised else "n/a"), "; ".join(failed)
+
+
+def verdict_of(problems: list[str], exercised: bool, unseen: list[str] = (), passed: str = "") -> tuple[str, str]:
+    """Fail on any problem; n/a when nothing was exercised, or when what could not be
+    told from the trace is all that stands between the run and a pass."""
+    if problems:
+        return "fail", "; ".join(problems)
+    if unseen:
+        return "n/a", "cannot tell from the trace: " + "; ".join(unseen)
+    return ("pass", passed) if exercised else ("n/a", passed or "never came up")
+
+
+def unsaved_picks(run: Run, pick_exchanges: set[int], filename: str) -> tuple[list[int], list[int]]:
+    """The pick exchanges that wrote no `filename`, and those where only a script the trace does not show may have."""
+    by_exchange: dict[int, list] = {}
+    for e, _, text in writes(run.trace, filename):
+        by_exchange.setdefault(e, []).append(text)
+    missing = sorted(e for e in pick_exchanges if e not in by_exchange)
+    unseen = sorted(e for e in pick_exchanges if e in by_exchange and all(t is None for t in by_exchange[e]))
+    return missing, unseen
 
 
 def type_line_of(name: str, cache: dict) -> str:
@@ -525,15 +708,13 @@ def singulars(word: str) -> set[str]:
 
 
 def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> tuple[str, str]:
-    """The deck is a published page of plain files in the template's shape."""
+    """The deck is a folder of plain files in the template's shape."""
     problems = []
-    if "index.html" not in run.published:
-        problems.append("no page published")
-    for name in ("deck.json", "LEDGER.md"):
-        if name not in run.published:
-            problems.append(f"no {name} published")
-    if not any(k.startswith("cards/") and k.endswith(".jpg") for k in run.published):
-        problems.append("no card images published")
+    for name in ("index.html", "deck.json", "LEDGER.md"):
+        if name not in run.page_files:
+            problems.append(f"no {name} in the deck folder")
+    if not any(k.startswith("cards/") and k.endswith(".jpg") for k in run.page_files):
+        problems.append("no card images in the deck folder")
     # A two-faced spell with a land back is a spell: a land counts by its front face.
     lands = sum(n for name, n in cards.items() if "Land" in type_line_of(name, cache).split(" // ")[0])
     want_lands = {"brawl": 35, "standard": 24}.get(fmt)
@@ -553,6 +734,282 @@ def page_shape(run: Run, facts: dict, fmt: str, cards: Counter, cache: dict) -> 
     if typal:
         problems.append(f"creature-type categories: {typal}")
     return ("pass" if not problems else "fail", "; ".join(problems))
+
+
+# ---------- S1 to S13: the skill's close-out criteria ----------
+
+DECK_SIZE = {"brawl": 100, "standard": 60}
+LINK_ASKED = re.compile(r"\b(link|url)\b", re.I)
+SCRYFALL_LINK = re.compile(r"\]\(\s*https?://[^)\s]*scryfall\.(?:com|io)[^)\s]*\)|https?://(?:www\.)?scryfall\.com/card\S*"
+                           r"|https?://cards\.scryfall\.io\S*")
+MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+SCRYFALL_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def skill_checks(run: Run, facts: dict, fmt: str, cache: dict) -> dict[str, tuple[str, str]]:
+    deck = run.deck()
+    rounds = offers_seen(run)
+    return {
+        "S1": saved_and_published(run, facts),
+        "S2": round_shown(run, facts),
+        "S3": ladder_shown(facts, rounds),
+        "S4": suggestions_marked(facts, rounds),
+        "S5": crossover_marked(facts, rounds, cache),
+        "S6": (("n/a", "Standard has no commander") if fmt != "brawl"
+               else facts_verdict(facts, ["commander_before_colours"])),
+        "S7": facts_verdict(facts, ["set_count_says_any_printing"]),
+        "S8": counts_from_scripts(run, facts),
+        "S9": facts_verdict(facts, ["terms_explained_where_first_used"]),
+        "S10": name_given(run, facts, deck),
+        "S11": handbook_written(facts, deck),
+        "S12": folder_named(run, deck),
+        "S13": layouts_saved(deck),
+    }
+
+
+def complete(deck: dict | None) -> bool:
+    if not deck:
+        return False
+    size = sum(int(c.get("count", 1)) for c in deck.get("cards") or [] if isinstance(c, dict))
+    return size == DECK_SIZE.get(str(deck.get("format", "")).lower())
+
+
+def offers_seen(run: Run) -> list[dict]:
+    """Every round the run put on offer that the trace's writes or the deck folder show in full."""
+    decks = [parsed(text) for _, _, text in writes(run.trace, "deck.json")] + [run.deck()]
+    found = {}
+    for deck in decks:
+        if deck and isinstance(deck.get("offer"), dict):
+            found[json.dumps(deck["offer"], sort_keys=True)] = deck["offer"]
+    return list(found.values())
+
+
+def groups_of(offer: dict) -> list[dict]:
+    return [g for g in offer.get("groups") or [] if isinstance(g, dict)]
+
+
+def offered_cards(offer: dict) -> list[dict]:
+    return [c for g in groups_of(offer) for c in g.get("cards") or [] if isinstance(c, dict)]
+
+
+def saved_and_published(run: Run, facts: dict) -> tuple[str, str]:
+    """S1: each pick writes `deck.json` and `LEDGER.md`; a publish only once the player
+    asks for a link, and always to the same artifact. That a failed publish is said in
+    one line is the conversation's, and not checked."""
+    picks = {message_to_exchange(run, c["message"]): c["cards"] for c in facts["confirmations"] if c["cards"]}
+    problems, unseen = [], []
+    for filename in ("deck.json", "LEDGER.md"):
+        missing, unsure = unsaved_picks(run, set(picks), filename)
+        problems += [f"{', '.join(picks[e][:3])} (exchange {e}) never written to {filename}" for e in missing]
+        unseen += [f"{filename} in exchange {e} may have been written by a script" for e in unsure]
+    asked = [message_to_exchange(run, i) for i, m in enumerate(run.messages)
+             if m["role"] == "player" and LINK_ASKED.search(m["text"])]
+    done = list(publishes(run.trace))
+    unasked = [e for e, _ in done if not asked or e < min(asked)]
+    if unasked:
+        problems.append(f"published in exchanges {unasked} with no link asked for")
+    artifacts = list(dict.fromkeys(a for _, a in done if a))
+    if len(artifacts) > 1:
+        problems.append(f"published to {len(artifacts)} artifacts: {artifacts}")
+    return verdict_of(problems, bool(picks or done), unseen,
+                      f"{len(picks)} picks written to deck.json and LEDGER.md; {len(done)} publishes")
+
+
+def round_shown(run: Run, facts: dict) -> tuple[str, str]:
+    """S2: each exchange that offers cards writes them to `deck.json` as `offer`, runs
+    `pack.py` and names the packed file; no reply links a card to Scryfall or shows a
+    picture, and no picture is sent alone."""
+    problems, unseen = [], []
+    written: dict[int, list] = {}
+    for e, _, text in writes(run.trace, "deck.json"):
+        written.setdefault(e, []).append(text)
+    packed: dict[int, str] = {}
+    for e, _, name, given, refused, answer in calls(run.trace):
+        command = str(given.get("command", "")) if name == "Bash" else ""
+        if refused or "pack.py" not in command:
+            continue
+        printed = re.findall(r"[^\s'\"]+\.html", answer)
+        folder = re.search(r"pack\.py\s+['\"]?([^\s'\";&|]+)", command)
+        packed[e] = (pathlib.PurePath(printed[-1]).name if printed
+                     else f"{pathlib.PurePath(folder.group(1)).name}.html" if folder else "the packed file")
+    for e, message in sorted({message_to_exchange(run, o["message"]): o["message"] for o in facts["offers"] if o["cards"]}.items()):
+        texts = written.get(e, [])
+        if not any(puts_on_offer(t) for t in texts if t is not None):
+            if None in texts:
+                unseen.append(f"exchange {e}'s offer may have been written by a script")
+            else:
+                problems.append(f"exchange {e} offers cards and writes no offer to deck.json")
+        if e not in packed:
+            problems.append(f"exchange {e} offers cards and never runs pack.py")
+        elif packed[e] not in (run.messages[message]["text"] if message < len(run.messages) else ""):
+            problems.append(f"exchange {e}'s reply does not name the packed file {packed[e]}")
+    for text in run.deckwright_texts():
+        problems += [f"a card linked to scryfall.com: {link}" for link in SCRYFALL_LINK.findall(text)]
+        problems += [f"a card picture in a reply: {image}" for image in MARKDOWN_IMAGE.findall(text)]
+    for _, _, name, given, refused in run.tool_uses():
+        sent = json.dumps(given)
+        if name == "SendUserFile" and not refused and re.search(r"\.(jpe?g|png)\b", sent):
+            problems.append(f"a card picture sent alone: {sent[:100]}")
+    return verdict_of(problems, bool(facts["offers"]), unseen)
+
+
+def puts_on_offer(text: str) -> bool:
+    """A write of `deck.json` holds an offer: a whole file by its content, an edit or a
+    command by naming it."""
+    deck = parsed(text)
+    return bool(deck.get("offer")) if deck is not None else "offer" in text
+
+
+def ladder_shown(facts: dict, rounds: list[dict]) -> tuple[str, str]:
+    """S3: a round with a creature type shows the ladder's three steps, each headed and
+    with its full count, about ten cards in all."""
+    problems = [facts["ladder_steps_with_counts"]["evidence"]] if holds(facts, "ladder_steps_with_counts") is False else []
+    ladders = [o for o in rounds if any(g.get("heading") for g in groups_of(o))]
+    for offer in ladders:
+        steps, called = groups_of(offer), f"the {offer.get('category', 'unnamed')} round"
+        if len(steps) != 3:
+            problems.append(f"{called} shows {len(steps)} steps of the ladder, not 3")
+        for step in steps:
+            if not step.get("heading"):
+                problems.append(f"{called} has a step with no heading")
+            if not isinstance(step.get("total"), int):
+                problems.append(f"{called}: '{step.get('heading')}' states no full count")
+        # [inferred] 8 to 12 cards for ADR-0012's "about ten".
+        if not 8 <= len(offered_cards(offer)) <= 12:
+            problems.append(f"{called} offers {len(offered_cards(offer))} cards, not about ten")
+    return verdict_of(problems, holds(facts, "ladder_steps_with_counts") is not None or bool(ladders))
+
+
+def suggestions_marked(facts: dict, rounds: list[dict]) -> tuple[str, str]:
+    """S4: every round marks the cards the tutor would take; "you pick" takes those."""
+    names = ["suggestions_marked_with_reasons", "you_pick_takes_the_suggested"]
+    problems = [facts[n]["evidence"] for n in names if holds(facts, n) is False]
+    problems += [f"the {o.get('category', 'unnamed')} round on offer marks no card suggested"
+                 for o in rounds if not any(c.get("suggested") for c in offered_cards(o))]
+    return verdict_of(problems, any(holds(facts, n) is not None for n in names) or bool(rounds))
+
+
+def printing(scryfall_id: str, cache: dict) -> dict | None:
+    """One printing's crossover facts, cached under its API path."""
+    key = f"/cards/{scryfall_id}"
+    if key not in cache:
+        found = scryfall_get(key, 0.1) if SCRYFALL_ID.fullmatch(str(scryfall_id)) else None
+        cache[key] = found and {**{k: found.get(k) for k in ("id", "name", "games", "promo_types", "flavor_name")},
+                                "card_faces": [{"name": f.get("name"), "flavor_name": f.get("flavor_name")}
+                                               for f in found.get("card_faces") or []]}
+    return cache[key]
+
+
+def crossover_marked(facts: dict, rounds: list[dict], cache: dict) -> tuple[str, str]:
+    """S5: the limits question names crossover cards; every card offered in a crossover
+    printing is marked so, under the name Arena prints. Whether the picture is the newest
+    Arena printing, and whether the tutor said another exists, are not checked."""
+    problems = ([facts["limits_question_names_crossover"]["evidence"]]
+                if holds(facts, "limits_question_names_crossover") is False else [])
+    crossovers = 0
+    for card in (c for o in rounds for c in offered_cards(o)):
+        found = printing(card.get("scryfall_id", ""), cache)
+        if not found:
+            continue
+        name = card.get("name")
+        if "universesbeyond" not in (found.get("promo_types") or []):
+            if card.get("crossover"):
+                problems.append(f"{name} is marked crossover, and its printing is not")
+            continue
+        crossovers += 1
+        printed = found.get("flavor_name") or next((f.get("flavor_name") for f in (found.get("card_faces") or [])[:1]), None)
+        if not card.get("crossover"):
+            problems.append(f"{name}: a crossover printing offered unmarked")
+        if printed and card.get("printed_name") != printed:
+            problems.append(f"{name}: printed_name {card.get('printed_name')!r}, Arena prints {printed!r}")
+    return verdict_of(problems, holds(facts, "limits_question_names_crossover") is not None or bool(crossovers))
+
+
+def counts_from_scripts(run: Run, facts: dict) -> tuple[str, str]:
+    """S8: an exchange that states a count of the deck ran a python3 script over `deck.json`."""
+    counted, unsure = set(), set()
+    for e, text, unseen in commands(run.trace):
+        if re.search(r"\bpython3?\b", text) and "deck.json" in text:
+            counted.add(e)
+        elif unseen:
+            unsure.add(e)
+    problems, unseen = [], []
+    for stated in facts.get("deck_counts_stated", []):
+        e = message_to_exchange(run, stated["message"])
+        if e in counted:
+            continue
+        (unseen if e in unsure else problems).append(f"'{stated['said']}' (exchange {e}) with no python3 script "
+                                                     "over deck.json in its exchange")
+    return verdict_of(problems, bool(facts.get("deck_counts_stated")), unseen)
+
+
+def plain(text: str) -> str:
+    return " ".join(re.sub(r"[^\w]+", " ", text.lower()).split())
+
+
+def name_given(run: Run, facts: dict, deck: dict | None) -> tuple[str, str]:
+    """S10: no name before the deck is complete; then the name the player gives."""
+    problems = []
+    for early in (parsed(text) for _, _, text in writes(run.trace, "deck.json")):
+        if early and early.get("name") and not complete(early):
+            problems.append(f"named {early['name']!r} before the deck was complete")
+    if holds(facts, "name_asked_once_complete_before_handbook") is False:
+        problems.append(facts["name_asked_once_complete_before_handbook"]["evidence"])
+    name = (deck or {}).get("name")
+    said = [plain(m["text"]) for m in run.messages if m["role"] == "player"]
+    if name and not any(plain(name) in s for s in said):
+        problems.append(f"{name!r} is not a name the player gave")
+    if complete(deck) and not name:
+        problems.append("the complete deck has no name")
+    return verdict_of(list(dict.fromkeys(problems)),
+                      bool(name) or holds(facts, "name_asked_once_complete_before_handbook") is not None)
+
+
+def handbook_written(facts: dict, deck: dict | None) -> tuple[str, str]:
+    """S11: a complete deck has its handbook and scenes, written without asking."""
+    if not complete(deck):
+        return "n/a", "the deck is not complete"
+    problems = [f"the complete deck has no {part}" for part in ("handbook", "scenes") if not deck.get(part)]
+    if holds(facts, "handbook_written_unasked") is False:
+        problems.append(facts["handbook_written_unasked"]["evidence"])
+    return verdict_of(problems, True)
+
+
+def slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", re.sub(r"['’]", "", text.lower())).strip("-")
+
+
+def folder_named(run: Run, deck: dict | None) -> tuple[str, str]:
+    """S12: the folder is `<format>-<theme>` until the deck is named, `<format>-<name>`
+    after, numbered from 2 when taken; a rename is a ledger line."""
+    if run.summary.get("start"):
+        return "n/a", "began from a start, in the folder the runner names"
+    if not run.folder or not deck:
+        return "n/a", "no deck folder"
+    theme = next((c.get("text") for c in deck.get("criteria") or [] if isinstance(c, dict) and c.get("kind") == "theme"), None)
+    by = deck.get("name") or theme
+    if not by:
+        return "n/a", "the deck has neither a name nor a theme to name its folder by"
+    base, folder = f"{str(deck.get('format', '')).lower()}-{slug(by)}", run.folder.name
+    problems = []
+    numbered = re.fullmatch(rf"{re.escape(base)}(?:-(\d+))?", folder)
+    if not numbered:
+        problems.append(f"the deck is in {folder}, not {base}")
+    elif numbered.group(1) and (int(numbered.group(1)) < 2 or not (run.folder.parent / base).is_dir()):
+        problems.append(f"{folder} is numbered though {base} is free")
+    earlier = {pathlib.PurePath(path).parent.name for _, path, _ in writes(run.trace, "deck.json") if path} - {folder}
+    moved = any(re.search(rf"\bmv\b.*\b{re.escape(folder)}\b", text) for _, text, _ in commands(run.trace))
+    ledger = run.page_files.get("LEDGER.md")
+    if (earlier or moved) and not any(folder in line for line in (ledger.read_text().splitlines() if ledger else [])):
+        problems.append(f"the rename to {folder} is not a line in the ledger")
+    return verdict_of(problems, True)
+
+
+def layouts_saved(deck: dict | None) -> tuple[str, str]:
+    """S13: every card's copy saves its `layout`."""
+    cards = [c for c in (deck or {}).get("cards") or [] if isinstance(c, dict)]
+    missing = [c.get("name") for c in cards if "layout" not in (c.get("copy") or {})]
+    return verdict_of([f"no layout in the copy of: {missing[:8]}"] if missing else [], bool(cards))
 
 
 def main() -> None:
