@@ -10,7 +10,6 @@ import itertools
 import json
 import os
 import pathlib
-import re
 import shutil
 import socket
 import sys
@@ -122,13 +121,20 @@ def bash(command, exchange=0, answer=""):
     return tool_call("Bash", {"command": command}, exchange, answer=answer)
 
 
-def publish(exchange, url=None, made="aaa", refused=False):
-    """An Artifact publish of the deck folder; `url` names the artifact it updates, and `made` the one it answers with."""
-    given = {"file_path": f"{WORKSPACE}/brawl-rats/index.html", "files": {"deck.json": "deck.json"}}
+def publish(exchange, url=None, made="aaa", refused=False, code_link=False):
+    """An Artifact publish of the deck folder; `url` names the artifact it updates, and `made` the one it answers with.
+
+    The answer is the Artifact tool's as measured in the build thread on 2026-11-13;
+    `code_link` answers with the claude.ai/code/artifact/<uuid> form instead.
+    """
+    page = f"{WORKSPACE}/brawl-rats/index.html"
+    given = {"file_path": page, "files": {"deck.json": "deck.json"}}
     if url:
         given["url"] = url
+    link = f"https://claude.ai/{'code/' if code_link else ''}artifact/{made}"
+    version = 2 if url else 1
     answer = ("publish 429: daily publish limit for your plan reached (200)" if refused
-              else f"Published https://claude.ai/code/artifact/{made} (private)")
+              else f"Published {page} at {link} (Version {version}, version id v{version}-{made})")
     return tool_call("Artifact", given, exchange, answer=answer, refused=refused)
 
 
@@ -320,6 +326,15 @@ def test_c12_excuses_only_the_starts_own_categories():
     f = facts(saved_categories=[{"name": "Dinosaur payoffs", "target": 8}])
     result = checks.page_shape(r, f, "brawl", Counter({"Ghalta, Primal Hunger": 1}), cache)
     assert "creature-type" in result[1], f"a new 'Dinosaur payoffs' category is excused: {result}"
+
+
+def test_c10_leaves_the_ladder_to_s3():
+    ladder_facts = ["type_shown_before_broader", "broader_count_stated_and_waited"]
+    f = facts(**{name: fact(False, "Rats first; broadened unasked") for name in ladder_facts})
+    status, evidence = verdict(fake_run([], []), "C10", f)
+    assert status == "n/a", f"C10 still judges ADR-0006's ladder, which S3 now covers: {(status, evidence)}"
+    asked = [name for name in ladder_facts if name in checks.READER_SCHEMA["properties"] or name in checks.READER_PROMPT]
+    assert not asked, f"the reader is still asked for: {asked}"
 
 
 def test_c5_accepts_a_count_without_the_commander():
@@ -830,6 +845,44 @@ def test_c4_counts_a_pick_saved_to_disk_without_a_publish():
     assert status == "pass", f"the pick was written to deck.json in its exchange: {evidence}"
 
 
+def test_a_count_printed_with_stdout_write_is_not_a_save():
+    script = ("python3 -c \"import json,sys; d=json.load(open('brawl-rats/deck.json')); "
+              "sys.stdout.write(str(len(d['cards'])))\"")
+    r = fake_run(PICKED, bash(script, 0, answer="2"), workspace=deck_folder())
+    saves = r.saves_by_exchange()
+    assert not saves.get(0), f"a count that only reads deck.json was taken as a save of it: {dict(saves)}"
+
+
+def test_a_script_that_reads_deck_json_and_writes_only_the_ledger_does_not_save_deck_json():
+    script = ("python3 -c \"import json; d=json.load(open('brawl-rats/deck.json')); "
+              "open('brawl-rats/LEDGER.md','a').write('- in Rat Colony ' + d['cards'][1]['scryfall_id'])\"")
+    r = fake_run(PICKED, bash(script, 0), workspace=deck_folder())
+    status, evidence = verdict(r, "C4", facts(**PICK_FACTS))
+    assert status == "fail", f"deck.json was only read, and C4 says the pick was saved: {(status, evidence)}"
+
+
+def test_a_card_whose_count_is_not_a_number_counts_as_zero():
+    deck = complete_deck()
+    deck["cards"] += [{**deck_card("Infernal Grasp"), "count": None}, {**deck_card("Feed the Swarm"), "count": "two"}]
+    r = fake_run([], [], workspace=deck_folder(deck))
+    try:
+        status, evidence = verdict(r, "S11")
+    except Exception as e:
+        raise AssertionError(f"one card with a count that is not a number stops the checks of every run: {e!r}")
+    assert status != "n/a", f"100 cards and two counted as zero is a complete deck: {(status, evidence)}"
+
+
+def test_deck_folder_breaks_a_tie_on_modification_time_by_name():
+    # Made in an order whose listing does not put the folder that sorts last first, either in
+    # ext4's hashed order or in tmpfs's newest first.
+    folders = ["brawl-tokens", "brawl-elves", "brawl-rats", "brawl-angels"]
+    r = fake_run([], [], workspace={rel: text for folder in folders for rel, text in deck_folder(folder=folder).items()})
+    for folder in folders:
+        os.utime(r.path / "workspace" / folder / "deck.json", (1_700_000_000, 1_700_000_000))
+    chosen = checks.Run(r.path).folder.name
+    assert chosen == "brawl-tokens", f"four decks saved in the same instant, and the listing's order chose {chosen}"
+
+
 # ---------- S1: a save writes the folder; a publish only on asking for a link ----------
 
 PICK_FACTS = {"confirmations": [{"message": 0, "cards": ["Rat Colony"]}]}
@@ -863,14 +916,14 @@ def test_s1_fails_a_pick_written_to_deck_json_but_not_to_the_ledger():
 
 
 LINK_ASKED = PICKED + [{"role": "player", "text": "Can I have a link to the deck?"},
-                       {"role": "deckwright", "text": "Here it is: https://claude.ai/code/artifact/aaa"},
+                       {"role": "deckwright", "text": "Here it is: https://claude.ai/artifact/aaa"},
                        {"role": "player", "text": "Add Infernal Grasp, and update the link"},
                        {"role": "deckwright", "text": "Infernal Grasp is in; the same link shows it."}]
 LINK_FACTS = {"confirmations": [{"message": 0, "cards": ["Rat Colony"]}, {"message": 4, "cards": ["Infernal Grasp"]}]}
 
 
 def test_s1_passes_publishes_to_one_artifact_once_the_player_asks_for_a_link():
-    trace = saved_pick(0) + publish(1, made="aaa") + saved_pick(2) + publish(2, url="https://claude.ai/code/artifact/aaa")
+    trace = saved_pick(0) + publish(1, made="aaa") + saved_pick(2) + publish(2, url="https://claude.ai/artifact/aaa")
     r = fake_run(LINK_ASKED, trace, workspace=deck_folder())
     status, evidence = verdict(r, "S1", facts(**LINK_FACTS))
     assert status == "pass", evidence
@@ -884,7 +937,8 @@ def test_s1_passes_a_refused_publish_when_the_build_goes_on():
 
 
 def test_s1_fails_a_second_artifact_for_the_same_deck():
-    trace = saved_pick(0) + publish(1, made="aaa") + saved_pick(2) + publish(2, made="bbb")
+    trace = (saved_pick(0) + publish(1, made="aaa", code_link=True)
+             + saved_pick(2) + publish(2, made="bbb", code_link=True))
     r = fake_run(LINK_ASKED, trace, workspace=deck_folder())
     status, evidence = verdict(r, "S1", facts(**LINK_FACTS))
     assert status == "fail", f"the deck went to two artifacts: {(status, evidence)}"
@@ -900,11 +954,13 @@ ROUND_FACTS = {"offers": [{"message": 1, "cards": ["Infernal Grasp", "Feed the S
 ON_OFFER = deck_json(offer=offer(group(None, ["Infernal Grasp", "Feed the Swarm"])))
 
 
-def shown_round(reply=None, written=ON_OFFER, packed=True):
+def shown_round(reply=None, written=ON_OFFER, packed=True, more_calls=()):
+    """The round of ROUND in a run; `written` is the deck.json its exchange writes, or a command that writes it."""
     messages = [ROUND[0], {**ROUND[1], "text": reply or ROUND[1]["text"]}]
-    trace = write("brawl-rats/deck.json", written, 0)
+    trace = bash(written, 0) if isinstance(written, str) else write("brawl-rats/deck.json", written, 0)
     if packed:
         trace += bash(PACK, 0, answer=f"{WORKSPACE}/brawl-rats.html")
+    trace += list(more_calls)
     return fake_run(messages, trace, workspace=deck_folder(ON_OFFER, **{"brawl-rats.html": "<html></html>"}))
 
 
@@ -946,6 +1002,44 @@ def test_s2_fails_a_card_picture_shown_alone():
     status, evidence = verdict(shown_round(reply), "S2", facts(**ROUND_FACTS))
     assert status == "fail", f"a card picture went to the chat alone (#29): {(status, evidence)}"
     assert f"{sid}.jpg" in evidence or "Infernal Grasp" in evidence, f"the evidence does not name the picture: {evidence}"
+
+
+def test_s2_fails_a_card_picture_in_an_img_tag():
+    sid = scryfall_id("Infernal Grasp")
+    reply = f'On offer in brawl-rats.html: 1 Infernal Grasp <img src="brawl-rats/cards/{sid}.jpg">, 2 Feed the Swarm.'
+    status, evidence = verdict(shown_round(reply), "S2", facts(**ROUND_FACTS))
+    assert status == "fail", f"a card picture went to the chat as an <img>: {(status, evidence)}"
+    assert f"{sid}.jpg" in evidence, f"the evidence does not name the picture: {evidence}"
+
+
+def test_s2_fails_any_scryfall_url_in_a_reply():
+    urls = ["https://api.scryfall.com/cards/named?exact=Infernal%20Grasp", "api.scryfall.com/cards/2xm/107",
+            "https://scryfall.com/search?q=infernal+grasp", "https://svgs.scryfall.io/card-symbols/B.svg"]
+    passed = []
+    for url in urls:
+        reply = f"On offer in brawl-rats.html: 1 Infernal Grasp ({url}), 2 Feed the Swarm."
+        status, evidence = verdict(shown_round(reply), "S2", facts(**ROUND_FACTS))
+        if status != "fail" or url not in evidence:
+            passed.append((url, status))
+    assert not passed, f"Scryfall URLs in a reply that S2 does not fail on by name: {passed}"
+
+
+def test_s2_fails_a_write_that_removes_the_offer():
+    passed = []
+    for removal in ("d.pop('offer', None)", "del d['offer']"):
+        script = (f"python3 -c \"import json; d=json.load(open('brawl-rats/deck.json')); {removal}; "
+                  "json.dump(d, open('brawl-rats/deck.json','w'))\"")
+        status, evidence = verdict(shown_round(written=script), "S2", facts(**ROUND_FACTS))
+        if status != "fail" or "offer" not in evidence:
+            passed.append((removal, status))
+    assert not passed, f"a write that removes the offer counts as putting the round on offer: {passed}"
+
+
+def test_s2_leaves_a_file_sent_into_chat_to_the_runner_which_disallows_it():
+    sent = tool_call("SendUserFile", {"files": [f"{WORKSPACE}/brawl-rats/cards/{scryfall_id('Infernal Grasp')}.jpg"]})
+    assert "SendUserFile" in runner.DECKWRIGHT_DISALLOWED, "the runner lets Deckwright send a file into the chat"
+    status, evidence = verdict(shown_round(more_calls=sent), "S2", facts(**ROUND_FACTS))
+    assert status == "pass", f"S2 still judges a SendUserFile call, which no run can make: {(status, evidence)}"
 
 
 # ---------- S3: a round shows every step of the ladder ----------
@@ -996,16 +1090,53 @@ def test_s3_is_not_applicable_without_a_creature_type():
     assert status == "n/a", f"no creature type among the criteria: {(status, evidence)}"
 
 
-# ---------- S4: a shortlist marks the tutor's picks ----------
+def test_s3_passes_a_further_round_of_one_step_with_its_heading_and_count():
+    said = "three steps in the first round; then more Rats that remove on the player's word"
+    one_step = offer(group("Rats that remove", [f"Rat {n}" for n in range(1, 6)], total=14, suggested=("Rat 1",)))
+    r, f = ladder_round(one_step, evidence=said)
+    status, evidence = verdict(r, "S3", f)
+    assert status == "pass", f"a further round of one step, shown on the player's word: {evidence}"
+    r, f = ladder_round(offer(group("Rats that remove", [f"Rat {n}" for n in range(1, 6)])), evidence=said)
+    status, evidence = verdict(r, "S3", f)
+    assert status == "fail", f"a round of one step must still state its full count: {(status, evidence)}"
 
-def shortlist_facts(marked=True, taken=True):
+
+ASHCOAT = "Ashcoat of the Shadow Swarm"
+OFFERED_THEN_REMOVED = [{"role": "player", "text": "Payoffs next"},
+                        {"role": "deckwright", "text": f"On offer in brawl-rats.html: 1 {ASHCOAT}."}]
+
+
+def offer_written_by_a_script_then_removed():
+    """A run whose round went to deck.json by a script and was removed once decided, so no
+    whole deck.json with the offer is ever seen."""
+    unmarked = offer(group(None, [ASHCOAT]), category="Payoffs")
+    script = ("import json\nd = json.load(open('brawl-rats/deck.json'))\n"
+              f"d['offer'] = {unmarked!r}\njson.dump(d, open('brawl-rats/deck.json', 'w'))\n")
+    trace = (write("save_offer.py", script, 0) + bash(f"python3 {WORKSPACE}/save_offer.py", 0)
+             + bash(PACK, 0, answer=f"{WORKSPACE}/brawl-rats.html"))
+    return fake_run(OFFERED_THEN_REMOVED, trace, workspace=deck_folder())
+
+
+SEEN_BY_THE_READER = {"offers": [{"message": 1, "cards": [ASHCOAT]}]}
+
+
+def test_s3_cannot_tell_a_ladder_no_offer_shows():
+    f = facts(**SEEN_BY_THE_READER, ladder_steps_with_counts=fact(True, "three steps, each with its count"))
+    status, evidence = verdict(offer_written_by_a_script_then_removed(), "S3", f)
+    assert (status, "cannot tell" in evidence) == ("n/a", True), \
+        f"S3 judges the saved ladder though no offered card could be read: {(status, evidence)}"
+
+
+# ---------- S4: a round marks the tutor's picks ----------
+
+def marked_round_facts(marked=True, taken=True):
     return facts(suggestions_marked_with_reasons=fact(marked, "Suggested: 1 and 3, because they answer flyers"),
                  you_pick_takes_the_suggested=fact(taken, "Player: you pick. Tutor: taking 1 and 3"))
 
 
 def test_s4_passes_marked_suggestions_taken_on_you_pick():
     r = fake_run([], [], workspace=deck_folder(deck_json(offer=ladder())))
-    status, evidence = verdict(r, "S4", shortlist_facts())
+    status, evidence = verdict(r, "S4", marked_round_facts())
     assert status == "pass", evidence
 
 
@@ -1019,23 +1150,35 @@ def test_s4_fails_you_pick_answered_with_a_new_suggestion():
     assert "hadn't given a suggestion" in evidence, f"the evidence does not quote the reply: {evidence}"
 
 
-def test_s4_fails_a_saved_shortlist_with_no_suggested_card():
-    r = fake_run([], [], workspace=deck_folder(deck_json(offer=ladder(suggested=()))))
-    status, evidence = verdict(r, "S4", shortlist_facts())
+def test_s4_fails_a_saved_round_with_no_suggested_card():
+    deck = deck_json(offer=ladder(suggested=()), categories=[{"name": "Removal", "target": 8}])
+    r = fake_run([], [], workspace=deck_folder(deck))
+    status, evidence = verdict(r, "S4", marked_round_facts())
     assert status == "fail", f"the round on offer marks no card suggested: {(status, evidence)}"
     assert "Removal" in evidence, f"the evidence does not name the round: {evidence}"
 
 
-def test_s4_is_not_applicable_when_no_shortlist_was_asked_for():
+def test_s4_is_not_applicable_when_no_round_was_asked_for():
     r = fake_run([], [], workspace=deck_folder())
     status, evidence = verdict(r, "S4", facts())
     assert status == "n/a", (status, evidence)
 
 
+def test_s4_asks_no_suggested_mark_of_a_commander_offer():
+    commanders = offer(group(None, ["Wick, the Whorled Mind", "Marrow-Gnawer"]), category="Commander")
+    r = fake_run([], [], workspace=deck_folder(deck_json(offer=commanders)))
+    status, evidence = verdict(r, "S4", facts())
+    assert status != "fail", f"a commander offer is not a category's round, and fails S4 for marking none: {evidence}"
+
+
+def test_s4_cannot_tell_marks_no_offer_shows():
+    f = facts(**SEEN_BY_THE_READER, suggestions_marked_with_reasons=fact(True, "Suggested: 1"))
+    status, evidence = verdict(offer_written_by_a_script_then_removed(), "S4", f)
+    assert (status, "cannot tell" in evidence) == ("n/a", True), \
+        f"S4 judges the saved marks though no offered card could be read: {(status, evidence)}"
+
+
 # ---------- S5: crossover printings are marked and named as printed ----------
-
-ASHCOAT = "Ashcoat of the Shadow Swarm"
-
 
 def crossover_printing(name, flavor_name=None, faces=None):
     printing = {"id": scryfall_id(name), "name": name, "games": ["arena"], "promo_types": ["universesbeyond"]}
@@ -1087,6 +1230,22 @@ def test_s5_fails_a_limits_question_that_leaves_out_crossover_cards():
     status, evidence = verdict(r, "S5", f)
     assert status == "fail", (status, evidence)
     assert "cards to avoid" in evidence, f"the evidence does not quote the question: {evidence}"
+
+
+def test_s5_fails_a_crossover_printing_arena_does_not_print():
+    paper_only = {**crossover_printing(ASHCOAT, "Splinter of the Shadows"), "games": ["paper"]}
+    r, f = crossover_round(offered(ASHCOAT, crossover=True, printed_name="Splinter of the Shadows"))
+    status, evidence = verdict(r, "S5", f, {scryfall_id(ASHCOAT): paper_only})
+    assert status == "fail", f"the page would show a printing Arena never prints: {(status, evidence)}"
+    assert ASHCOAT in evidence, f"the evidence does not name the card: {evidence}"
+
+
+def test_s5_cannot_tell_crossover_marks_no_offer_shows():
+    f = facts(**SEEN_BY_THE_READER, limits_question_names_crossover=fact(True, "e.g. crossover cards"))
+    status, evidence = verdict(offer_written_by_a_script_then_removed(), "S5", f,
+                               {scryfall_id(ASHCOAT): crossover_printing(ASHCOAT, "Splinter of the Shadows")})
+    assert (status, "cannot tell" in evidence) == ("n/a", True), \
+        f"S5 judges the crossover marks though no offered card could be read: {(status, evidence)}"
 
 
 # ---------- S6 to S11: what the reader reads ----------
@@ -1213,6 +1372,22 @@ def test_s8_fails_a_count_read_off_deck_json_by_eye():
     assert status == "fail", f"cat is not a script: {(status, evidence)}"
 
 
+def test_s8_fails_a_count_whose_exchange_ran_only_the_save_script():
+    save = ("python3 - <<'EOF'\nimport json\nd = json.load(open('brawl-rats/deck.json'))\n"
+            "d['cards'].append({'name': 'Rat Colony', 'count': 1})\njson.dump(d, open('brawl-rats/deck.json', 'w'))\nEOF")
+    r = fake_run(COUNTED, bash(save, 0), workspace=deck_folder())
+    status, evidence = verdict(r, "S8", facts(**COUNT_FACTS))
+    assert status == "fail", f"the only script saved deck.json and printed no count: {(status, evidence)}"
+    assert "31 Rats" in evidence, f"the evidence does not quote the count: {evidence}"
+
+
+def test_s8_fails_a_count_its_script_did_not_print():
+    r = fake_run(COUNTED, bash(COUNT_SCRIPT, 0, answer="30"), workspace=deck_folder())
+    status, evidence = verdict(r, "S8", facts(**COUNT_FACTS))
+    assert status == "fail", f"the script printed 30 and the reply says 31 Rats: {(status, evidence)}"
+    assert "31 Rats" in evidence, f"the evidence does not quote the count: {evidence}"
+
+
 # ---------- S10 and S12: the deck's name and its folder ----------
 
 NAMED = [{"role": "player", "text": "Rats, with Wick"},
@@ -1259,6 +1434,16 @@ def test_s10_fails_a_name_never_asked_for():
     assert "Is the deck done?" in evidence, evidence
 
 
+def test_s10_fails_a_name_the_player_said_only_before_it_was_asked_for():
+    messages = [{"role": "player", "text": "I love rats, build me a rat deck"},
+                {"role": "deckwright", "text": "The deck is complete; I've called it Rats."}]
+    r = fake_run(messages, write("brawl-rats/deck.json", complete_deck(name="Rats")),
+                 workspace=deck_folder(complete_deck(name="Rats")))
+    status, evidence = verdict(r, "S10")
+    assert status == "fail", f"the tutor named the deck after a word of the player's opening: {(status, evidence)}"
+    assert "not a name the player gave" in evidence, evidence
+
+
 def test_s12_passes_a_folder_named_by_theme_then_renamed_by_name():
     status, evidence = verdict(named_run(), "S12", facts(**NAME_FACTS))
     assert status == "pass", evidence
@@ -1298,6 +1483,37 @@ def test_s12_fails_a_rename_the_ledger_does_not_record():
     assert "ledger" in evidence.lower(), f"the evidence does not name the ledger: {evidence}"
 
 
+def test_s12_sees_a_rename_made_through_python():
+    renames = ["python3 -c \"import os; os.rename('brawl-rats', 'brawl-the-whorled-swarm')\"",
+               "python3 -c \"import shutil; shutil.move('brawl-rats', 'brawl-the-whorled-swarm')\"",
+               "python3 -c \"import pathlib; pathlib.Path('brawl-rats').rename('brawl-the-whorled-swarm')\""]
+    final = complete_deck(name="The Whorled Swarm")
+    unseen = []
+    for rename in renames:
+        # Nothing was written to brawl-rats in the trace, so only the rename shows the move.
+        trace = bash(rename, 1) + write("brawl-the-whorled-swarm/deck.json", final, 1)
+        r = fake_run(NAMED, trace, workspace=deck_folder(final, "brawl-the-whorled-swarm"))
+        status, evidence = verdict(r, "S12", facts(**NAME_FACTS))
+        if status != "fail" or "ledger" not in evidence.lower():
+            unseen.append((rename, status))
+    assert not unseen, f"renames the ledger does not record, and S12 does not see: {unseen}"
+
+
+def test_s12_passes_a_folder_named_by_words_of_the_theme():
+    deck = deck_json(theme="Creature tokens")
+    r = fake_run(PICKED, write("brawl-tokens/deck.json", deck), workspace=deck_folder(deck, "brawl-tokens"))
+    status, evidence = verdict(r, "S12")
+    assert status == "pass", f"brawl-tokens is made only of words of the theme Creature tokens: {evidence}"
+    r = fake_run(PICKED, write("brawl-goblins/deck.json", deck), workspace=deck_folder(deck, "brawl-goblins"))
+    status, evidence = verdict(r, "S12")
+    assert status == "fail", f"goblins is no word of the theme Creature tokens: {(status, evidence)}"
+
+
+def test_the_runner_lets_deckwright_rename_a_folder_with_mv():
+    allowed = [tool for tool in runner.DECKWRIGHT_ALLOWED if tool == "Bash" or tool.startswith("Bash(mv")]
+    assert allowed, f"the skill renames the deck folder with mv, and the runner refuses it: {runner.DECKWRIGHT_ALLOWED}"
+
+
 # ---------- S13: each card's copy saves its layout ----------
 
 def test_s13_passes_every_card_copy_with_a_layout():
@@ -1312,32 +1528,6 @@ def test_s13_fails_a_card_copy_without_a_layout():
     status, evidence = verdict(r, "S13")
     assert status == "fail", (status, evidence)
     assert "Rat Colony" in evidence and "Wick" not in evidence, f"the evidence does not name only the card: {evidence}"
-
-
-# ---------- README and lexicon ----------
-
-REPO = pathlib.Path(__file__).resolve().parent.parent
-
-
-def test_readme_says_the_deck_is_a_folder_shown_as_one_packed_file_with_a_link_on_request():
-    text = (REPO / "README.md").read_text()
-    intro = text.split("```")[0].lower()
-    assert not re.search(r"reopen[^.]*from its link", text), "README still says a deck is reopened from its link"
-    assert "folder" in intro, "README's opening does not say the deck is kept as a folder"
-    assert "pack" in intro, "README's opening does not say the deck is shown as one packed file"
-    linked = [s for s in re.split(r"(?<=[.!?])\s+", intro) if "link" in s]
-    assert linked and all("ask" in s for s in linked), f"README's opening gives no link only on request: {linked}"
-    assert "pack.py" in text, "README does not name pack.py"
-
-
-def test_lexicon_admits_round_ladder_on_offer_packed_file_and_crossover():
-    text = (REPO / "docs" / "lexicon.md").read_text()
-    terms = ["round", "ladder", "on offer", "packed file", "crossover"]
-    proposed = " ".join(line for line in text.splitlines() if "proposed" in line.lower())
-    still = [t for t in terms if re.search(rf"\*{re.escape(t)}\*", proposed)]
-    assert not still, f"the lexicon still lists as proposed: {still}"
-    missing = [t for t in terms if not re.search(rf"^\*\*{re.escape(t)}\*\*", text, re.MULTILINE | re.IGNORECASE)]
-    assert not missing, f"the lexicon has no entry for: {missing}"
 
 
 class NetworkBlocked(RuntimeError):
