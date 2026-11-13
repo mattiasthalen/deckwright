@@ -46,6 +46,13 @@ async function openPacked(folderName, folder) {
   return { page, context, dir, packed, printed, requested, messages, errors };
 }
 
+// Loads every picture in the page now, and returns once each has loaded or failed.
+const settlePictures = page => page.evaluate(async () => {
+  const imgs = [...document.querySelectorAll('img')];
+  imgs.forEach(i => { i.loading = 'eager'; });
+  await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.addEventListener('load', r, { once: true }); i.addEventListener('error', r, { once: true }); })));
+});
+
 // The paths of the deck folder the page asked for: its pictures and its art.
 const ofTheFolder = requested => requested.filter(u => u.startsWith('file:') && /\/(cards|art)\//.test(new URL(u).pathname));
 
@@ -85,6 +92,41 @@ test('P9: The packed file opened from file:// draws the cards, their pictures, t
     assert.deepEqual(messages.filter(m => /Fetch API cannot load/.test(m)), [], 'the packed page fetched a file of the deck folder');
     assert.deepEqual(ofTheFolder(requested), [], 'the packed page asked for a file of the deck folder');
     assert.deepEqual(errors, [], 'the packed page logged an error');
+  } finally {
+    await context.close();
+  }
+});
+
+test('R1: A packed page asks for nothing outside itself, also when a picture deck.json names was never saved: such a card is its name on a blank card and the hero has no art', async () => {
+  // The deck with a round on offer, whose last offered card's picture was never saved; nor are one deck card's picture and the hero's art.
+  const base = deckFolders().offered;
+  const lostOffered = base.deck.offer.groups.flatMap(g => g.cards).find(c => !base.pictures.has(c.scryfall_id));
+  const lostInDeck = base.deck.cards.find(c => c.name === 'Gutter Scout');
+  assert.ok(lostOffered && lostInDeck && base.deck.hero, 'the deck has no offered card without a picture, no Gutter Scout or no hero, so this test proves less than it says');
+  const folder = { ...base, art: [], pictures: new Set([...base.pictures].filter(id => id !== lostInDeck.scryfall_id)) };
+  const { page, context, requested, errors } = await openPacked('brawl-lost-pictures', folder);
+  try {
+    await settlePictures(page);
+    assert.deepEqual(ofTheFolder(requested), [], 'the packed page asked for a picture or art of the deck folder that it does not hold');
+    assert.deepEqual(errors, [], 'the packed page logged an error');
+    const blankIn = (id, name) => page.locator(`#${id}`).evaluate((root, name) => [...root.querySelectorAll('*')].some(e => e.tagName !== 'IMG' && !e.querySelector('img')
+      && e.textContent.trim() === name && e.checkVisibility() && e.offsetWidth > 0 && e.offsetHeight / e.offsetWidth > 1.3 && e.offsetHeight / e.offsetWidth < 1.5), name);
+    assert.ok(await blankIn('offer', lostOffered.name), `${lostOffered.name}, on offer with no picture saved, is not its name on a blank card`);
+    assert.ok(await blankIn('cards', lostInDeck.name), `${lostInDeck.name}, in the deck with no picture saved, is not its name on a blank card`);
+    const art = await page.locator('#top').evaluate(h => [h, ...h.querySelectorAll('*')].map(e => getComputedStyle(e).backgroundImage).filter(b => b.includes('url(')));
+    assert.deepEqual(art, [], 'the hero shows art that was never saved');
+  } finally {
+    await context.close();
+  }
+});
+
+test('R5: The packed page, once it has run, is titled as pack.py titled it, for a deck whose format is " brawl"', async () => {
+  // The page reads the format as written, lower-cased and not trimmed, so " brawl" is Standard to it.
+  const base = deckFolders()['nameless-with-theme'];
+  const { page, context, dir } = await openPacked('brawl-padded-format', { ...base, deck: { ...base.deck, format: ' brawl' } });
+  try {
+    const written = await page.evaluate(html => new DOMParser().parseFromString(html, 'text/html').title, fs.readFileSync(path.join(dir, 'index.html'), 'utf8'));
+    assert.equal(await page.title(), written, `pack.py titles the page "${written}", the page titles itself "${await page.title()}"`);
   } finally {
     await context.close();
   }
