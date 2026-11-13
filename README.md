@@ -22,4 +22,6 @@ npx playwright install chromium
 node --test tests/*.test.cjs
 ```
 
+`pack.py`, which packs a deck folder into one page, is tested offline with `python3 tests/test_pack.py`.
+
 The first version is in this repository's history, up to commit `03a235f`.
