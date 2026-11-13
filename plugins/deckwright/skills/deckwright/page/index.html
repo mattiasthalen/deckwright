@@ -65,14 +65,15 @@ section[hidden] { display: none; }
 .offer-groups { display: grid; gap: 36px; }
 .offer-group { display: grid; gap: 18px; }
 .offer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 26px 18px; }
-.offered { position: relative; margin: 0; display: grid; gap: 8px; align-content: start; }
-.offered .face { display: block; border-radius: 4.75% / 3.5%; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.45); }
+.offered { position: relative; background: none; border: 0; padding: 0; color: inherit; text-align: left; display: grid; gap: 8px; align-content: start; }
+.offered .face { display: block; border-radius: 4.75% / 3.5%; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.45); transition: box-shadow .25s; }
+.offered:hover .face, .offered:focus-visible .face { box-shadow: 0 18px 34px rgba(0,0,0,.6), 0 0 0 1px var(--accent-soft); }
 .offered .face img { display: block; width: 100%; aspect-ratio: 488 / 680; }
 .offered .face .blank-card { padding: 10px; font-size: 1.1rem; border-radius: 0; }
 .offered .number { position: absolute; top: -10px; left: -10px; z-index: 1; min-width: 2.1rem; height: 2.1rem; padding: 0 8px; border-radius: 999px; display: grid; place-items: center;
   background: var(--accent); color: var(--accent-ink); font-family: var(--font-display); font-size: 1.3rem; line-height: 1; font-variant-numeric: tabular-nums; box-shadow: 0 2px 8px rgba(0,0,0,.55); }
-.offered figcaption { display: grid; gap: 6px; font-size: .92rem; line-height: 1.4; overflow-wrap: anywhere; }
-.offered figcaption b { font-weight: 500; }
+.offered .caption { display: grid; gap: 6px; font-size: .92rem; line-height: 1.4; overflow-wrap: anywhere; }
+.offered .caption b { font-weight: 500; }
 .offered .marks { display: flex; flex-wrap: wrap; gap: 6px; }
 .offered .mark { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--accent); color: var(--accent); }
 .offered .mark.suggested { background: var(--accent); color: var(--accent-ink); }
@@ -249,7 +250,7 @@ dialog::backdrop { background: rgba(8, 9, 14, .78); backdrop-filter: blur(4px); 
   .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 10px; }
   .card .caption { font-size: .78rem; }
   .offer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 14px; }
-  .offered figcaption { font-size: .86rem; }
+  .offered .caption { font-size: .86rem; }
   .curve { height: 170px; gap: 6px; } .curve-axis { gap: 6px; }
   .thing, .more-scenes .thing { width: 88px; --life: 72px; } .scene .row, .more-scenes .row { gap: 8px; min-height: 150px; }
   .thing .chip, .more-scenes .thing .chip { width: 72px; font-size: 1.3rem; margin-bottom: 18px; }
@@ -374,8 +375,9 @@ let deck;
 // A deck's format is read whatever its case; one that is not Brawl is drawn as Standard.
 const FORMATS = new Map([['brawl', {name: 'Brawl', size: 100, startingLife: 25}], ['standard', {name: 'Standard', size: 60, startingLife: 20}]]);
 const format = () => FORMATS.get(String(deck.format).toLowerCase()) || FORMATS.get('standard');
-// The deck's cards by name, for scenes, the handbook and the ledger; the
-// maybeboard is not in the deck, but its tiles open from the grid.
+// The deck's cards by name, for scenes, the handbook and the ledger. The cards
+// that open the card dialog, by name, as the dialog shows them: the maybeboard
+// and the round on offer are not in the deck, but their tiles open it too.
 const cardsInDeck = new Map(), cardsToOpen = new Map();
 let cardNamePattern = null;
 
@@ -540,13 +542,13 @@ function drawHero() {
 
 // The round the player is choosing from (ADR-0013). Its cards are not in the
 // deck, so nothing else on the page counts them; they are numbered across the
-// groups as the chat numbers them.
+// groups as the chat numbers them. Each opens the card dialog, as a deck card does.
 function drawOffered(c, number) {
   const marks = [c.suggested ? '<span class="mark suggested">Suggested</span>' : '', c.crossover ? '<span class="mark">Crossover</span>' : ''].join('');
-  return `<figure class="offered"><span class="number">${number}</span><div class="face">${picture(c.scryfall_id, c.name || '')}</div>`
-    + `<figcaption>${marks ? `<span class="marks">${marks}</span>` : ''}${c.name ? `<b>${esc(c.name)}</b>` : ''}`
+  return `<button class="offered" type="button" data-card="${esc(c.name)}"><span class="number">${number}</span><span class="face">${picture(c.scryfall_id, c.name || '')}</span>`
+    + `<span class="caption">${marks ? `<span class="marks">${marks}</span>` : ''}${c.name ? `<b>${esc(c.name)}</b>` : ''}`
     + `${c.reason ? `<span class="reason">${esc(c.reason)}</span>` : ''}`
-    + `${c.printed_name ? `<span class="printed-name">Printed on Arena as ${esc(c.printed_name)}</span>` : ''}</figcaption></figure>`;
+    + `${c.printed_name ? `<span class="printed-name">Printed on Arena as ${esc(c.printed_name)}</span>` : ''}</span></button>`;
 }
 
 function drawOffer() {
@@ -780,7 +782,7 @@ function openCard(name) {
   const show = (id, value) => { $(id).hidden = !value; return $(id); };
   $('dialog-picture').innerHTML = picture(c.scryfall_id, c.name);
   $('dialog-name').textContent = c.name;
-  $('dialog-category').textContent = [c.category || 'Maybeboard', isRareOrMythic(c) ? c.copy.rarity : ''].filter(Boolean).join(' · ');
+  $('dialog-category').textContent = [c.label, isRareOrMythic(c) ? c.copy.rarity : ''].filter(Boolean).join(' · ');
   show('dialog-cost', c.copy?.mana_cost).innerHTML = manaCost(c.copy?.mana_cost || '');
   show('dialog-type-line', c.copy?.type_line).textContent = c.copy?.type_line || '';
   show('dialog-rules', c.copy?.text).innerHTML = withManaDrawn(c.copy?.text || '');
@@ -835,7 +837,11 @@ async function main() {
     return;
   }
   deck.cards.forEach(c => cardsInDeck.set(c.name, c));
-  [...deck.maybeboard, ...deck.cards].forEach(c => cardsToOpen.set(c.name, c));
+  // A card in the deck wins a name it shares with one on the maybeboard or on offer.
+  const onOffer = ['On offer', deck.offer?.category].filter(Boolean).join(' · ');
+  (deck.offer?.groups ?? []).flatMap(g => g.cards).forEach(c => cardsToOpen.set(c.name, {...c, why: c.reason, label: onOffer}));
+  deck.maybeboard.forEach(c => cardsToOpen.set(c.name, {...c, label: c.category || 'Maybeboard'}));
+  deck.cards.forEach(c => cardsToOpen.set(c.name, {...c, label: c.category}));
   matchCardNames();
   paintAccent();
   drawSection('top', drawHero);
