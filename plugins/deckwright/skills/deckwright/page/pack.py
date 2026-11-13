@@ -48,7 +48,9 @@ def title(deck: dict) -> str:
     """The deck page's title for the deck, as its hero draws it."""
     if name := text_of(deck.get("name")):
         return name
-    fmt = "Brawl" if text_of(deck.get("format")).lower() == "brawl" else "Standard"
+    # The page reads the format as written and lower-cased, so " brawl" is Standard to it too.
+    fmt = deck.get("format")
+    fmt = "Brawl" if isinstance(fmt, str) and fmt.lower() == "brawl" else "Standard"
     themes = [text_of(c.get("text")) for c in objects(deck.get("criteria")) if c.get("kind") == "theme"]
     return " · ".join([fmt, *[t for t in themes if t][:1]])
 
