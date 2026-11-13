@@ -1,0 +1,17 @@
+line-length = 120
+# pack.py runs on the player's own python3, so its syntax must not need a recent one.
+target-version = "py310"
+# The evals' runs hold the scripts the runs wrote, and Markdown holds Python fences; neither is this repository's Python.
+extend-exclude = ["evals/runs", "*.md"]
+
+[lint]
+ignore = [
+    # The test runners and the eval runner catch every exception at their boundary on purpose,
+    # to report one failure and go on, or to keep a crashed run on record.
+    "BLE001",
+    # A guard and the test it protects read better as two ifs, and merged they overrun the line.
+    "SIM102",
+    # Every subprocess.run here reads the exit status itself: the tests assert on it,
+    # and the evals read a failed reply as data. check=True would raise in their place.
+    "PLW1510",
+]

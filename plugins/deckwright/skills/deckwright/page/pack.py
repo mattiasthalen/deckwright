@@ -74,7 +74,10 @@ def named_pictures(deck: dict) -> list[str]:
 
 def packed_files(folder: pathlib.Path, deck_text: str, deck: dict) -> dict[str, str]:
     ledger = folder / "LEDGER.md"
-    files = {"deck.json": deck_text, "LEDGER.md": ledger.read_text(encoding="utf-8", errors="replace") if ledger.is_file() else ""}
+    files = {
+        "deck.json": deck_text,
+        "LEDGER.md": ledger.read_text(encoding="utf-8", errors="replace") if ledger.is_file() else "",
+    }
     for rel in named_pictures(deck):
         if (folder / rel).is_file():
             files[rel] = "data:image/jpeg;base64," + base64.b64encode((folder / rel).read_bytes()).decode("ascii")
@@ -84,14 +87,21 @@ def packed_files(folder: pathlib.Path, deck_text: str, deck: dict) -> dict[str, 
 def pack(folder: pathlib.Path) -> pathlib.Path:
     folder = folder.resolve()
     deck_text, deck = read_deck(folder)
-    page = re.sub(r"<title>.*?</title>", lambda _: f"<title>{html.escape(title(deck), quote=False)}</title>",
-                  PAGE.read_text(encoding="utf-8"), count=1, flags=re.DOTALL)
+    page = re.sub(
+        r"<title>.*?</title>",
+        lambda _: f"<title>{html.escape(title(deck), quote=False)}</title>",
+        PAGE.read_text(encoding="utf-8"),
+        count=1,
+        flags=re.DOTALL,
+    )
     # With every "<" written as \u003c, no text of the deck can end the script or open a comment in it.
     files = json.dumps(packed_files(folder, deck_text, deck), ensure_ascii=False).replace("<", "\\u003c")
     at = page.index("<script")
     # A lone surrogate is written as "?".
     written = page.encode("utf-8", errors="replace")
-    packed_page = f"{page[:at]}<script>window.DECK_FILES = {files};</script>\n{page[at:]}".encode("utf-8", errors="replace")
+    packed_page = f"{page[:at]}<script>window.DECK_FILES = {files};</script>\n{page[at:]}".encode(
+        "utf-8", errors="replace"
+    )
     packed = folder.parent / f"{folder.name}.html"
     write_all({folder / "index.html": written, packed: packed_page})
     return packed

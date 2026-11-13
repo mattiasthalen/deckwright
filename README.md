@@ -24,5 +24,18 @@ node --test tests/*.test.cjs
 ```
 
 `pack.py`, which packs a deck folder into one page, is tested offline with `python3 tests/test_pack.py`.
+The repository's upkeep (the ruleset file, the lint command, the CI jobs) is tested offline with `python3 tests/test_repo.py`.
+
+Lint runs ruff and ESLint at the versions `package.json` fixes; ruff comes through `uvx`, so it needs
+[uv](https://docs.astral.sh/uv/):
+
+```
+npm run lint
+```
+
+The rules that guard `main` are kept in `.github/rulesets/main-needs-tests.json`. To apply a change to them,
+go to the repository's Settings, Rules, Rulesets: rename the old ruleset, then New ruleset, Import a ruleset,
+with the file, then delete the renamed one. A branch cut before the `lint` job existed needs `main` merged in
+to get the `lint` check.
 
 The first version is in this repository's history, up to commit `03a235f`.

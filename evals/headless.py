@@ -31,5 +31,6 @@ def claude(args: list[str], prompt: str, memory: pathlib.Path | None = None, **h
         with tempfile.TemporaryDirectory() as fresh:
             return claude(args, prompt, pathlib.Path(fresh), **how)
     memory.mkdir(parents=True, exist_ok=True)
-    return subprocess.run(["claude", "-p", *args], input=prompt, env=isolated_env(memory),
-                          capture_output=True, text=True, **how)
+    return subprocess.run(
+        ["claude", "-p", *args], input=prompt, env=isolated_env(memory), capture_output=True, text=True, **how
+    )
