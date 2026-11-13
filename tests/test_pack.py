@@ -274,6 +274,60 @@ class PackTest(unittest.TestCase):
                 self.assertEqual(done.returncode, 0, f"pack.py failed: {done.stderr}")
                 self.assertEqual(self.title_of((folder / "index.html").read_text(encoding="utf-8")), title)
 
+    def test_r8_a_failed_write_keeps_the_last_good_pages(self):
+        # A write cut short by a full disk or a size limit leaves both pages as the last run wrote them, or the
+        # folder's page complete, and no half-written file beside either; pack.py says so in one line.
+        bash = shutil.which("bash")
+        if bash is None:
+            self.skipTest("R8 needs bash to run pack.py under a file-size limit, and there is no bash")
+        limited = lambda *argv: subprocess.run([bash, "-c", 'ulimit -f 200; exec "$@"', "_", *argv], cwd=self.root,
+                                               capture_output=True, text=True, timeout=60)
+        probe = self.root / "probe.bin"
+        tried = limited(sys.executable, "-c", f"open({str(probe)!r}, 'wb').write(b'0' * 400_000)")
+        probe.unlink(missing_ok=True)
+        if tried.returncode == 0:
+            self.skipTest("R8 needs `ulimit -f` to limit the size of a file written, and here it does not: "
+                          f"a 400 KB write under `ulimit -f 200` succeeded ({tried.stderr.strip()!r})")
+
+        folder, _ = self.packed(a_deck())
+        packed = self.root / "brawl-rats.html"
+        page_before, packed_before = (folder / "index.html").read_bytes(), packed.read_bytes()
+        self.assertLess(len(packed_before), 150_000, "the last good packed file is near the 200 KB limit, so this test proves less than it says")
+        (folder / f"cards/{scryfall_id(2)}.jpg").write_bytes(b"\xff\xd8\xff\xe0" + bytes(range(256)) * 1600 + b"\xff\xd9")
+        listed = lambda: (sorted(p.name for p in self.root.iterdir()), sorted(str(p.relative_to(folder)) for p in folder.rglob("*")))
+        files_before = listed()
+
+        done = limited(sys.executable, str(PACK), str(folder))
+        self.assertEqual(done.returncode, 1, f"pack.py exits {done.returncode} when its write fails partway: {done.stderr!r}")
+        said = done.stderr.strip()
+        self.assertTrue(said, "pack.py says nothing on stderr when its write fails partway")
+        self.assertNotIn("Traceback", said, "pack.py ends in a traceback when its write fails partway")
+        self.assertEqual(len(said.splitlines()), 1, f"pack.py says more than one line when its write fails partway: {done.stderr!r}")
+        packed_after = packed.read_bytes() if packed.is_file() else b""
+        self.assertTrue(packed_after == packed_before,
+                        f"a failed write leaves the packed file {len(packed_after)} bytes long, not the last good one of {len(packed_before)} bytes")
+        page_after = (folder / "index.html").read_bytes()
+        self.assertTrue(page_after == page_before or page_after.rstrip().endswith(b"</html>"),
+                        f"a failed write leaves the folder's index.html cut short, ending {page_after[-60:]!r}")
+        self.assertEqual(listed(), files_before, "a failed write leaves a file beside the packed file or in the deck folder")
+
+    def test_r9_a_deck_json_python_cannot_parse_fails_in_one_line(self):
+        # Valid JSON both, but Python's int() refuses a number of more than 4300 digits and its parser recurses per "[".
+        cases = {
+            "an integer of 5000 digits": '{"version": 2, "name": "Rats", "format": "brawl", "count": ' + "7" * 5000 + "}",
+            "200,000 nested lists": '{"version": 2, "name": "Rats", "format": "brawl", "deep": ' + "[" * 200_000 + "]" * 200_000 + "}",
+        }
+        for case, text in cases.items():
+            with self.subTest(case=case):
+                folder = self.root / case.replace(" ", "-").replace(",", "")
+                write_folder(folder, text)
+                done = self.pack(folder)
+                self.assertEqual(done.returncode, 1, f"{case}: pack.py exits {done.returncode}")
+                said = done.stderr.strip()
+                self.assertTrue(said, f"{case}: pack.py says nothing on stderr")
+                self.assertFalse("Traceback" in said, f"{case}: pack.py ends in a traceback: {said.splitlines()[-1]!r}")
+                self.assertEqual(len(said.splitlines()), 1, f"{case}: pack.py says more than one line: {said[-200:]!r}")
+
 
 if __name__ == "__main__":
     unittest.main()
