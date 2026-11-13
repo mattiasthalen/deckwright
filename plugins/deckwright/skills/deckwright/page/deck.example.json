@@ -64,11 +64,29 @@
     "groups": [
       {"heading": "Rats that remove", "total": 6, "cards": [
         {"scryfall_id": "00000000-0000-0000-0000-000000000007", "name": "Gnawing Executioner", "reason": "Kills a blocker and leaves a Rat behind; a crossover printing on Arena.", "suggested": true, "crossover": true, "printed_name": "Executioner of the Undercity",
-         "copy": {"mana_cost": "{1}{B}", "type_line": "Creature — Rat Assassin", "text": "Deathtouch."}}
+         "copy": {"mana_cost": "{1}{B}", "type_line": "Creature — Rat Assassin", "text": "Deathtouch."}},
+        {"scryfall_id": "00000000-0000-0000-0000-000000000009", "name": "Burrow Assassin", "reason": "Cheaper than Gnawing Executioner, and only kills a creature that is tapped.", "suggested": true,
+         "copy": {"mana_cost": "{B}", "type_line": "Creature — Rat Assassin", "text": "When this enters, destroy target tapped creature."}},
+        {"scryfall_id": "00000000-0000-0000-0000-000000000010", "name": "Plague Gnawer", "reason": "Shrinks a whole board of small flyers; slower than Burrow Assassin.",
+         "copy": {"mana_cost": "{2}{B}{B}", "type_line": "Creature — Rat", "text": "When this enters, creatures your opponents control get -1/-1 until end of turn."}},
+        {"scryfall_id": "00000000-0000-0000-0000-000000000011", "name": "Tunnel Stalker", "reason": "A late answer that grows with the swarm, unlike the other Rats here.",
+         "copy": {"mana_cost": "{3}{B}", "type_line": "Creature — Rat Rogue", "text": "Whenever another Rat you control dies, target creature gets -1/-1 until end of turn."}}
       ]},
-      {"heading": "Other removal", "cards": [
+      {"heading": "Cards that reward Rats and remove", "total": 3, "cards": [
+        {"scryfall_id": "00000000-0000-0000-0000-000000000012", "name": "Swarm's Reckoning", "reason": "Kills anything once Vren has a few Rats beside him.", "suggested": true,
+         "copy": {"mana_cost": "{1}{B}", "type_line": "Instant", "text": "Destroy target creature with mana value less than or equal to the number of Rats you control."}},
+        {"scryfall_id": "00000000-0000-0000-0000-000000000013", "name": "Gnaw to the Bone", "reason": "Two answers in one card, if the swarm is wide enough.",
+         "copy": {"mana_cost": "{2}{B}", "type_line": "Sorcery", "text": "Target creature gets -X/-X until end of turn, where X is the number of Rats you control."}},
+        {"scryfall_id": "00000000-0000-0000-0000-000000000014", "name": "Pied Piper's Call", "reason": "Trades a Rat token for a kill, which Infernal Grasp cannot do.",
+         "copy": {"mana_cost": "{B}", "type_line": "Instant", "text": "As an additional cost, sacrifice a Rat. Destroy target creature."}}
+      ]},
+      {"heading": "Other removal", "total": 40, "cards": [
         {"scryfall_id": "00000000-0000-0000-0000-000000000008", "name": "Sewer Verdict", "reason": "Kills anything that blocks.",
-         "copy": {"mana_cost": "{2}{B}", "type_line": "Instant", "text": "Destroy target creature."}}
+         "copy": {"mana_cost": "{2}{B}", "type_line": "Instant", "text": "Destroy target creature."}},
+        {"scryfall_id": "00000000-0000-0000-0000-000000000015", "name": "Night's Toll", "reason": "Cheaper than Sewer Verdict, and costs life instead of tempo.",
+         "copy": {"mana_cost": "{B}", "type_line": "Instant", "text": "Destroy target creature. You lose 3 life."}},
+        {"scryfall_id": "00000000-0000-0000-0000-000000000016", "name": "Deep Undercity Purge", "reason": "Clears the board when the swarm has fallen behind.",
+         "copy": {"mana_cost": "{3}{B}{B}", "type_line": "Sorcery", "text": "Destroy all creatures."}}
       ]}
     ]
   },
